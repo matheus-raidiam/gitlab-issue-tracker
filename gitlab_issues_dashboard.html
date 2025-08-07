@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitLab Issues SLA Dashboard</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #041920;
+      color: #f1f1f1;
+      padding: 20px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    header img {
+      height: 40px;
+      background-color: #fff;
+      border-radius: 6px;
+      padding: 2px;
+    }
+    h1 {
+      font-size: 28px;
+      color: #00e38c;
+    }
+    h2 {
+      font-size: 20px;
+      margin-top: 40px;
+      color: #00e38c;
+    }
+    table {
+      border-collapse: separate;
+      border-spacing: 0;
+      width: 100%;
+      margin-top: 10px;
+      background-color: #06292f;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 12px;
+      text-align: left;
+    }
+    th {
+      background-color: #0a2e33;
+      color: #00e38c;
+    }
+    tr:nth-child(even) td {
+      background-color: #0d383e;
+    }
+    .over-sla {
+      color: #ff6b6b;
+      font-weight: bold;
+    }
+    .within-sla {
+      color: #00e38c;
+    }
+    .label-badge {
+      display: inline-block;
+      background-color: #055b4e;
+      color: #00e38c;
+      border-radius: 4px;
+      padding: 2px 6px;
+      margin: 2px 4px 2px 0;
+      font-size: 12px;
+    }
+    button, select {
+      background-color: #00e38c;
+      color: #041920;
+      border: none;
+      padding: 8px 14px;
+      margin-top: 10px;
+      margin-right: 10px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    select {
+      padding: 6px 12px;
+    }
+    .summary {
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    .comment-box {
+      width: 100%;
+      font-size: 12px;
+      background-color: #092e34;
+      color: #ffffff;
+      border: 1px solid #066f5f;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="d53749ce-f095-47d6-be4a-9774d441255c.png" alt="Raidiam Logo" />
+    <h1>GitLab Issues SLA Dashboard</h1>
+  </header>
+
+  <p><strong>SLA:</strong> 10 working days (Monday to Friday)</p>
+  <label for="tagFilter">Filter by tag:</label>
+  <select id="tagFilter" onchange="applyTagFilter()">
+    <option value="">All</option>
+  </select>
+  <button onclick="loadAllIssues()">🔄 Refresh</button>
+
+  <h2>Open Finance Issues</h2>
+  <div class="summary" id="finance-summary"></div>
+  <table id="finance-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Title</th>
+        <th>Created At</th>
+        <th>Working Days Open</th>
+        <th>SLA Status</th>
+        <th>Tags</th>
+        <th>Comments</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>Open Insurance Issues</h2>
+  <div class="summary" id="insurance-summary"></div>
+  <table id="insurance-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Title</th>
+        <th>Created At</th>
+        <th>Working Days Open</th>
+        <th>SLA Status</th>
+        <th>Tags</th>
+        <th>Comments</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    let allIssues = [];
+
+    async function loadAllIssues() {
+      allIssues = [];
+      document.querySelector("#tagFilter").innerHTML = '<option value="">All</option>';
+      await loadIssues(26426113, 'finance-table'); // Open Finance
+      await loadIssues(32299006, 'insurance-table'); // Open Insurance
+      populateTagFilter();
+    }
+
+    async function loadIssues(projectId, tableId) {
+      const table = document.querySelector(`#${tableId} tbody`);
+      table.innerHTML = "<tr><td colspan='7'>Loading...</td></tr>";
+
+      try {
+        const response = await fetch(`https://gitlab.com/api/v4/projects/${projectId}/issues?state=opened`);
+        const issues = await response.json();
+
+        table.innerHTML = "";
+        for (const issue of issues) {
+          allIssues.push({ ...issue, projectId, tableId });
+        }
+        renderIssues();
+      } catch (error) {
+        table.innerHTML = `<tr><td colspan='7'>Error loading issues: ${error.message}</td></tr>`;
+      }
+    }
+
+    function renderIssues() {
+      const tagFilter = document.querySelector("#tagFilter").value;
+      const tables = { 'finance-table': [], 'insurance-table': [] };
+      const counters = { 'finance-table': { total: 0, overSLA: 0 }, 'insurance-table': { total: 0, overSLA: 0 } };
+
+      for (const issue of allIssues) {
+        if (tagFilter && !issue.labels.includes(tagFilter)) continue;
+
+        const createdDate = new Date(issue.created_at);
+        const today = new Date();
+        const workingDays = calculateWorkingDays(createdDate, today);
+        const isOverSLA = workingDays > 10;
+        const labels = issue.labels.map(label => `<span class='label-badge'>${label}</span>`).join(' ');
+        const commentKey = `comment-${issue.projectId}-${issue.iid}`;
+        const savedComment = localStorage.getItem(commentKey) || "";
+
+        const row = `
+          <tr>
+            <td><a href="${issue.web_url}" target="_blank" style="color:#00e38c;">#${issue.iid}</a></td>
+            <td>${issue.title}</td>
+            <td>${createdDate.toLocaleDateString()}</td>
+            <td>${workingDays}</td>
+            <td class="${isOverSLA ? 'over-sla' : 'within-sla'}">${isOverSLA ? 'Over SLA' : 'Within SLA'}</td>
+            <td>${labels}</td>
+            <td><textarea class="comment-box" rows="2" oninput="saveComment('${commentKey}', this.value)">${savedComment}</textarea></td>
+          </tr>`;
+
+        tables[issue.tableId].push(row);
+        counters[issue.tableId].total++;
+        if (isOverSLA) counters[issue.tableId].overSLA++;
+      }
+
+      for (const tableId in tables) {
+        const table = document.querySelector(`#${tableId} tbody`);
+        table.innerHTML = tables[tableId].length ? tables[tableId].join('') : '<tr><td colspan="7">No issues to display.</td></tr>';
+        const summary = document.querySelector(`#${tableId.replace('-table', '-summary')}`);
+        summary.textContent = `Total: ${counters[tableId].total}, Over SLA: ${counters[tableId].overSLA}`;
+      }
+    }
+
+    function saveComment(key, value) {
+      localStorage.setItem(key, value);
+    }
+
+    function populateTagFilter() {
+      const tagSet = new Set();
+      allIssues.forEach(issue => issue.labels.forEach(label => tagSet.add(label)));
+      const select = document.querySelector("#tagFilter");
+      [...tagSet].sort().forEach(tag => {
+        const option = document.createElement("option");
+        option.value = tag;
+        option.textContent = tag;
+        select.appendChild(option);
+      });
+    }
+
+    function applyTagFilter() {
+      renderIssues();
+    }
+
+    function calculateWorkingDays(startDate, endDate) {
+      let count = 0;
+      const current = new Date(startDate);
+      while (current <= endDate) {
+        const day = current.getDay();
+        if (day !== 0 && day !== 6) {
+          count++;
+        }
+        current.setDate(current.getDate() + 1);
+      }
+      return count;
+    }
+
+    loadAllIssues();
+  </script>
+</body>
+</html>
