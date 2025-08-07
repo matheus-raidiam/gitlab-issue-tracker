@@ -94,6 +94,21 @@
       border: 1px solid #066f5f;
       border-radius: 4px;
     }
+    #clearFilterText {
+      display: none;
+      font-size: 13px;
+      margin-top: 6px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      color: #00e38c;
+      text-decoration: underline;
+    }
+    #loading {
+      display: none;
+      margin-top: 10px;
+      color: #00e38c;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -103,11 +118,18 @@
   </header>
 
   <p><strong>SLA:</strong> 10 working days (Monday to Friday)</p>
-  <label for="tagFilter">Filter by tag:</label>
-  <select id="tagFilter" onchange="applyTagFilter()">
-    <option value="">All</option>
-  </select>
-  <button onclick="loadAllIssues()">🔄 Refresh</button>
+  <div>
+    <label for="tagFilter">Filter by tag:</label><br>
+    <select id="tagFilter" onchange="applyTagFilter()">
+      <option value="">All</option>
+    </select>
+    <div id="clearFilterText" onclick="clearFilters()">Clear filter</div>
+    <div style="margin-top: 10px;">
+      <button onclick="loadAllIssues()">🔄 Refresh</button>
+      <button onclick="clearAllComments()">🗑️ Clear All Comments</button>
+    </div>
+    <div id="loading">Loading issues, please wait...</div>
+  </div>
 
   <h2>Open Finance Issues</h2>
   <div class="summary" id="finance-summary"></div>
@@ -144,105 +166,109 @@
   </table>
 
   <script>
-    let allIssues = [];
-
-    async function loadAllIssues() {
-      allIssues = [];
-      document.querySelector("#tagFilter").innerHTML = '<option value="">All</option>';
-      await loadIssues(26426113, 'finance-table'); // Open Finance
-      await loadIssues(32299006, 'insurance-table'); // Open Insurance
-      populateTagFilter();
-    }
-
-    async function loadIssues(projectId, tableId) {
-      const table = document.querySelector(`#${tableId} tbody`);
-      table.innerHTML = "<tr><td colspan='7'>Loading...</td></tr>";
-
-      try {
-        const response = await fetch(`https://gitlab.com/api/v4/projects/${projectId}/issues?state=opened`);
-        const issues = await response.json();
-
-        table.innerHTML = "";
-        for (const issue of issues) {
-          allIssues.push({ ...issue, projectId, tableId });
-        }
-        renderIssues();
-      } catch (error) {
-        table.innerHTML = `<tr><td colspan='7'>Error loading issues: ${error.message}</td></tr>`;
+    function workingDaysBetween(startDate, endDate) {
+      let count = 0;
+      const cur = new Date(startDate);
+      while (cur <= endDate) {
+        const day = cur.getDay();
+        if (day !== 0 && day !== 6) count++;
+        cur.setDate(cur.getDate() + 1);
       }
-    }
-
-    function renderIssues() {
-      const tagFilter = document.querySelector("#tagFilter").value;
-      const tables = { 'finance-table': [], 'insurance-table': [] };
-      const counters = { 'finance-table': { total: 0, overSLA: 0 }, 'insurance-table': { total: 0, overSLA: 0 } };
-
-      for (const issue of allIssues) {
-        if (tagFilter && !issue.labels.includes(tagFilter)) continue;
-
-        const createdDate = new Date(issue.created_at);
-        const today = new Date();
-        const workingDays = calculateWorkingDays(createdDate, today);
-        const isOverSLA = workingDays > 10;
-        const labels = issue.labels.map(label => `<span class='label-badge'>${label}</span>`).join(' ');
-        const commentKey = `comment-${issue.projectId}-${issue.iid}`;
-        const savedComment = localStorage.getItem(commentKey) || "";
-
-        const row = `
-          <tr>
-            <td><a href="${issue.web_url}" target="_blank" style="color:#00e38c;">#${issue.iid}</a></td>
-            <td>${issue.title}</td>
-            <td>${createdDate.toLocaleDateString()}</td>
-            <td>${workingDays}</td>
-            <td class="${isOverSLA ? 'over-sla' : 'within-sla'}">${isOverSLA ? 'Over SLA' : 'Within SLA'}</td>
-            <td>${labels}</td>
-            <td><textarea class="comment-box" rows="2" oninput="saveComment('${commentKey}', this.value)">${savedComment}</textarea></td>
-          </tr>`;
-
-        tables[issue.tableId].push(row);
-        counters[issue.tableId].total++;
-        if (isOverSLA) counters[issue.tableId].overSLA++;
-      }
-
-      for (const tableId in tables) {
-        const table = document.querySelector(`#${tableId} tbody`);
-        table.innerHTML = tables[tableId].length ? tables[tableId].join('') : '<tr><td colspan="7">No issues to display.</td></tr>';
-        const summary = document.querySelector(`#${tableId.replace('-table', '-summary')}`);
-        summary.textContent = `Total: ${counters[tableId].total}, Over SLA: ${counters[tableId].overSLA}`;
-      }
+      return count;
     }
 
     function saveComment(key, value) {
       localStorage.setItem(key, value);
     }
 
-    function populateTagFilter() {
-      const tagSet = new Set();
-      allIssues.forEach(issue => issue.labels.forEach(label => tagSet.add(label)));
-      const select = document.querySelector("#tagFilter");
-      [...tagSet].sort().forEach(tag => {
-        const option = document.createElement("option");
-        option.value = tag;
-        option.textContent = tag;
-        select.appendChild(option);
+    function clearAllComments() {
+      const textareas = document.querySelectorAll('.comment-box');
+      textareas.forEach(area => {
+        localStorage.removeItem(area.dataset.key);
+        area.value = '';
       });
     }
 
+    function clearFilters() {
+      document.getElementById('tagFilter').value = '';
+      applyTagFilter();
+    }
+
     function applyTagFilter() {
+      const value = document.getElementById("tagFilter").value;
+      document.getElementById("clearFilterText").style.display = value ? "block" : "none";
       renderIssues();
     }
 
-    function calculateWorkingDays(startDate, endDate) {
-      let count = 0;
-      const current = new Date(startDate);
-      while (current <= endDate) {
-        const day = current.getDay();
-        if (day !== 0 && day !== 6) {
-          count++;
-        }
-        current.setDate(current.getDate() + 1);
-      }
-      return count;
+    let allIssues = [];
+
+    async function loadAllIssues() {
+      document.getElementById("loading").style.display = "block";
+      allIssues = [];
+      document.getElementById("tagFilter").innerHTML = '<option value="">All</option>';
+      await loadIssues(26426113, 'finance-table'); // Open Finance
+      await loadIssues(32299006, 'insurance-table'); // Open Insurance
+      populateTagFilter();
+      renderIssues();
+      document.getElementById("loading").style.display = "none";
+    }
+
+    async function loadIssues(projectId, tableId) {
+      const res = await fetch(`https://gitlab.com/api/v4/projects/${projectId}/issues?state=opened`);
+      const data = await res.json();
+      data.forEach(issue => {
+        issue.projectId = projectId;
+        issue.tableId = tableId;
+        allIssues.push(issue);
+      });
+    }
+
+    function renderIssues() {
+      const tagFilter = document.getElementById("tagFilter").value;
+      const tables = { 'finance-table': [], 'insurance-table': [] };
+      const summaries = { 'finance-table': { total: 0, overSLA: 0 }, 'insurance-table': { total: 0, overSLA: 0 } };
+
+      document.querySelectorAll("tbody").forEach(tb => tb.innerHTML = '');
+
+      allIssues.forEach(issue => {
+        if (tagFilter && !issue.labels.includes(tagFilter)) return;
+
+        const created = new Date(issue.created_at);
+        const days = workingDaysBetween(created, new Date());
+        const isOver = days > 10;
+        const commentKey = `comment-${issue.projectId}-${issue.iid}`;
+        const saved = localStorage.getItem(commentKey) || "";
+
+        const row = `
+          <tr>
+            <td><a href="${issue.web_url}" target="_blank" style="color:#00e38c;">#${issue.iid}</a></td>
+            <td>${issue.title}</td>
+            <td>${created.toLocaleDateString()}</td>
+            <td>${days}</td>
+            <td class="${isOver ? 'over-sla' : 'within-sla'}">${isOver ? 'Over SLA' : 'Within SLA'}</td>
+            <td>${issue.labels.map(label => `<span class='label-badge'>${label}</span>`).join(' ')}</td>
+            <td><textarea class="comment-box" rows="2" data-key="${commentKey}" oninput="saveComment('${commentKey}', this.value)">${saved}</textarea></td>
+          </tr>`;
+
+        document.querySelector(`#${issue.tableId} tbody`).innerHTML += row;
+        summaries[issue.tableId].total++;
+        if (isOver) summaries[issue.tableId].overSLA++;
+      });
+
+      document.getElementById("finance-summary").textContent = `${summaries["finance-table"].total} issues, ${summaries["finance-table"].overSLA} over SLA`;
+      document.getElementById("insurance-summary").textContent = `${summaries["insurance-table"].total} issues, ${summaries["insurance-table"].overSLA} over SLA`;
+    }
+
+    function populateTagFilter() {
+      const allLabels = new Set();
+      allIssues.forEach(i => i.labels.forEach(l => allLabels.add(l)));
+      const filter = document.getElementById("tagFilter");
+      allLabels.forEach(label => {
+        const opt = document.createElement("option");
+        opt.value = label;
+        opt.textContent = label;
+        filter.appendChild(opt);
+      });
     }
 
     loadAllIssues();
