@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitLab Issues SLA Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 24px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f4f4f4;
+    }
+    .over-sla {
+      color: red;
+      font-weight: bold;
+    }
+    .within-sla {
+      color: green;
+    }
+    button {
+      margin-top: 10px;
+      padding: 6px 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>GitLab Issues SLA Dashboard</h1>
+  <p><strong>SLA:</strong> 10 working days (Monday to Friday)</p>
+  <button onclick="loadIssues()">🔄 Refresh</button>
+  <table id="issues-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Title</th>
+        <th>Created At</th>
+        <th>Working Days Open</th>
+        <th>SLA Status</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    async function loadIssues() {
+      const table = document.querySelector("#issues-table tbody");
+      table.innerHTML = "<tr><td colspan='5'>Loading...</td></tr>";
+
+      try {
+        const response = await fetch("https://gitlab.com/api/v4/projects/26426113/issues?state=opened");
+        const issues = await response.json();
+
+        table.innerHTML = "";
+        for (const issue of issues) {
+          const createdDate = new Date(issue.created_at);
+          const today = new Date();
+          const workingDays = calculateWorkingDays(createdDate, today);
+          const isOverSLA = workingDays > 10;
+
+          const row = `
+            <tr>
+              <td><a href="${issue.web_url}" target="_blank">#${issue.iid}</a></td>
+              <td>${issue.title}</td>
+              <td>${createdDate.toLocaleDateString()}</td>
+              <td>${workingDays}</td>
+              <td class="${isOverSLA ? 'over-sla' : 'within-sla'}">${isOverSLA ? 'Over SLA' : 'Within SLA'}</td>
+            </tr>`;
+          table.innerHTML += row;
+        }
+      } catch (error) {
+        table.innerHTML = `<tr><td colspan='5'>Error loading issues: ${error.message}</td></tr>`;
+      }
+    }
+
+    function calculateWorkingDays(startDate, endDate) {
+      let count = 0;
+      const current = new Date(startDate);
+      while (current <= endDate) {
+        const day = current.getDay();
+        if (day !== 0 && day !== 6) {
+          count++;
+        }
+        current.setDate(current.getDate() + 1);
+      }
+      return count;
+    }
+
+    loadIssues();
+  </script>
+</body>
+</html>
