@@ -35,4 +35,24 @@ The dashboard calculates SLA using the number of **working days** between the is
 ## 📍 GitLab Project Source
 
 Data is pulled from:
-[https:]()
+[https://gitlab.com/api/v4/projects/26426113/issues](https://gitlab.com/api/v4/projects/26426113/issues)
+
+This corresponds to the project:
+[`raidiam-conformance/open-finance/certification`](https://gitlab.com/raidiam-conformance/open-finance/certification)
+
+## 📋 Example
+
+| ID | Title | Created At | Working Days Open | SLA Status |
+|----|-------|------------|-------------------|------------|
+| #2276 | GET /portabilities/... | 05/08/2025 | 3 | ✅ Within SLA |
+| #2275 | POST /portabilities... | 01/08/2025 | 13 | 🔴 Over SLA |
+
+## 🧪 POC Limitations
+
+- Only shows **open issues**
+- Does not support filtering, sorting, or closed issues
+- SLA threshold is hardcoded to **10 working days**
+
+## 📄 License
+
+This project is provided as-is for internal POC purposes.
