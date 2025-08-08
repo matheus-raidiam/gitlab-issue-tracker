@@ -15,12 +15,6 @@
     --error:#ff6b6b;
     --muted:#9bb7b3;
 
-    /* Transparent label palette */
-    --pastel-green: #159570;  /* nature */
-    --pastel-blue:  #146b9e;  /* product */
-    --pastel-orange: #a35d00; /* status */
-
-
     /* Filter UI */
     --chip:#08333a;
     --chip-border:#0c5056;
@@ -30,7 +24,7 @@
   }
   *{box-sizing:border-box}
   body{
-    font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+    font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;
     background:var(--bg); color:var(--text); margin:0; padding:20px;
   }
   header{display:flex; align-items:center; gap:16px; margin-bottom:8px;}
@@ -39,11 +33,7 @@
   h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
 
   /* Plain intro paragraph (outside squares) */
-  .page-intro{
-    margin:10px 0 16px;
-    color:var(--text);
-    line-height:1.4;
-  }
+  .page-intro{margin:10px 0 16px; line-height:1.4;}
 
   /* Toolbar (square card) */
   .toolbar{
@@ -109,13 +99,19 @@
   .over-sla{color:var(--error); font-weight:700}
   .within-sla{color:var(--accent)}
   .nosla{color:var(--muted)}
+
+  /* Unified tag badge style (for Nature, Product, Status) */
   .badge{
-    display:inline-block; padding:2px 8px; border-radius:12px; font-size:12px; margin:2px;
-    font-weight:700; color:#06292f; opacity:.72;  /* softer / more transparent tags */
+    display:inline-block;
+    background-color:#055b4e;
+    color:#00e38c;
+    border-radius:4px;
+    padding:2px 6px;
+    margin:2px 4px 2px 0;
+    font-size:12px;
+    font-weight: normal;
   }
-  .badge-nature{background-color:var(--pastel-green)}
-  .badge-product{background-color:var(--pastel-blue)}
-  .badge-status{background-color:var(--pastel-orange)}
+
   .comment-box{width:100%; font-size:12px; background:#092e34; color:#fff; border:1px solid #066f5f; border-radius:4px}
   .summary{font-size:14px; margin:8px 0 12px; opacity:.9}
   .closed-issue td{opacity:.9}
@@ -246,7 +242,7 @@
 
 <script>
 /* ================= STATE ================= */
-const issues = { finance: [], insurance: [] }; // separate arrays per table
+const issues = { finance: [], insurance: [] };
 const tableSort = {
   'finance-table': { key: 'daysOpen', asc: false },
   'insurance-table': { key: 'daysOpen', asc: false }
@@ -258,12 +254,7 @@ const NATURE_LABELS = new Set([
   'Questions', 'Bug', 'Change Request', 'Test Improvement', 'Breaking Change'
 ]);
 
-// filter selections (Sets for OR-within-category)
-const selected = {
-  nature: new Set(),
-  product: new Set(),
-  status: new Set()
-};
+const selected = { nature:new Set(), product:new Set(), status:new Set() };
 
 /* ================= UTILITIES ================= */
 function classifyLabels(labels = []) {
@@ -290,7 +281,7 @@ function workingDaysBetween(startDate, endDate) {
 // - Bug -> 10 working days
 // - Under Evaluation (status) OR no Nature -> 3 working days
 // - Questions -> 10 working days
-// - Else -> null (No SLA)
+// - Else -> No SLA
 function getSLAFor(labels) {
   const { status, nature } = classifyLabels(labels || []);
   const hasBug = nature.includes('Bug');
@@ -322,7 +313,6 @@ function clearAllComments(){
 
 /* ================= FILTER UI ================= */
 function renderFilterMenus() {
-  // collect distinct label values by category from both projects
   const natureSet = new Set(), productSet = new Set(), statusSet = new Set();
   [...issues.finance, ...issues.insurance].forEach(i => {
     const { status, nature, product } = classifyLabels(i.labels || []);
@@ -333,7 +323,7 @@ function renderFilterMenus() {
 
   const fill = (containerId, values, cat) => {
     const container = document.getElementById(containerId);
-    container.querySelectorAll('.row').forEach(r => r.remove()); // keep the Clear div
+    container.querySelectorAll('.row').forEach(r => r.remove());
     [...values].sort().forEach(tag => {
       const row = document.createElement('div');
       row.className = 'row';
@@ -344,9 +334,7 @@ function renderFilterMenus() {
       `;
       row.querySelector('input').addEventListener('change', (e) => {
         if (e.target.checked) selected[cat].add(tag); else selected[cat].delete(tag);
-        updateCounts();
-        renderChips();
-        renderIssues();
+        updateCounts(); renderChips(); renderIssues();
       });
       container.appendChild(row);
     });
@@ -356,8 +344,7 @@ function renderFilterMenus() {
   fill('menu-product', productSet, 'product');
   fill('menu-status', statusSet, 'status');
 
-  updateCounts();
-  renderChips();
+  updateCounts(); renderChips();
 }
 function updateCounts(){
   document.getElementById('count-nature').textContent = selected.nature.size;
@@ -366,8 +353,7 @@ function updateCounts(){
 }
 function clearCategory(cat){
   selected[cat].clear();
-  renderFilterMenus(); // rebuild checkboxes states + counts
-  renderIssues();
+  renderFilterMenus(); renderIssues();
 }
 function renderChips(){
   const chips = document.getElementById('chips');
@@ -379,22 +365,17 @@ function renderChips(){
       el.innerHTML = `${cat}: ${tag} <span class="x" title="Remove">✕</span>`;
       el.querySelector('.x').onclick = () => {
         selected[cat].delete(tag);
-        renderFilterMenus();
-        renderIssues();
+        renderFilterMenus(); renderIssues();
       };
       chips.appendChild(el);
     });
   });
 }
 function resetAllFilters(){
-  selected.nature.clear();
-  selected.product.clear();
-  selected.status.clear();
+  selected.nature.clear(); selected.product.clear(); selected.status.clear();
   document.querySelectorAll('.filter details[open]').forEach(d => { d.open = false; });
-  renderFilterMenus();
-  renderIssues();
+  renderFilterMenus(); renderIssues();
 }
-
 /* Collapse filters when clicking outside */
 document.addEventListener('click', (e) => {
   const insideFilter = e.target.closest('.filter');
@@ -407,8 +388,7 @@ document.addEventListener('click', (e) => {
 function changeSort(tableId, key){
   const s = tableSort[tableId];
   if (s.key === key) s.asc = !s.asc; else { s.key = key; s.asc = (key === 'title'); }
-  updateSortArrows(tableId);
-  renderIssues();
+  updateSortArrows(tableId); renderIssues();
 }
 function updateSortArrows(tableId){
   const table = document.getElementById(tableId);
@@ -422,8 +402,7 @@ function getViewMode(){ return document.getElementById('viewMode').value; }
 /* ================= DATA ================= */
 async function loadAllIssues(){
   setLoading(true);
-  issues.finance = [];
-  issues.insurance = [];
+  issues.finance = []; issues.insurance = [];
 
   const mode = getViewMode();
   document.getElementById('finance-date-label').textContent = mode === 'closed7' ? 'Closed At' : 'Created At';
@@ -522,7 +501,7 @@ function renderIssues(){
       const saved = localStorage.getItem(key) || '';
 
       const { status, nature, product } = classifyLabels(issue.labels || []);
-      const badges = (arr, cls) => arr.length ? arr.map(l => `<span class="badge ${cls}">${l}</span>`).join(' ') : '<span style="opacity:.5;">—</span>';
+      const badges = (arr) => arr.length ? arr.map(l => `<span class="badge">${l}</span>`).join(' ') : '<span style="opacity:.5;">—</span>';
 
       const statusCell = hasSLA
         ? `<span class="${over ? 'over-sla' : 'within-sla'}">${issue.slaText}</span>`
@@ -536,18 +515,15 @@ function renderIssues(){
         <td>${dateShown.toLocaleDateString()}</td>
         <td>${issue.daysOpen}</td>
         <td>${statusCell}</td>
-        <td>${badges(nature,'badge-nature')}</td>
-        <td>${badges(product,'badge-product')}</td>
-        <td>${badges(status,'badge-status')}</td>
+        <td>${badges(nature)}</td>
+        <td>${badges(product)}</td>
+        <td>${badges(status)}</td>
         <td><textarea class="comment-box" rows="2" data-key="${key}" oninput="saveComment('${key}', this.value)">${saved}</textarea></td>
       `;
       tbody.appendChild(tr);
 
       counters.total++;
-      if (hasSLA) {
-        counters.slaApplicable++;
-        if (over) counters.over++;
-      }
+      if (hasSLA) { counters.slaApplicable++; if (over) counters.over++; }
     });
 
     document.getElementById(summaryId).textContent =
