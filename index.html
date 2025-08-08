@@ -37,6 +37,16 @@
   h1{color:var(--accent); font-size:28px; margin:0;}
   h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
 
+  .intro{
+    background:var(--card);
+    border:1px solid var(--dropdown-border);
+    border-radius:10px;
+    padding:12px 14px;
+    margin:10px 0 14px;
+    color:var(--text);
+    line-height:1.35;
+  }
+
   /* Toolbar */
   .toolbar{
     display:flex; gap:12px; align-items:center; flex-wrap:wrap;
@@ -100,6 +110,7 @@
   .sort-arrow{font-size:12px; color:var(--accent); opacity:.9}
   .over-sla{color:var(--error); font-weight:700}
   .within-sla{color:var(--accent)}
+  .nosla{color:var(--muted)}
   .badge{display:inline-block; padding:2px 8px; border-radius:12px; font-size:12px; margin:2px; font-weight:700; color:#06292f}
   .badge-nature{background-color:var(--pastel-green)}
   .badge-product{background-color:var(--pastel-blue)}
@@ -109,7 +120,6 @@
   .closed-issue td{opacity:.9}
   .closed-badge{display:inline-block; padding:2px 6px; border-radius:4px; background:#244447; color:var(--muted); font-size:11px; margin-left:8px}
   .grid{display:grid; grid-template-columns:1fr; gap:28px}
-  .footer-note{margin-top:16px; font-size:12px; color:var(--muted)}
 </style>
 </head>
 <body>
@@ -118,7 +128,13 @@
     <h1>GitLab Issues SLA Dashboard</h1>
   </header>
 
-  <p><strong>SLA:</strong> 10 working days (Monday to Friday)</p>
+  <div class="intro">
+    This dashboard pulls issues from our GitLab projects (Open Finance & Open Insurance) and gives the Service team a quick view of SLA risk, activity, and context. 
+    It calculates <strong>working days</strong> and applies SLAs based on tags (Nature/Status): 
+    <em>Bug (10 days)</em>, <em>Under Evaluation or no Nature (3 days)</em>, and <em>Questions (3 days)</em>. 
+    Other types like <em>Change Request</em> or <em>Test Improvement</em> have <em>no SLA</em>. 
+    Use filters, sorting, and local notes to triage faster.
+  </div>
 
   <!-- Toolbar -->
   <div class="toolbar">
@@ -182,6 +198,8 @@
     <div class="chips" id="chips"></div>
   </div>
 
+  <p><strong>SLA windows used:</strong> Bug = 10 working days; Under Evaluation or no Nature = 3; Questions = 3; others = No SLA.</p>
+
   <div class="grid">
     <section>
       <h2>Open Finance Issues</h2>
@@ -192,7 +210,7 @@
             <th class="sortable" data-key="iid" onclick="changeSort('finance-table','iid')"><span class="sort-label">ID <span class="sort-arrow" data-for="iid"></span></span></th>
             <th class="sortable" data-key="title" onclick="changeSort('finance-table','title')"><span class="sort-label">Title <span class="sort-arrow" data-for="title"></span></span></th>
             <th class="sortable" data-key="dateCol" onclick="changeSort('finance-table','dateCol')"><span class="sort-label"><span id="finance-date-label">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span></th>
-            <th class="sortable" data-key="daysOpen" onclick="changeSort('finance-table','daysOpen')"><span class="sort-label">Working Days Open <span class="sort-arrow" data-for="daysOpen"></span></span></th>
+            <th class="sortable" data-key="daysOpen" onclick="changeSort('finance-table','daysOpen')"><span class="sort-label">Working Days <span class="sort-arrow" data-for="daysOpen"></span></span></th>
             <th>SLA Status</th>
             <th>Nature</th>
             <th>Product</th>
@@ -213,7 +231,7 @@
             <th class="sortable" data-key="iid" onclick="changeSort('insurance-table','iid')"><span class="sort-label">ID <span class="sort-arrow" data-for="iid"></span></span></th>
             <th class="sortable" data-key="title" onclick="changeSort('insurance-table','title')"><span class="sort-label">Title <span class="sort-arrow" data-for="title"></span></span></th>
             <th class="sortable" data-key="dateCol" onclick="changeSort('insurance-table','dateCol')"><span class="sort-label"><span id="insurance-date-label">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span></th>
-            <th class="sortable" data-key="daysOpen" onclick="changeSort('insurance-table','daysOpen')"><span class="sort-label">Working Days Open <span class="sort-arrow" data-for="daysOpen"></span></span></th>
+            <th class="sortable" data-key="daysOpen" onclick="changeSort('insurance-table','daysOpen')"><span class="sort-label">Working Days <span class="sort-arrow" data-for="daysOpen"></span></span></th>
             <th>SLA Status</th>
             <th>Nature</th>
             <th>Product</th>
@@ -225,8 +243,6 @@
       </table>
     </section>
   </div>
-
-  <p class="footer-note">Pastel badge colors • Independent sorting per table • Comments saved locally • Toggle Open vs Closed (last 7 days).</p>
 
 <script>
 /* ================= STATE ================= */
@@ -269,6 +285,25 @@ function workingDaysBetween(startDate, endDate) {
   }
   return count;
 }
+
+// SLA mapping:
+// - Bug -> 10 working days
+// - Under Evaluation (status) OR no Nature -> 3 working days
+// - Questions -> 3 working days (assumed; change here if needed)
+// - Else -> null (No SLA)
+function getSLAFor(labels) {
+  const { status, nature } = classifyLabels(labels || []);
+  const hasBug = nature.includes('Bug');
+  const hasQuestions = nature.includes('Questions');
+  const underEval = status.includes('Under Evaluation');
+  const noNature = nature.length === 0;
+
+  if (hasBug) return { days: 10, reason: 'Bug' };
+  if (underEval || noNature) return { days: 3, reason: underEval ? 'Under Evaluation' : 'No Nature' };
+  if (hasQuestions) return { days: 3, reason: 'Questions' };
+  return { days: null, reason: 'No SLA' };
+}
+
 function setLoading(on){ document.getElementById('loading').style.display = on ? 'block' : 'none'; }
 function saveComment(key, value){ localStorage.setItem(key, value); }
 function clearAllComments(){
@@ -288,8 +323,7 @@ function renderFilterMenus() {
 
   const fill = (containerId, values, cat) => {
     const container = document.getElementById(containerId);
-    // remove previous checkboxes (keep the Clear div)
-    container.querySelectorAll('.row').forEach(r => r.remove());
+    container.querySelectorAll('.row').forEach(r => r.remove()); // keep the Clear div
     [...values].sort().forEach(tag => {
       const row = document.createElement('div');
       row.className = 'row';
@@ -346,7 +380,6 @@ function resetAllFilters(){
   selected.nature.clear();
   selected.product.clear();
   selected.status.clear();
-  // close any open dropdowns
   document.querySelectorAll('.filter details[open]').forEach(d => { d.open = false; });
   renderFilterMenus();
   renderIssues();
@@ -419,7 +452,9 @@ function renderIssues(){
   const decorate = (list) => list.map(i => {
     const created = new Date(i.created_at);
     const endDate = (mode === 'closed7' && i.closed_at) ? new Date(i.closed_at) : now;
-    return { ...i, daysOpen: workingDaysBetween(created, endDate), dateCol: (mode === 'closed7' && i.closed_at) ? i.closed_at : i.created_at };
+    const daysOpen = workingDaysBetween(created, endDate);
+    const sla = getSLAFor(i.labels || []);
+    return { ...i, daysOpen, dateCol: (mode === 'closed7' && i.closed_at) ? i.closed_at : i.created_at, sla };
   });
 
   renderTable('finance');
@@ -431,6 +466,7 @@ function renderIssues(){
     const sort = tableSort[tableId];
 
     const base = decorate(issues[which]);
+
     const filtered = base.filter(i => {
       const { status, nature, product } = classifyLabels(i.labels || []);
       const matchNature  = selected.nature.size  ? nature.some(n => selected.nature.has(n))   : true;
@@ -453,16 +489,23 @@ function renderIssues(){
     });
 
     const tbody = document.querySelector(`#${tableId} tbody`);
-    const counters = { total:0, over:0 };
+    const counters = { total:0, slaApplicable:0, over:0 };
 
     sorted.forEach(issue=>{
       const dateShown = (mode === 'closed7' && issue.closed_at) ? new Date(issue.closed_at) : new Date(issue.created_at);
-      const over = issue.daysOpen > 10;
+      const slaDays = issue.sla.days;
+      const hasSLA = Number.isInteger(slaDays);
+      const over = hasSLA ? (issue.daysOpen > slaDays) : false;
+
       const key = `comment-${issue.projectId}-${issue.iid}`;
       const saved = localStorage.getItem(key) || '';
 
       const { status, nature, product } = classifyLabels(issue.labels || []);
       const badges = (arr, cls) => arr.length ? arr.map(l => `<span class="badge ${cls}">${l}</span>`).join(' ') : '<span style="opacity:.5;">—</span>';
+
+      const statusCell = hasSLA
+        ? `<span class="${over ? 'over-sla' : 'within-sla'}">${over ? 'Over SLA' : 'Within SLA'} (SLA: ${slaDays}d)</span>`
+        : `<span class="nosla">No SLA</span>`;
 
       const tr = document.createElement('tr');
       tr.className = (mode === 'closed7') ? 'closed-issue' : '';
@@ -471,7 +514,7 @@ function renderIssues(){
         <td>${issue.title}${mode === 'closed7' ? '<span class="closed-badge">Closed</span>' : ''}</td>
         <td>${dateShown.toLocaleDateString()}</td>
         <td>${issue.daysOpen}</td>
-        <td class="${over ? 'over-sla' : 'within-sla'}">${over ? 'Over SLA' : 'Within SLA'}</td>
+        <td>${statusCell}</td>
         <td>${badges(nature,'badge-nature')}</td>
         <td>${badges(product,'badge-product')}</td>
         <td>${badges(status,'badge-status')}</td>
@@ -479,12 +522,17 @@ function renderIssues(){
       `;
       tbody.appendChild(tr);
 
-      counters.total++; if (over) counters.over++;
+      counters.total++;
+      if (hasSLA) {
+        counters.slaApplicable++;
+        if (over) counters.over++;
+      }
     });
 
     document.getElementById(summaryId).textContent =
-      (mode === 'closed7') ? `${counters.total} issues closed in last 7 days`
-                           : `${counters.total} issues, ${counters.over} over SLA`;
+      (mode === 'closed7')
+        ? `${counters.total} issues closed in last 7 days — SLA-applicable: ${counters.slaApplicable}, Over SLA: ${counters.over}`
+        : `${counters.total} open issues — SLA-applicable: ${counters.slaApplicable}, Over SLA: ${counters.over}`;
 
     updateSortArrows(tableId);
   }
