@@ -9,7 +9,7 @@ const tableSort = {
   'insurance-table': { key: 'daysOpen', asc: false }
 };
 const STATUS_LABELS = new Set([
-  'Under Evaluation', 'Waiting Participant', 'Under WG Evaluation', 'Evaluated by WG'
+  'Under Evaluation', 'Waiting Participant', 'Under WG Evaluation', 'Evaluated by WG', 'Production Testing'
 ]);
 const NATURE_LABELS = new Set([
   'Questions', 'Bug', 'Change Request', 'Test Improvement', 'Breaking Change'
