@@ -99,6 +99,7 @@
   .over-sla{color:var(--error); font-weight:700}
   .within-sla{color:var(--accent)}
   .nosla{color:var(--muted)}
+  .paused{color:#f0d98c; font-weight:normal} /* SLA Paused color */
 
   /* Unified tag badge style (for Nature, Product, Status) */
   .badge{
@@ -109,7 +110,7 @@
     padding:2px 6px;
     margin:2px 4px 2px 0;
     font-size:12px;
-    font-weight: normal;
+    font-weight: normal; /* tags not bold */
   }
 
   .comment-box{width:100%; font-size:12px; background:#092e34; color:#fff; border:1px solid #066f5f; border-radius:4px}
@@ -237,7 +238,7 @@
   </div>
 
   <footer>
-    <p><strong>SLA windows used:</strong> Bug = 10 working days; Under Evaluation or no Nature = 3; Questions = 10; others = No SLA.</p>
+    <p><strong>SLA windows used:</strong> Bug & Questions = 10 working days; Under Evaluation or no Nature = 3 working days; Under WG Evaluation or Waiting Participant = SLA Paused; Others = No SLA.</p>
   </footer>
 
 <script>
@@ -295,13 +296,23 @@ function getSLAFor(labels) {
   return { days: null, reason: 'No SLA' };
 }
 
+/* SLA text + sorting rank (includes "SLA Paused") */
 function slaLabelAndRank(issue){
+  const labels = issue.labels || [];
+  const { status } = classifyLabels(labels);
+
+  const paused = status.includes('Under WG Evaluation') || status.includes('Waiting Participant');
+  if (paused) {
+    // Over SLA = 3, Paused = 2, Within = 1, No SLA = 0
+    return { text:'SLA Paused', class:'paused', rank:2 };
+  }
+
   const slaDays = issue.sla.days;
   const hasSLA = Number.isInteger(slaDays);
   const over = hasSLA ? (issue.daysOpen > slaDays) : false;
-  // Rank for sorting: Over SLA (2), Within SLA (1), No SLA (0)
+
   if (!hasSLA) return { text:'No SLA', class:'nosla', rank:0 };
-  if (over)     return { text:'Over SLA', class:'over-sla', rank:2 };
+  if (over)     return { text:'Over SLA', class:'over-sla', rank:3 };
   return { text:'Within SLA', class:'within-sla', rank:1 };
 }
 
@@ -452,8 +463,8 @@ function renderIssues(){
     const daysOpen = workingDaysBetween(created, endDate);
     const sla = getSLAFor(i.labels || []);
     const base = { ...i, daysOpen, dateCol: (mode === 'closed7' && i.closed_at) ? i.closed_at : i.created_at, sla };
-    const { text, rank } = slaLabelAndRank(base);
-    return { ...base, slaText: text, slaRank: rank };
+    const { text, rank, class:klass } = slaLabelAndRank(base);
+    return { ...base, slaText: text, slaRank: rank, slaClass: klass };
   });
 
   renderTable('finance');
@@ -503,9 +514,7 @@ function renderIssues(){
       const { status, nature, product } = classifyLabels(issue.labels || []);
       const badges = (arr) => arr.length ? arr.map(l => `<span class="badge">${l}</span>`).join(' ') : '<span style="opacity:.5;">—</span>';
 
-      const statusCell = hasSLA
-        ? `<span class="${over ? 'over-sla' : 'within-sla'}">${issue.slaText}</span>`
-        : `<span class="nosla">${issue.slaText}</span>`;
+      const statusCell = `<span class="${issue.slaClass}">${issue.slaText}</span>`;
 
       const tr = document.createElement('tr');
       tr.className = (mode === 'closed7') ? 'closed-issue' : '';
