@@ -1,277 +1,497 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GitLab Issues SLA Dashboard</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #041920;
-      color: #f1f1f1;
-      padding: 20px;
-    }
-    header {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      margin-bottom: 20px;
-    }
-    header img {
-      height: 40px;
-      background-color: #fff;
-      border-radius: 6px;
-      padding: 2px;
-    }
-    h1 {
-      font-size: 28px;
-      color: #00e38c;
-    }
-    h2 {
-      font-size: 20px;
-      margin-top: 40px;
-      color: #00e38c;
-    }
-    table {
-      border-collapse: separate;
-      border-spacing: 0;
-      width: 100%;
-      margin-top: 10px;
-      background-color: #06292f;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    th, td {
-      padding: 12px;
-      text-align: left;
-    }
-    th {
-      background-color: #0a2e33;
-      color: #00e38c;
-    }
-    tr:nth-child(even) td {
-      background-color: #0d383e;
-    }
-    .over-sla {
-      color: #ff6b6b;
-      font-weight: bold;
-    }
-    .within-sla {
-      color: #00e38c;
-    }
-    .label-badge {
-      display: inline-block;
-      background-color: #055b4e;
-      color: #00e38c;
-      border-radius: 4px;
-      padding: 2px 6px;
-      margin: 2px 4px 2px 0;
-      font-size: 12px;
-    }
-    button, select {
-      background-color: #00e38c;
-      color: #041920;
-      border: none;
-      padding: 8px 14px;
-      margin-top: 10px;
-      margin-right: 10px;
-      border-radius: 6px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    select {
-      padding: 6px 12px;
-    }
-    .summary {
-      font-size: 14px;
-      margin-top: 10px;
-    }
-    .comment-box {
-      width: 100%;
-      font-size: 12px;
-      background-color: #092e34;
-      color: #ffffff;
-      border: 1px solid #066f5f;
-      border-radius: 4px;
-    }
-    #clearFilterText {
-      display: none;
-      font-size: 13px;
-      margin-top: 6px;
-      margin-bottom: 10px;
-      cursor: pointer;
-      color: #00e38c;
-      text-decoration: underline;
-    }
-    #loading {
-      display: none;
-      margin-top: 10px;
-      color: #00e38c;
-      font-weight: bold;
-    }
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GitLab Issues SLA Dashboard</title>
+<style>
+  :root{
+    --bg:#041920;
+    --card:#06292f;
+    --card-2:#0d383e;
+    --header:#0a2e33;
+    --accent:#00e38c;
+    --text:#f1f1f1;
+    --error:#ff6b6b;
+    --muted:#9bb7b3;
+
+    /* Pastel label palette */
+    --pastel-green:#a8e6cf; /* nature */
+    --pastel-blue:#a0c4ff;  /* product */
+    --pastel-orange:#ffd6a5;/* status */
+
+    /* Filter UI */
+    --chip:#08333a;
+    --chip-border:#0c5056;
+    --dropdown:#08333a;
+    --dropdown-border:#0d5a60;
+    --shadow:0 8px 24px rgba(0,0,0,.25);
+  }
+  *{box-sizing:border-box}
+  body{
+    font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+    background:var(--bg); color:var(--text); margin:0; padding:20px;
+  }
+  header{display:flex; align-items:center; gap:16px; margin-bottom:12px;}
+  header img{height:40px; background:#fff; border-radius:6px; padding:2px;}
+  h1{color:var(--accent); font-size:28px; margin:0;}
+  h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
+
+  /* Toolbar */
+  .toolbar{
+    display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+    background:var(--card); border:1px solid var(--dropdown-border);
+    border-radius:10px; padding:10px 12px; margin-bottom:10px;
+  }
+  .toolbar select, .toolbar button{
+    background:var(--accent); color:var(--bg); border:none; border-radius:7px;
+    font-weight:700; cursor:pointer; padding:8px 12px;
+  }
+  .toolbar .spacer{flex:1}
+  #loading{display:none; color:var(--accent); font-weight:700}
+
+  /* Filter panel */
+  .filters-card{
+    background:var(--card); border:1px solid var(--dropdown-border);
+    border-radius:10px; padding:10px 12px; margin-bottom:8px;
+  }
+  .filters-row{display:flex; gap:12px; flex-wrap:wrap}
+  .filter{position:relative; min-width:240px; flex:1 1 280px}
+  .filter details{
+    background:var(--dropdown); border:1px solid var(--dropdown-border);
+    border-radius:8px; box-shadow:var(--shadow);
+  }
+  .filter summary{
+    list-style:none; padding:10px 12px; cursor:pointer; user-select:none;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .filter summary::-webkit-details-marker{display:none}
+  .filter .title{font-weight:700; color:var(--accent)}
+  .filter .count-badge{
+    font-size:12px; padding:2px 8px; border-radius:999px; background:var(--chip);
+    border:1px solid var(--chip-border); color:var(--text);
+  }
+  .filter .menu{
+    border-top:1px solid var(--dropdown-border); padding:8px 10px; max-height:280px; overflow:auto;
+  }
+  .filter .menu .row{display:flex; align-items:center; gap:8px; padding:6px 2px}
+  .filter .menu input[type="checkbox"]{transform:scale(1.1)}
+  .filter .menu .clear{
+    display:inline-block; margin:4px 0 6px; font-size:12px; cursor:pointer;
+    color:var(--accent); text-decoration:underline;
+  }
+
+  /* Filter chips */
+  .chips{display:flex; flex-wrap:wrap; gap:6px; padding:6px 0 2px}
+  .chip{
+    display:inline-flex; align-items:center; gap:8px; padding:4px 10px; border-radius:999px;
+    background:var(--chip); border:1px solid var(--chip-border); font-size:12px;
+  }
+  .chip .x{cursor:pointer; opacity:.85}
+
+  /* Tables */
+  table{width:100%; border-collapse:separate; border-spacing:0; background:var(--card);
+        border-radius:8px; overflow:hidden}
+  thead th{background:var(--header); color:var(--accent); text-align:left; padding:12px; user-select:none}
+  tbody td{padding:12px; vertical-align:top}
+  tbody tr:nth-child(even) td{background:var(--card-2)}
+  th.sortable{cursor:pointer}
+  .sort-label{display:inline-flex; align-items:center; gap:6px}
+  .sort-arrow{font-size:12px; color:var(--accent); opacity:.9}
+  .over-sla{color:var(--error); font-weight:700}
+  .within-sla{color:var(--accent)}
+  .badge{display:inline-block; padding:2px 8px; border-radius:12px; font-size:12px; margin:2px; font-weight:700; color:#06292f}
+  .badge-nature{background-color:var(--pastel-green)}
+  .badge-product{background-color:var(--pastel-blue)}
+  .badge-status{background-color:var(--pastel-orange)}
+  .comment-box{width:100%; font-size:12px; background:#092e34; color:#fff; border:1px solid #066f5f; border-radius:4px}
+  .summary{font-size:14px; margin:8px 0 12px; opacity:.9}
+  .closed-issue td{opacity:.9}
+  .closed-badge{display:inline-block; padding:2px 6px; border-radius:4px; background:#244447; color:var(--muted); font-size:11px; margin-left:8px}
+  .grid{display:grid; grid-template-columns:1fr; gap:28px}
+  .footer-note{margin-top:16px; font-size:12px; color:var(--muted)}
+</style>
 </head>
 <body>
   <header>
-    <img src="Raidiam_icon.png" alt="Raidiam Logo" />
+    <img src="Raidiam_icon.png" alt="Raidiam Logo"/>
     <h1>GitLab Issues SLA Dashboard</h1>
   </header>
 
   <p><strong>SLA:</strong> 10 working days (Monday to Friday)</p>
-  <div>
-    <label for="tagFilter">Filter by tag:</label><br>
-    <select id="tagFilter" onchange="applyTagFilter()">
-      <option value="">All</option>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <label for="viewMode" style="font-weight:600">View:</label>
+    <select id="viewMode" onchange="loadAllIssues()">
+      <option value="open">Open issues</option>
+      <option value="closed7">Closed (last 7 days)</option>
     </select>
-    <div id="clearFilterText" onclick="clearFilters()">Clear filter</div>
-    <div style="margin-top: 10px;">
-      <button onclick="loadAllIssues()">🔄 Refresh</button>
-      <button onclick="clearAllComments()">🗑️ Clear All Comments</button>
-    </div>
-    <div id="loading">Loading issues, please wait...</div>
+    <button onclick="loadAllIssues()">🔄 Refresh</button>
+    <button onclick="clearAllComments()">🗑️ Clear All Comments</button>
+    <button onclick="resetAllFilters()">🧹 Reset Filters</button>
+    <div class="spacer"></div>
+    <div id="loading">Loading…</div>
   </div>
 
-  <h2>Open Finance Issues</h2>
-  <div class="summary" id="finance-summary"></div>
-  <table id="finance-table">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Title</th>
-        <th>Created At</th>
-        <th>Working Days Open</th>
-        <th>SLA Status</th>
-        <th>Tags</th>
-        <th>Comments</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <!-- Filters -->
+  <div class="filters-card">
+    <div class="filters-row">
+      <!-- Nature -->
+      <div class="filter" id="filterNature">
+        <details>
+          <summary>
+            <span class="title">Nature</span>
+            <span class="count-badge" id="count-nature">0</span>
+          </summary>
+          <div class="menu" id="menu-nature">
+            <div class="clear" onclick="clearCategory('nature')">Clear Nature</div>
+            <!-- checkboxes injected here -->
+          </div>
+        </details>
+      </div>
+      <!-- Product -->
+      <div class="filter" id="filterProduct">
+        <details>
+          <summary>
+            <span class="title">Product</span>
+            <span class="count-badge" id="count-product">0</span>
+          </summary>
+          <div class="menu" id="menu-product">
+            <div class="clear" onclick="clearCategory('product')">Clear Product</div>
+            <!-- checkboxes injected here -->
+          </div>
+        </details>
+      </div>
+      <!-- Status -->
+      <div class="filter" id="filterStatus">
+        <details>
+          <summary>
+            <span class="title">Status</span>
+            <span class="count-badge" id="count-status">0</span>
+          </summary>
+          <div class="menu" id="menu-status">
+            <div class="clear" onclick="clearCategory('status')">Clear Status</div>
+            <!-- checkboxes injected here -->
+          </div>
+        </details>
+      </div>
+    </div>
 
-  <h2>Open Insurance Issues</h2>
-  <div class="summary" id="insurance-summary"></div>
-  <table id="insurance-table">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Title</th>
-        <th>Created At</th>
-        <th>Working Days Open</th>
-        <th>SLA Status</th>
-        <th>Tags</th>
-        <th>Comments</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+    <!-- Active filter chips -->
+    <div class="chips" id="chips"></div>
+  </div>
 
-  <script>
-    function workingDaysBetween(startDate, endDate) {
-      let count = 0;
-      const cur = new Date(startDate);
-      while (cur <= endDate) {
-        const day = cur.getDay();
-        if (day !== 0 && day !== 6) count++;
-        cur.setDate(cur.getDate() + 1);
-      }
-      return count;
-    }
-
-    function saveComment(key, value) {
-      localStorage.setItem(key, value);
-    }
-
-    function clearAllComments() {
-      const textareas = document.querySelectorAll('.comment-box');
-      textareas.forEach(area => {
-        localStorage.removeItem(area.dataset.key);
-        area.value = '';
-      });
-    }
-
-    function clearFilters() {
-      document.getElementById('tagFilter').value = '';
-      applyTagFilter();
-    }
-
-    function applyTagFilter() {
-      const value = document.getElementById("tagFilter").value;
-      document.getElementById("clearFilterText").style.display = value ? "block" : "none";
-      renderIssues();
-    }
-
-    let allIssues = [];
-
-    async function loadAllIssues() {
-      document.getElementById("loading").style.display = "block";
-      allIssues = [];
-      document.getElementById("tagFilter").innerHTML = '<option value="">All</option>';
-      await loadIssues(26426113, 'finance-table'); // Open Finance
-      await loadIssues(32299006, 'insurance-table'); // Open Insurance
-      populateTagFilter();
-      renderIssues();
-      document.getElementById("loading").style.display = "none";
-    }
-
-    async function loadIssues(projectId, tableId) {
-      const res = await fetch(`https://gitlab.com/api/v4/projects/${projectId}/issues?state=opened`);
-      const data = await res.json();
-      data.forEach(issue => {
-        issue.projectId = projectId;
-        issue.tableId = tableId;
-        allIssues.push(issue);
-      });
-    }
-
-    function renderIssues() {
-      const tagFilter = document.getElementById("tagFilter").value;
-      const tables = { 'finance-table': [], 'insurance-table': [] };
-      const summaries = { 'finance-table': { total: 0, overSLA: 0 }, 'insurance-table': { total: 0, overSLA: 0 } };
-
-      document.querySelectorAll("tbody").forEach(tb => tb.innerHTML = '');
-
-      allIssues.forEach(issue => {
-        if (tagFilter && !issue.labels.includes(tagFilter)) return;
-
-        const created = new Date(issue.created_at);
-        const days = workingDaysBetween(created, new Date());
-        const isOver = days > 10;
-        const commentKey = `comment-${issue.projectId}-${issue.iid}`;
-        const saved = localStorage.getItem(commentKey) || "";
-
-        const row = `
+  <div class="grid">
+    <section>
+      <h2>Open Finance Issues</h2>
+      <div class="summary" id="finance-summary"></div>
+      <table id="finance-table">
+        <thead>
           <tr>
-            <td><a href="${issue.web_url}" target="_blank" style="color:#00e38c;">#${issue.iid}</a></td>
-            <td>${issue.title}</td>
-            <td>${created.toLocaleDateString()}</td>
-            <td>${days}</td>
-            <td class="${isOver ? 'over-sla' : 'within-sla'}">${isOver ? 'Over SLA' : 'Within SLA'}</td>
-            <td>${issue.labels.map(label => `<span class='label-badge'>${label}</span>`).join(' ')}</td>
-            <td><textarea class="comment-box" rows="2" data-key="${commentKey}" oninput="saveComment('${commentKey}', this.value)">${saved}</textarea></td>
-          </tr>`;
+            <th class="sortable" data-key="iid" onclick="changeSort('finance-table','iid')"><span class="sort-label">ID <span class="sort-arrow" data-for="iid"></span></span></th>
+            <th class="sortable" data-key="title" onclick="changeSort('finance-table','title')"><span class="sort-label">Title <span class="sort-arrow" data-for="title"></span></span></th>
+            <th class="sortable" data-key="dateCol" onclick="changeSort('finance-table','dateCol')"><span class="sort-label"><span id="finance-date-label">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span></th>
+            <th class="sortable" data-key="daysOpen" onclick="changeSort('finance-table','daysOpen')"><span class="sort-label">Working Days Open <span class="sort-arrow" data-for="daysOpen"></span></span></th>
+            <th>SLA Status</th>
+            <th>Nature</th>
+            <th>Product</th>
+            <th>Status</th>
+            <th>Comments</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
 
-        document.querySelector(`#${issue.tableId} tbody`).innerHTML += row;
-        summaries[issue.tableId].total++;
-        if (isOver) summaries[issue.tableId].overSLA++;
+    <section>
+      <h2>Open Insurance Issues</h2>
+      <div class="summary" id="insurance-summary"></div>
+      <table id="insurance-table">
+        <thead>
+          <tr>
+            <th class="sortable" data-key="iid" onclick="changeSort('insurance-table','iid')"><span class="sort-label">ID <span class="sort-arrow" data-for="iid"></span></span></th>
+            <th class="sortable" data-key="title" onclick="changeSort('insurance-table','title')"><span class="sort-label">Title <span class="sort-arrow" data-for="title"></span></span></th>
+            <th class="sortable" data-key="dateCol" onclick="changeSort('insurance-table','dateCol')"><span class="sort-label"><span id="insurance-date-label">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span></th>
+            <th class="sortable" data-key="daysOpen" onclick="changeSort('insurance-table','daysOpen')"><span class="sort-label">Working Days Open <span class="sort-arrow" data-for="daysOpen"></span></span></th>
+            <th>SLA Status</th>
+            <th>Nature</th>
+            <th>Product</th>
+            <th>Status</th>
+            <th>Comments</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+
+  <p class="footer-note">Pastel badge colors • Independent sorting per table • Comments saved locally • Toggle Open vs Closed (last 7 days).</p>
+
+<script>
+/* ================= STATE ================= */
+const issues = { finance: [], insurance: [] }; // separate arrays per table
+const tableSort = {
+  'finance-table': { key: 'daysOpen', asc: false },
+  'insurance-table': { key: 'daysOpen', asc: false }
+};
+const STATUS_LABELS = new Set([
+  'Under Evaluation', 'Waiting Participant', 'Under WG Evaluation', 'Evaluated by WG'
+]);
+const NATURE_LABELS = new Set([
+  'Questions', 'Bug', 'Change Request', 'Test Improvement', 'Breaking Change'
+]);
+
+// filter selections (Sets for OR-within-category)
+const selected = {
+  nature: new Set(),
+  product: new Set(),
+  status: new Set()
+};
+
+/* ================= UTILITIES ================= */
+function classifyLabels(labels = []) {
+  const status = [], nature = [], product = [];
+  labels.forEach(l => {
+    if (STATUS_LABELS.has(l)) status.push(l);
+    else if (NATURE_LABELS.has(l)) nature.push(l);
+    else product.push(l);
+  });
+  return { status, nature, product };
+}
+function workingDaysBetween(startDate, endDate) {
+  let count = 0;
+  const cur = new Date(startDate);
+  while (cur <= endDate) {
+    const d = cur.getDay();
+    if (d !== 0 && d !== 6) count++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count;
+}
+function setLoading(on){ document.getElementById('loading').style.display = on ? 'block' : 'none'; }
+function saveComment(key, value){ localStorage.setItem(key, value); }
+function clearAllComments(){
+  document.querySelectorAll('.comment-box').forEach(a => { localStorage.removeItem(a.dataset.key); a.value = ''; });
+}
+
+/* ================= FILTER UI ================= */
+function renderFilterMenus() {
+  // collect distinct label values by category from both projects
+  const natureSet = new Set(), productSet = new Set(), statusSet = new Set();
+  [...issues.finance, ...issues.insurance].forEach(i => {
+    const { status, nature, product } = classifyLabels(i.labels || []);
+    status.forEach(l => statusSet.add(l));
+    nature.forEach(l => natureSet.add(l));
+    product.forEach(l => productSet.add(l));
+  });
+
+  const fill = (containerId, values, cat) => {
+    const container = document.getElementById(containerId);
+    // remove previous checkboxes (keep the Clear div)
+    container.querySelectorAll('.row').forEach(r => r.remove());
+    [...values].sort().forEach(tag => {
+      const row = document.createElement('div');
+      row.className = 'row';
+      const id = `${cat}-${tag.replace(/[^a-z0-9-_]+/gi,'_')}`;
+      row.innerHTML = `
+        <input type="checkbox" id="${id}" ${selected[cat].has(tag) ? 'checked':''} />
+        <label for="${id}">${tag}</label>
+      `;
+      row.querySelector('input').addEventListener('change', (e) => {
+        if (e.target.checked) selected[cat].add(tag); else selected[cat].delete(tag);
+        updateCounts();
+        renderChips();
+        renderIssues();
       });
+      container.appendChild(row);
+    });
+  };
 
-      document.getElementById("finance-summary").textContent = `${summaries["finance-table"].total} issues, ${summaries["finance-table"].overSLA} over SLA`;
-      document.getElementById("insurance-summary").textContent = `${summaries["insurance-table"].total} issues, ${summaries["insurance-table"].overSLA} over SLA`;
-    }
+  fill('menu-nature', natureSet, 'nature');
+  fill('menu-product', productSet, 'product');
+  fill('menu-status', statusSet, 'status');
 
-    function populateTagFilter() {
-      const allLabels = new Set();
-      allIssues.forEach(i => i.labels.forEach(l => allLabels.add(l)));
-      const filter = document.getElementById("tagFilter");
-      allLabels.forEach(label => {
-        const opt = document.createElement("option");
-        opt.value = label;
-        opt.textContent = label;
-        filter.appendChild(opt);
-      });
-    }
+  updateCounts();
+  renderChips();
+}
+function updateCounts(){
+  document.getElementById('count-nature').textContent = selected.nature.size;
+  document.getElementById('count-product').textContent = selected.product.size;
+  document.getElementById('count-status').textContent = selected.status.size;
+}
+function clearCategory(cat){
+  selected[cat].clear();
+  renderFilterMenus(); // rebuild checkboxes states + counts
+  renderIssues();
+}
+function renderChips(){
+  const chips = document.getElementById('chips');
+  chips.innerHTML = '';
+  ['nature','product','status'].forEach(cat => {
+    selected[cat].forEach(tag => {
+      const el = document.createElement('span');
+      el.className = 'chip';
+      el.innerHTML = `${cat}: ${tag} <span class="x" title="Remove">✕</span>`;
+      el.querySelector('.x').onclick = () => {
+        selected[cat].delete(tag);
+        renderFilterMenus();
+        renderIssues();
+      };
+      chips.appendChild(el);
+    });
+  });
+}
+function resetAllFilters(){
+  selected.nature.clear();
+  selected.product.clear();
+  selected.status.clear();
+  // close any open dropdowns
+  document.querySelectorAll('.filter details[open]').forEach(d => { d.open = false; });
+  renderFilterMenus();
+  renderIssues();
+}
 
-    loadAllIssues();
-  </script>
+/* ================= SORTING ================= */
+function changeSort(tableId, key){
+  const s = tableSort[tableId];
+  if (s.key === key) s.asc = !s.asc; else { s.key = key; s.asc = (key === 'title'); }
+  updateSortArrows(tableId);
+  renderIssues();
+}
+function updateSortArrows(tableId){
+  const table = document.getElementById(tableId);
+  table.querySelectorAll('.sort-arrow').forEach(el => el.textContent = '');
+  const s = tableSort[tableId];
+  const arrow = table.querySelector(`.sort-arrow[data-for="${s.key}"]`);
+  if (arrow) arrow.textContent = s.asc ? '▲' : '▼';
+}
+function getViewMode(){ return document.getElementById('viewMode').value; }
+
+/* ================= DATA ================= */
+async function loadAllIssues(){
+  setLoading(true);
+  issues.finance = [];
+  issues.insurance = [];
+
+  const mode = getViewMode();
+  document.getElementById('finance-date-label').textContent = mode === 'closed7' ? 'Closed At' : 'Created At';
+  document.getElementById('insurance-date-label').textContent = mode === 'closed7' ? 'Closed At' : 'Created At';
+
+  await Promise.all([
+    loadProjectIssues(26426113, 'finance'),  // Open Finance
+    loadProjectIssues(32299006, 'insurance') // Open Insurance
+  ]);
+
+  renderFilterMenus();
+  updateSortArrows('finance-table');
+  updateSortArrows('insurance-table');
+  renderIssues();
+  setLoading(false);
+}
+async function loadProjectIssues(projectId, key){
+  const mode = getViewMode();
+  const now = new Date();
+  const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(now.getDate() - 7);
+  const since = sevenDaysAgo.toISOString();
+
+  let url = `https://gitlab.com/api/v4/projects/${projectId}/issues`;
+  if (mode === 'closed7') url += `?state=closed&updated_after=${since}`;
+  else url += `?state=opened`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  let list = data.map(issue => ({ ...issue, projectId }));
+  if (mode === 'closed7') {
+    const cutoff = new Date(since);
+    list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff);
+  }
+  issues[key] = list;
+}
+
+/* ================= RENDER ================= */
+function renderIssues(){
+  const mode = getViewMode();
+  document.querySelectorAll('tbody').forEach(tb => tb.innerHTML = '');
+
+  const now = new Date();
+  const decorate = (list) => list.map(i => {
+    const created = new Date(i.created_at);
+    const endDate = (mode === 'closed7' && i.closed_at) ? new Date(i.closed_at) : now;
+    return { ...i, daysOpen: workingDaysBetween(created, endDate), dateCol: (mode === 'closed7' && i.closed_at) ? i.closed_at : i.created_at };
+  });
+
+  renderTable('finance');
+  renderTable('insurance');
+
+  function renderTable(which){
+    const tableId = which === 'finance' ? 'finance-table' : 'insurance-table';
+    const summaryId = which === 'finance' ? 'finance-summary' : 'insurance-summary';
+    const sort = tableSort[tableId];
+
+    const base = decorate(issues[which]);
+    const filtered = base.filter(i => {
+      const { status, nature, product } = classifyLabels(i.labels || []);
+      const matchNature  = selected.nature.size  ? nature.some(n => selected.nature.has(n))   : true;
+      const matchProduct = selected.product.size ? product.some(p => selected.product.has(p)) : true;
+      const matchStatus  = selected.status.size  ? status.some(s => selected.status.has(s))   : true;
+      return matchNature && matchProduct && matchStatus;
+    });
+
+    const sorted = filtered.sort((a,b)=>{
+      let va,vb;
+      switch (sort.key){
+        case 'iid': va=Number(a.iid); vb=Number(b.iid); break;
+        case 'daysOpen': va=Number(a.daysOpen); vb=Number(b.daysOpen); break;
+        case 'dateCol': va=new Date(a.dateCol).getTime(); vb=new Date(b.dateCol).getTime(); break;
+        case 'title': default: va=(a.title||'').toLowerCase(); vb=(b.title||'').toLowerCase();
+      }
+      if (va<vb) return sort.asc?-1:1;
+      if (va>vb) return sort.asc?1:-1;
+      return 0;
+    });
+
+    const tbody = document.querySelector(`#${tableId} tbody`);
+    const counters = { total:0, over:0 };
+
+    sorted.forEach(issue=>{
+      const dateShown = (mode === 'closed7' && issue.closed_at) ? new Date(issue.closed_at) : new Date(issue.created_at);
+      const over = issue.daysOpen > 10;
+      const key = `comment-${issue.projectId}-${issue.iid}`;
+      const saved = localStorage.getItem(key) || '';
+
+      const { status, nature, product } = classifyLabels(issue.labels || []);
+      const badges = (arr, cls) => arr.length ? arr.map(l => `<span class="badge ${cls}">${l}</span>`).join(' ') : '<span style="opacity:.5;">—</span>';
+
+      const tr = document.createElement('tr');
+      tr.className = (mode === 'closed7') ? 'closed-issue' : '';
+      tr.innerHTML = `
+        <td><a href="${issue.web_url}" target="_blank" style="color:var(--accent);">#${issue.iid}</a></td>
+        <td>${issue.title}${mode === 'closed7' ? '<span class="closed-badge">Closed</span>' : ''}</td>
+        <td>${dateShown.toLocaleDateString()}</td>
+        <td>${issue.daysOpen}</td>
+        <td class="${over ? 'over-sla' : 'within-sla'}">${over ? 'Over SLA' : 'Within SLA'}</td>
+        <td>${badges(nature,'badge-nature')}</td>
+        <td>${badges(product,'badge-product')}</td>
+        <td>${badges(status,'badge-status')}</td>
+        <td><textarea class="comment-box" rows="2" data-key="${key}" oninput="saveComment('${key}', this.value)">${saved}</textarea></td>
+      `;
+      tbody.appendChild(tr);
+
+      counters.total++; if (over) counters.over++;
+    });
+
+    document.getElementById(summaryId).textContent =
+      (mode === 'closed7') ? `${counters.total} issues closed in last 7 days`
+                           : `${counters.total} issues, ${counters.over} over SLA`;
+
+    updateSortArrows(tableId);
+  }
+}
+
+/* ================= INIT ================= */
+loadAllIssues();
+</script>
 </body>
 </html>
