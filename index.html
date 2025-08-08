@@ -32,22 +32,19 @@
     font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
     background:var(--bg); color:var(--text); margin:0; padding:20px;
   }
-  header{display:flex; align-items:center; gap:16px; margin-bottom:12px;}
+  header{display:flex; align-items:center; gap:16px; margin-bottom:8px;}
   header img{height:40px; background:#fff; border-radius:6px; padding:2px;}
   h1{color:var(--accent); font-size:28px; margin:0;}
   h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
 
-  .intro{
-    background:var(--card);
-    border:1px solid var(--dropdown-border);
-    border-radius:10px;
-    padding:12px 14px;
-    margin:10px 0 14px;
+  /* Plain intro paragraph (outside squares) */
+  .page-intro{
+    margin:10px 0 16px;
     color:var(--text);
-    line-height:1.35;
+    line-height:1.4;
   }
 
-  /* Toolbar */
+  /* Toolbar (square card) */
   .toolbar{
     display:flex; gap:12px; align-items:center; flex-wrap:wrap;
     background:var(--card); border:1px solid var(--dropdown-border);
@@ -60,7 +57,7 @@
   .toolbar .spacer{flex:1}
   #loading{display:none; color:var(--accent); font-weight:700}
 
-  /* Filter panel */
+  /* Filters (square card) */
   .filters-card{
     background:var(--card); border:1px solid var(--dropdown-border);
     border-radius:10px; padding:10px 12px; margin-bottom:8px;
@@ -111,7 +108,10 @@
   .over-sla{color:var(--error); font-weight:700}
   .within-sla{color:var(--accent)}
   .nosla{color:var(--muted)}
-  .badge{display:inline-block; padding:2px 8px; border-radius:12px; font-size:12px; margin:2px; font-weight:700; color:#06292f}
+  .badge{
+    display:inline-block; padding:2px 8px; border-radius:12px; font-size:12px; margin:2px;
+    font-weight:700; color:#06292f; opacity:.72;  /* softer / more transparent tags */
+  }
   .badge-nature{background-color:var(--pastel-green)}
   .badge-product{background-color:var(--pastel-blue)}
   .badge-status{background-color:var(--pastel-orange)}
@@ -120,6 +120,9 @@
   .closed-issue td{opacity:.9}
   .closed-badge{display:inline-block; padding:2px 6px; border-radius:4px; background:#244447; color:var(--muted); font-size:11px; margin-left:8px}
   .grid{display:grid; grid-template-columns:1fr; gap:28px}
+
+  /* Footer */
+  footer{margin-top:16px; font-size:12px; color:var(--muted)}
 </style>
 </head>
 <body>
@@ -128,15 +131,12 @@
     <h1>GitLab Issues SLA Dashboard</h1>
   </header>
 
-  <div class="intro">
-    This dashboard pulls issues from our GitLab projects (Open Finance & Open Insurance) and gives the Service team a quick view of SLA risk, activity, and context. 
-    It calculates <strong>working days</strong> and applies SLAs based on tags (Nature/Status): 
-    <em>Bug (10 days)</em>, <em>Under Evaluation or no Nature (3 days)</em>, and <em>Questions (3 days)</em>. 
-    Other types like <em>Change Request</em> or <em>Test Improvement</em> have <em>no SLA</em>. 
-    Use filters, sorting, and local notes to triage faster.
-  </div>
+  <p class="page-intro">
+    This dashboard pulls issues from our GitLab projects (Open Finance & Open Insurance) and gives the Service team a quick view of SLA risk, activity, and context.
+    It calculates <strong>working days</strong> and applies SLAs based on tags (Nature/Status). Use filters, sorting, and local notes to triage faster.
+  </p>
 
-  <!-- Toolbar -->
+  <!-- Toolbar (square) -->
   <div class="toolbar">
     <label for="viewMode" style="font-weight:600">View:</label>
     <select id="viewMode" onchange="loadAllIssues()">
@@ -150,7 +150,7 @@
     <div id="loading">Loading…</div>
   </div>
 
-  <!-- Filters -->
+  <!-- Filters (square) -->
   <div class="filters-card">
     <div class="filters-row">
       <!-- Nature -->
@@ -162,7 +162,6 @@
           </summary>
           <div class="menu" id="menu-nature">
             <div class="clear" onclick="clearCategory('nature')">Clear Nature</div>
-            <!-- checkboxes injected here -->
           </div>
         </details>
       </div>
@@ -175,7 +174,6 @@
           </summary>
           <div class="menu" id="menu-product">
             <div class="clear" onclick="clearCategory('product')">Clear Product</div>
-            <!-- checkboxes injected here -->
           </div>
         </details>
       </div>
@@ -188,7 +186,6 @@
           </summary>
           <div class="menu" id="menu-status">
             <div class="clear" onclick="clearCategory('status')">Clear Status</div>
-            <!-- checkboxes injected here -->
           </div>
         </details>
       </div>
@@ -197,8 +194,6 @@
     <!-- Active filter chips -->
     <div class="chips" id="chips"></div>
   </div>
-
-  <p><strong>SLA windows used:</strong> Bug = 10 working days; Under Evaluation or no Nature = 3; Questions = 3; others = No SLA.</p>
 
   <div class="grid">
     <section>
@@ -211,7 +206,7 @@
             <th class="sortable" data-key="title" onclick="changeSort('finance-table','title')"><span class="sort-label">Title <span class="sort-arrow" data-for="title"></span></span></th>
             <th class="sortable" data-key="dateCol" onclick="changeSort('finance-table','dateCol')"><span class="sort-label"><span id="finance-date-label">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span></th>
             <th class="sortable" data-key="daysOpen" onclick="changeSort('finance-table','daysOpen')"><span class="sort-label">Working Days <span class="sort-arrow" data-for="daysOpen"></span></span></th>
-            <th>SLA Status</th>
+            <th class="sortable" data-key="slaRank" onclick="changeSort('finance-table','slaRank')"><span class="sort-label">SLA Status <span class="sort-arrow" data-for="slaRank"></span></span></th>
             <th>Nature</th>
             <th>Product</th>
             <th>Status</th>
@@ -232,7 +227,7 @@
             <th class="sortable" data-key="title" onclick="changeSort('insurance-table','title')"><span class="sort-label">Title <span class="sort-arrow" data-for="title"></span></span></th>
             <th class="sortable" data-key="dateCol" onclick="changeSort('insurance-table','dateCol')"><span class="sort-label"><span id="insurance-date-label">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span></th>
             <th class="sortable" data-key="daysOpen" onclick="changeSort('insurance-table','daysOpen')"><span class="sort-label">Working Days <span class="sort-arrow" data-for="daysOpen"></span></span></th>
-            <th>SLA Status</th>
+            <th class="sortable" data-key="slaRank" onclick="changeSort('insurance-table','slaRank')"><span class="sort-label">SLA Status <span class="sort-arrow" data-for="slaRank"></span></span></th>
             <th>Nature</th>
             <th>Product</th>
             <th>Status</th>
@@ -243,6 +238,10 @@
       </table>
     </section>
   </div>
+
+  <footer>
+    <p><strong>SLA windows used:</strong> Bug = 10 working days; Under Evaluation or no Nature = 3; Questions = 10; others = No SLA.</p>
+  </footer>
 
 <script>
 /* ================= STATE ================= */
@@ -289,7 +288,7 @@ function workingDaysBetween(startDate, endDate) {
 // SLA mapping:
 // - Bug -> 10 working days
 // - Under Evaluation (status) OR no Nature -> 3 working days
-// - Questions -> 3 working days (assumed; change here if needed)
+// - Questions -> 10 working days
 // - Else -> null (No SLA)
 function getSLAFor(labels) {
   const { status, nature } = classifyLabels(labels || []);
@@ -300,8 +299,18 @@ function getSLAFor(labels) {
 
   if (hasBug) return { days: 10, reason: 'Bug' };
   if (underEval || noNature) return { days: 3, reason: underEval ? 'Under Evaluation' : 'No Nature' };
-  if (hasQuestions) return { days: 3, reason: 'Questions' };
+  if (hasQuestions) return { days: 10, reason: 'Questions' };
   return { days: null, reason: 'No SLA' };
+}
+
+function slaLabelAndRank(issue){
+  const slaDays = issue.sla.days;
+  const hasSLA = Number.isInteger(slaDays);
+  const over = hasSLA ? (issue.daysOpen > slaDays) : false;
+  // Rank for sorting: Over SLA (2), Within SLA (1), No SLA (0)
+  if (!hasSLA) return { text:'No SLA', class:'nosla', rank:0 };
+  if (over)     return { text:'Over SLA', class:'over-sla', rank:2 };
+  return { text:'Within SLA', class:'within-sla', rank:1 };
 }
 
 function setLoading(on){ document.getElementById('loading').style.display = on ? 'block' : 'none'; }
@@ -385,6 +394,14 @@ function resetAllFilters(){
   renderIssues();
 }
 
+/* Collapse filters when clicking outside */
+document.addEventListener('click', (e) => {
+  const insideFilter = e.target.closest('.filter');
+  if (!insideFilter) {
+    document.querySelectorAll('.filter details[open]').forEach(d => d.removeAttribute('open'));
+  }
+});
+
 /* ================= SORTING ================= */
 function changeSort(tableId, key){
   const s = tableSort[tableId];
@@ -454,7 +471,9 @@ function renderIssues(){
     const endDate = (mode === 'closed7' && i.closed_at) ? new Date(i.closed_at) : now;
     const daysOpen = workingDaysBetween(created, endDate);
     const sla = getSLAFor(i.labels || []);
-    return { ...i, daysOpen, dateCol: (mode === 'closed7' && i.closed_at) ? i.closed_at : i.created_at, sla };
+    const base = { ...i, daysOpen, dateCol: (mode === 'closed7' && i.closed_at) ? i.closed_at : i.created_at, sla };
+    const { text, rank } = slaLabelAndRank(base);
+    return { ...base, slaText: text, slaRank: rank };
   });
 
   renderTable('finance');
@@ -481,6 +500,7 @@ function renderIssues(){
         case 'iid': va=Number(a.iid); vb=Number(b.iid); break;
         case 'daysOpen': va=Number(a.daysOpen); vb=Number(b.daysOpen); break;
         case 'dateCol': va=new Date(a.dateCol).getTime(); vb=new Date(b.dateCol).getTime(); break;
+        case 'slaRank': va=Number(a.slaRank); vb=Number(b.slaRank); break;
         case 'title': default: va=(a.title||'').toLowerCase(); vb=(b.title||'').toLowerCase();
       }
       if (va<vb) return sort.asc?-1:1;
@@ -504,8 +524,8 @@ function renderIssues(){
       const badges = (arr, cls) => arr.length ? arr.map(l => `<span class="badge ${cls}">${l}</span>`).join(' ') : '<span style="opacity:.5;">—</span>';
 
       const statusCell = hasSLA
-        ? `<span class="${over ? 'over-sla' : 'within-sla'}">${over ? 'Over SLA' : 'Within SLA'} (SLA: ${slaDays}d)</span>`
-        : `<span class="nosla">No SLA</span>`;
+        ? `<span class="${over ? 'over-sla' : 'within-sla'}">${issue.slaText}</span>`
+        : `<span class="nosla">${issue.slaText}</span>`;
 
       const tr = document.createElement('tr');
       tr.className = (mode === 'closed7') ? 'closed-issue' : '';
