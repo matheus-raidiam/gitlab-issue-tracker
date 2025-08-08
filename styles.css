@@ -92,7 +92,7 @@ th.sortable{cursor:pointer}
 .over-sla{color:var(--error); font-weight:700}
 .within-sla{color:var(--accent)}
 .nosla{color:var(--muted)}
-.paused{color:#f0d98c; font-weight:700} /* SLA Paused color */
+.paused{color:#f0d98c; font-weight:normal} /* SLA Paused color */
 
 /* Unified tag badge style (for Nature, Product, Status) */
 .badge{
