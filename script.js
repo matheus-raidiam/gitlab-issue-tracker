@@ -231,7 +231,6 @@ async function loadProjectIssues(projectId, key) {
   } catch (err) {
     console.error('Failed to load issues', { projectId, err });
     issues[key] = []; // still render with empty state
-    // Optionally: set a flag to show an error banner
   }
 }
 
@@ -273,13 +272,13 @@ function renderIssues() {
     const tbody = document.querySelector(`#${tableId} tbody`);
     tbody.innerHTML = '';
 
-    // If the API returned no issues for this view (open/closed7)
+    // If the data source returned no issues for this view (open/closed7)
     if (base.length === 0) {
       const msg =
         mode === 'closed7'
           ? 'No issues were closed in the last 7 days.'
-          : 'No open issues returned by the API.';
-      renderEmptyRow(tbody, 9, `${msg} Try switching the view or clearing filters.`);
+          : 'No open issues at the moment.';
+      renderEmptyRow(tbody, 9, `${msg} You can also try switching the view or adjusting filters.`);
       document.getElementById(summaryId).textContent =
         (mode === 'closed7')
           ? '0 issues closed in last 7 days — SLA-applicable: 0, Over SLA: 0'
@@ -298,7 +297,11 @@ function renderIssues() {
 
     // If filters removed everything
     if (filtered.length === 0) {
-      renderEmptyRow(tbody, 9, 'No issues match the current filters. Try clearing filters or switching the view.');
+      renderEmptyRow(
+        tbody,
+        9,
+        'No issues match the selected filters. Try clearing filters or switching the view.'
+      );
       document.getElementById(summaryId).textContent =
         (mode === 'closed7')
           ? '0 issues closed in last 7 days — SLA-applicable: 0, Over SLA: 0'
