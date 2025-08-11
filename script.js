@@ -1,6 +1,6 @@
 /* ================= CONFIG ================= */
 // SLA rules text injected into footer (easy to update here)
-const SLA_RULES_TEXT = "SLA rules: Bug & Questions = 10 working days; Under Evaluation or no Nature = 3 working days; Under WG Evaluation or Waiting Participant = SLA Paused; Others = No SLA.";
+const SLA_RULES_TEXT = "SLA rules: Bug & Questions = 10 working days; Under Evaluation or no Nature = 3 working days; Under WG Evaluation, Waiting Participant or Production Testing = SLA Paused; Others = No SLA.";
 
 /* ================= STATE ================= */
 const issues = { finance: [], insurance: [] };
@@ -62,7 +62,7 @@ function slaLabelAndRank(issue){
   const labels = issue.labels || [];
   const { status } = classifyLabels(labels);
 
-  const paused = status.includes('Under WG Evaluation') || status.includes('Waiting Participant');
+  const paused = status.includes('Under WG Evaluation') || status.includes('Waiting Participant') || status.includes('Production Testing');
   if (paused) {
     // Over SLA = 3, Paused = 2, Within = 1, No SLA = 0
     return { text:'SLA Paused', class:'paused', rank:2 };
