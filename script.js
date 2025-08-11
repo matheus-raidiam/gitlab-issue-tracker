@@ -1,5 +1,5 @@
+
 /* ================= CONFIG ================= */
-// SLA rules text injected into footer (easy to update here)
 const SLA_RULES_TEXT =
   "SLA rules: Bug & Questions = 10 working days; Under Evaluation or no Nature = 3 working days; Under WG Evaluation, Waiting Participant or Production Testing = SLA Paused; Others = No SLA.";
 
@@ -40,11 +40,7 @@ function workingDaysBetween(startDate, endDate) {
   return count;
 }
 
-// SLA mapping:
-// - Bug -> 10 working days
-// - Under Evaluation (status) OR no Nature -> 3 working days
-// - Questions -> 10 working days
-// - Else -> No SLA
+// SLA mapping
 function getSLAFor(labels) {
   const { status, nature } = classifyLabels(labels || []);
   const hasBug = nature.includes('Bug');
@@ -69,7 +65,6 @@ function slaLabelAndRank(issue) {
     status.includes('Production Testing');
 
   if (paused) {
-    // Over SLA = 3, Paused = 2, Within = 1, No SLA = 0
     return { text: 'SLA Paused', class: 'paused', rank: 2 };
   }
 
@@ -196,8 +191,8 @@ async function loadAllIssues() {
   document.getElementById('insurance-date-label').textContent = mode === 'closed7' ? 'Closed At' : 'Created At';
 
   await Promise.all([
-    loadProjectIssues(26426113, 'finance'),  // Open Finance
-    loadProjectIssues(32299006, 'insurance') // Open Insurance
+    loadProjectIssues(26426113, 'finance'),
+    loadProjectIssues(32299006, 'insurance')
   ]);
 
   renderFilterMenus();
@@ -230,13 +225,11 @@ async function loadProjectIssues(projectId, key) {
     issues[key] = list;
   } catch (err) {
     console.error('Failed to load issues', { projectId, err });
-    issues[key] = []; // still render with empty state
+    issues[key] = [];
   }
 }
 
 /* ================= RENDER ================= */
-
-// Reusable helper to render a single "empty" table row
 function renderEmptyRow(tbody, colspan, message) {
   const tr = document.createElement('tr');
   tr.className = 'empty-state';
@@ -274,11 +267,10 @@ function renderIssues() {
 
     // If the data source returned no issues for this view (open/closed7)
     if (base.length === 0) {
-      const msg =
-        mode === 'closed7'
-          ? 'No issues were closed in the last 7 days.'
-          : 'No open issues at the moment.';
-      renderEmptyRow(tbody, 9, `${msg} You can also try switching the view or adjusting filters.`);
+      const msg = (mode === 'closed7')
+        ? 'No issues were closed in the last 7 days.'
+        : 'No open issues at the moment.';
+      renderEmptyRow(tbody, 9, msg);
       document.getElementById(summaryId).textContent =
         (mode === 'closed7')
           ? '0 issues closed in last 7 days — SLA-applicable: 0, Over SLA: 0'
@@ -297,11 +289,7 @@ function renderIssues() {
 
     // If filters removed everything
     if (filtered.length === 0) {
-      renderEmptyRow(
-        tbody,
-        9,
-        'No issues match the selected filters. Try clearing filters or switching the view.'
-      );
+      renderEmptyRow(tbody, 9, 'No issues match the selected filters. Try clearing filters or switching the view.');
       document.getElementById(summaryId).textContent =
         (mode === 'closed7')
           ? '0 issues closed in last 7 days — SLA-applicable: 0, Over SLA: 0'
@@ -372,7 +360,6 @@ function renderIssues() {
 }
 
 /* ================= INIT ================= */
-// Inject footer SLA rules text
 document.addEventListener('DOMContentLoaded', () => {
   const p = document.getElementById('sla-rules');
   if (p) p.textContent = SLA_RULES_TEXT;
