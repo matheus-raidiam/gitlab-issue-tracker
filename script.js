@@ -1,6 +1,7 @@
 /* ================= CONFIG ================= */
 // SLA rules text injected into footer (easy to update here)
-const SLA_RULES_TEXT = "SLA rules: Bug & Questions = 10 working days; Under Evaluation or no Nature = 3 working days; Under WG Evaluation, Waiting Participant or Production Testing = SLA Paused; Others = No SLA.";
+const SLA_RULES_TEXT =
+  "SLA rules: Bug & Questions = 10 working days; Under Evaluation or no Nature = 3 working days; Under WG Evaluation, Waiting Participant or Production Testing = SLA Paused; Others = No SLA.";
 
 /* ================= STATE ================= */
 const issues = { finance: [], insurance: [] };
@@ -15,7 +16,7 @@ const NATURE_LABELS = new Set([
   'Questions', 'Bug', 'Change Request', 'Test Improvement', 'Breaking Change'
 ]);
 
-const selected = { nature:new Set(), product:new Set(), status:new Set() };
+const selected = { nature: new Set(), product: new Set(), status: new Set() };
 
 /* ================= UTILITIES ================= */
 function classifyLabels(labels = []) {
@@ -58,29 +59,36 @@ function getSLAFor(labels) {
 }
 
 /* SLA text + sorting rank (includes "SLA Paused") */
-function slaLabelAndRank(issue){
+function slaLabelAndRank(issue) {
   const labels = issue.labels || [];
   const { status } = classifyLabels(labels);
 
-  const paused = status.includes('Under WG Evaluation') || status.includes('Waiting Participant') || status.includes('Production Testing');
+  const paused =
+    status.includes('Under WG Evaluation') ||
+    status.includes('Waiting Participant') ||
+    status.includes('Production Testing');
+
   if (paused) {
     // Over SLA = 3, Paused = 2, Within = 1, No SLA = 0
-    return { text:'SLA Paused', class:'paused', rank:2 };
+    return { text: 'SLA Paused', class: 'paused', rank: 2 };
   }
 
   const slaDays = issue.sla.days;
   const hasSLA = Number.isInteger(slaDays);
-  const over = hasSLA ? (issue.daysOpen > slaDays) : false;
+  const over = hasSLA ? issue.daysOpen > slaDays : false;
 
-  if (!hasSLA) return { text:'No SLA', class:'nosla', rank:0 };
-  if (over)     return { text:'Over SLA', class:'over-sla', rank:3 };
-  return { text:'Within SLA', class:'within-sla', rank:1 };
+  if (!hasSLA) return { text: 'No SLA', class: 'nosla', rank: 0 };
+  if (over) return { text: 'Over SLA', class: 'over-sla', rank: 3 };
+  return { text: 'Within SLA', class: 'within-sla', rank: 1 };
 }
 
-function setLoading(on){ document.getElementById('loading').style.display = on ? 'block' : 'none'; }
-function saveComment(key, value){ localStorage.setItem(key, value); }
-function clearAllComments(){
-  document.querySelectorAll('.comment-box').forEach(a => { localStorage.removeItem(a.dataset.key); a.value = ''; });
+function setLoading(on) { document.getElementById('loading').style.display = on ? 'block' : 'none'; }
+function saveComment(key, value) { localStorage.setItem(key, value); }
+function clearAllComments() {
+  document.querySelectorAll('.comment-box').forEach(a => {
+    localStorage.removeItem(a.dataset.key);
+    a.value = '';
+  });
 }
 
 /* ================= FILTER UI ================= */
@@ -99,9 +107,9 @@ function renderFilterMenus() {
     [...values].sort().forEach(tag => {
       const row = document.createElement('div');
       row.className = 'row';
-      const id = `${cat}-${tag.replace(/[^a-z0-9-_]+/gi,'_')}`;
+      const id = `${cat}-${tag.replace(/[^a-z0-9-_]+/gi, '_')}`;
       row.innerHTML = `
-        <input type="checkbox" id="${id}" ${selected[cat].has(tag) ? 'checked':''} />
+        <input type="checkbox" id="${id}" ${selected[cat].has(tag) ? 'checked' : ''} />
         <label for="${id}">${tag}</label>
       `;
       row.querySelector('input').addEventListener('change', (e) => {
@@ -119,25 +127,25 @@ function renderFilterMenus() {
   updateCounts(); renderChips();
 }
 
-function updateCounts(){
+function updateCounts() {
   document.getElementById('count-nature').textContent = selected.nature.size;
   document.getElementById('count-product').textContent = selected.product.size;
   document.getElementById('count-status').textContent = selected.status.size;
 }
 
-function clearCategory(cat){
+function clearCategory(cat) {
   selected[cat].clear();
   renderFilterMenus(); renderIssues();
 }
 
-function renderChips(){
+function renderChips() {
   const chips = document.getElementById('chips');
   chips.innerHTML = '';
-  ['nature','product','status'].forEach(cat => {
+  ['nature', 'product', 'status'].forEach(cat => {
     selected[cat].forEach(tag => {
       const el = document.createElement('span');
       el.className = 'chip';
-      el.innerHTML = `${cat}: ${tag} <span class=\"x\" title=\"Remove\">✕</span>`;
+      el.innerHTML = `${cat}: ${tag} <span class="x" title="Remove">✕</span>`;
       el.querySelector('.x').onclick = () => {
         selected[cat].delete(tag);
         renderFilterMenus(); renderIssues();
@@ -147,7 +155,7 @@ function renderChips(){
   });
 }
 
-function resetAllFilters(){
+function resetAllFilters() {
   selected.nature.clear(); selected.product.clear(); selected.status.clear();
   document.querySelectorAll('.filter details[open]').forEach(d => { d.open = false; });
   renderFilterMenus(); renderIssues();
@@ -162,24 +170,24 @@ document.addEventListener('click', (e) => {
 });
 
 /* ================= SORTING ================= */
-function changeSort(tableId, key){
+function changeSort(tableId, key) {
   const s = tableSort[tableId];
   if (s.key === key) s.asc = !s.asc; else { s.key = key; s.asc = (key === 'title'); }
   updateSortArrows(tableId); renderIssues();
 }
 
-function updateSortArrows(tableId){
+function updateSortArrows(tableId) {
   const table = document.getElementById(tableId);
   table.querySelectorAll('.sort-arrow').forEach(el => el.textContent = '');
   const s = tableSort[tableId];
-  const arrow = table.querySelector(`.sort-arrow[data-for=\"${s.key}\"]`);
+  const arrow = table.querySelector(`.sort-arrow[data-for="${s.key}"]`);
   if (arrow) arrow.textContent = s.asc ? '▲' : '▼';
 }
 
-function getViewMode(){ return document.getElementById('viewMode').value; }
+function getViewMode() { return document.getElementById('viewMode').value; }
 
 /* ================= DATA ================= */
-async function loadAllIssues(){
+async function loadAllIssues() {
   setLoading(true);
   issues.finance = []; issues.insurance = [];
 
@@ -199,7 +207,7 @@ async function loadAllIssues(){
   setLoading(false);
 }
 
-async function loadProjectIssues(projectId, key){
+async function loadProjectIssues(projectId, key) {
   const mode = getViewMode();
   const now = new Date();
   const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(now.getDate() - 7);
@@ -209,19 +217,35 @@ async function loadProjectIssues(projectId, key){
   if (mode === 'closed7') url += `?state=closed&updated_after=${since}`;
   else url += `?state=opened`;
 
-  const res = await fetch(url);
-  const data = await res.json();
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
 
-  let list = data.map(issue => ({ ...issue, projectId }));
-  if (mode === 'closed7') {
-    const cutoff = new Date(since);
-    list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff);
+    let list = data.map(issue => ({ ...issue, projectId }));
+    if (mode === 'closed7') {
+      const cutoff = new Date(since);
+      list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff);
+    }
+    issues[key] = list;
+  } catch (err) {
+    console.error('Failed to load issues', { projectId, err });
+    issues[key] = []; // still render with empty state
+    // Optionally: set a flag to show an error banner
   }
-  issues[key] = list;
 }
 
 /* ================= RENDER ================= */
-function renderIssues(){
+
+// Reusable helper to render a single "empty" table row
+function renderEmptyRow(tbody, colspan, message) {
+  const tr = document.createElement('tr');
+  tr.className = 'empty-state';
+  tr.innerHTML = `<td class="empty-cell" colspan="${colspan}">${message}</td>`;
+  tbody.appendChild(tr);
+}
+
+function renderIssues() {
   const mode = getViewMode();
   document.querySelectorAll('tbody').forEach(tb => tb.innerHTML = '');
 
@@ -232,46 +256,75 @@ function renderIssues(){
     const daysOpen = workingDaysBetween(created, endDate);
     const sla = getSLAFor(i.labels || []);
     const base = { ...i, daysOpen, dateCol: (mode === 'closed7' && i.closed_at) ? i.closed_at : i.created_at, sla };
-    const { text, rank, class:klass } = slaLabelAndRank(base);
+    const { text, rank, class: klass } = slaLabelAndRank(base);
     return { ...base, slaText: text, slaRank: rank, slaClass: klass };
   });
 
   renderTable('finance');
   renderTable('insurance');
 
-  function renderTable(which){
+  function renderTable(which) {
     const tableId = which === 'finance' ? 'finance-table' : 'insurance-table';
     const summaryId = which === 'finance' ? 'finance-summary' : 'insurance-summary';
     const sort = tableSort[tableId];
 
     const base = decorate(issues[which]);
 
+    const tbody = document.querySelector(`#${tableId} tbody`);
+    tbody.innerHTML = '';
+
+    // If the API returned no issues for this view (open/closed7)
+    if (base.length === 0) {
+      const msg =
+        mode === 'closed7'
+          ? 'No issues were closed in the last 7 days.'
+          : 'No open issues returned by the API.';
+      renderEmptyRow(tbody, 9, `${msg} Try switching the view or clearing filters.`);
+      document.getElementById(summaryId).textContent =
+        (mode === 'closed7')
+          ? '0 issues closed in last 7 days — SLA-applicable: 0, Over SLA: 0'
+          : '0 open issues — SLA-applicable: 0, Over SLA: 0';
+      updateSortArrows(tableId);
+      return;
+    }
+
     const filtered = base.filter(i => {
       const { status, nature, product } = classifyLabels(i.labels || []);
-      const matchNature  = selected.nature.size  ? nature.some(n => selected.nature.has(n))   : true;
+      const matchNature = selected.nature.size ? nature.some(n => selected.nature.has(n)) : true;
       const matchProduct = selected.product.size ? product.some(p => selected.product.has(p)) : true;
-      const matchStatus  = selected.status.size  ? status.some(s => selected.status.has(s))   : true;
+      const matchStatus = selected.status.size ? status.some(s => selected.status.has(s)) : true;
       return matchNature && matchProduct && matchStatus;
     });
 
-    const sorted = filtered.sort((a,b)=>{
-      let va,vb;
-      switch (sort.key){
-        case 'iid': va=Number(a.iid); vb=Number(b.iid); break;
-        case 'daysOpen': va=Number(a.daysOpen); vb=Number(b.daysOpen); break;
-        case 'dateCol': va=new Date(a.dateCol).getTime(); vb=new Date(b.dateCol).getTime(); break;
-        case 'slaRank': va=Number(a.slaRank); vb=Number(b.slaRank); break;
-        case 'title': default: va=(a.title||'').toLowerCase(); vb=(b.title||'').toLowerCase();
+    // If filters removed everything
+    if (filtered.length === 0) {
+      renderEmptyRow(tbody, 9, 'No issues match the current filters. Try clearing filters or switching the view.');
+      document.getElementById(summaryId).textContent =
+        (mode === 'closed7')
+          ? '0 issues closed in last 7 days — SLA-applicable: 0, Over SLA: 0'
+          : '0 open issues — SLA-applicable: 0, Over SLA: 0';
+      updateSortArrows(tableId);
+      return;
+    }
+
+    const sorted = filtered.sort((a, b) => {
+      let va, vb;
+      switch (sort.key) {
+        case 'iid': va = Number(a.iid); vb = Number(b.iid); break;
+        case 'daysOpen': va = Number(a.daysOpen); vb = Number(b.daysOpen); break;
+        case 'dateCol': va = new Date(a.dateCol).getTime(); vb = new Date(b.dateCol).getTime(); break;
+        case 'slaRank': va = Number(a.slaRank); vb = Number(b.slaRank); break;
+        case 'title':
+        default: va = (a.title || '').toLowerCase(); vb = (b.title || '').toLowerCase();
       }
-      if (va<vb) return sort.asc?-1:1;
-      if (va>vb) return sort.asc?1:-1;
+      if (va < vb) return sort.asc ? -1 : 1;
+      if (va > vb) return sort.asc ? 1 : -1;
       return 0;
     });
 
-    const tbody = document.querySelector(`#${tableId} tbody`);
-    const counters = { total:0, slaApplicable:0, over:0 };
+    const counters = { total: 0, slaApplicable: 0, over: 0 };
 
-    sorted.forEach(issue=>{
+    sorted.forEach(issue => {
       const dateShown = (mode === 'closed7' && issue.closed_at) ? new Date(issue.closed_at) : new Date(issue.created_at);
       const slaDays = issue.sla.days;
       const hasSLA = Number.isInteger(slaDays);
@@ -281,22 +334,24 @@ function renderIssues(){
       const saved = localStorage.getItem(key) || '';
 
       const { status, nature, product } = classifyLabels(issue.labels || []);
-      const badges = (arr) => arr.length ? arr.map(l => `<span class=\"badge\">${l}</span>`).join(' ') : '<span style=\"opacity:.5;\">—</span>';
+      const badges = (arr) => arr.length
+        ? arr.map(l => `<span class="badge">${l}</span>`).join(' ')
+        : '<span style="opacity:.5;">—</span>';
 
-      const statusCell = `<span class=\"${issue.slaClass}\">${issue.slaText}</span>`;
+      const statusCell = `<span class="${issue.slaClass}">${issue.slaText}</span>`;
 
       const tr = document.createElement('tr');
       tr.className = (mode === 'closed7') ? 'closed-issue' : '';
       tr.innerHTML = `
-        <td><a href=\"${issue.web_url}\" target=\"_blank\" style=\"color:var(--accent);\">#${issue.iid}</a></td>
-        <td>${issue.title}${mode === 'closed7' ? '<span class=\"closed-badge\">Closed</span>' : ''}</td>
+        <td><a href="${issue.web_url}" target="_blank" style="color:var(--accent);">#${issue.iid}</a></td>
+        <td>${issue.title}${mode === 'closed7' ? '<span class="closed-badge">Closed</span>' : ''}</td>
         <td>${dateShown.toLocaleDateString()}</td>
         <td>${issue.daysOpen}</td>
         <td>${statusCell}</td>
         <td>${badges(nature)}</td>
         <td>${badges(product)}</td>
         <td>${badges(status)}</td>
-        <td><textarea class=\"comment-box\" rows=\"2\" data-key=\"${key}\" oninput=\"saveComment('${key}', this.value)\">${saved}</textarea></td>
+        <td><textarea class="comment-box" rows="2" data-key="${key}" oninput="saveComment('${key}', this.value)">${saved}</textarea></td>
       `;
       tbody.appendChild(tr);
 
