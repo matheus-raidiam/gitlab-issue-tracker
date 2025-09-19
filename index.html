@@ -1,3 +1,8 @@
+---
+
+## `index.html` (atualizado)
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,15 +11,21 @@
 <title>GitLab Issues SLA Dashboard</title>
 <link rel="stylesheet" href="styles.css">
 <style>
-  /* vermelho suave para a tag Bug */
+  /* badge Bug (vermelho suave) */
   .badge-bug{
     background: rgba(239,68,68,.12);
     border: 1px solid rgba(239,68,68,.35);
     color: #fca5a5;
   }
-  /* card do resumo (usa o mesmo “look” dos filtros) */
-  .summary-card.filters-card{ padding:12px; }
+  /* summary card com o mesmo look dos filtros */
+  .summary-card.filters-card{ padding:12px; margin-top:10px; }
   .summary-title{ font-weight:600; display:block; margin-bottom:6px; }
+  /* comentários maiores por padrão */
+  textarea.comment-box{
+    width: 100%;
+    min-height: 120px;
+    resize: vertical;
+  }
 </style>
 </head>
 <body>
@@ -52,16 +63,9 @@
           <li><b>Questions</b>: 10 working days</li>
           <li><b>Under Evaluation</b> or <b>no tags</b>: 3 working days</li>
           <li><b>Under WG/DTO Evaluation</b>, <b>Waiting Participant</b>, <b>In Pipeline</b>, <b>Sandbox Testing</b>, <b>Waiting Deploy</b>, <b>Production Testing</b>: <i>SLA Paused</i></li>
-          <li>Working days = Mon–Fri (no holidays)</li>
         </ul>
       </div>
     </details>
-  </div>
-
-  <!-- Summary card (novo box) -->
-  <div class="filters-card summary-card">
-    <span class="summary-title">Summary</span>
-    <div id="finance-summary"></div>
   </div>
 
   <!-- Filters -->
@@ -158,6 +162,12 @@
           Open Finance Issues
         </a>
       </h2>
+
+      <!-- Summary box (agora aqui embaixo do título) -->
+      <div class="filters-card summary-card">
+        <span class="summary-title">Summary</span>
+        <div id="finance-summary"></div>
+      </div>
 
       <table id="finance-table">
         <thead>
