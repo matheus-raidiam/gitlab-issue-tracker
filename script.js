@@ -1,367 +1,378 @@
-
-/* ================= CONFIG ================= */
-const SLA_RULES_TEXT =
-  "SLA rules: Bug & Questions = 10 working days; Under Evaluation or no Nature = 3 working days; Under WG Evaluation, Waiting Participant or Production Testing = SLA Paused; Others = No SLA.";
-
-/* ================= STATE ================= */
-const issues = { finance: [], insurance: [] };
-const tableSort = {
-  'finance-table': { key: 'daysOpen', asc: false },
-  'insurance-table': { key: 'daysOpen', asc: false }
+// === Configuration ===
+const PROJECTS = {
+  finance: { id: 26426113, slug: 'raidiam-conformance/open-finance/certification' },
+  insurance: { id: 32299006, slug: 'raidiam-conformance/open-insurance/open-insurance-brasil' },
 };
-const STATUS_LABELS = new Set([
-  'Under Evaluation', 'Waiting Participant', 'Under WG Evaluation', 'Evaluated by WG', 'Production Testing'
+
+const NATURE_SLA = {
+  'Bug': 10,
+  'Questions': 10,
+  'Under Evaluation': 3,
+};
+
+const PAUSE_STATUSES = new Set([
+  'Under WG/DTO Evaluation',
+  'Waiting Participant',
+  'In Pipeline',
+  'Sandbox Testing',
+  'Waiting Deploy',
+  'Production Testing',
 ]);
-const NATURE_LABELS = new Set([
-  'Questions', 'Bug', 'Change Request', 'Test Improvement', 'Breaking Change'
-]);
 
-const selected = { nature: new Set(), product: new Set(), status: new Set() };
+// === State ===
+const state = {
+  view: 'open',
+  filters: { nature: new Set(), phase: new Set(), platform: new Set(), status: new Set(), product: new Set() },
+  sort: { finance: { key: 'iid', dir: 'asc' }, insurance: { key: 'iid', dir: 'asc' } },
+  issues: { finance: [], insurance: [] },
+};
 
-/* ================= UTILITIES ================= */
-function classifyLabels(labels = []) {
-  const status = [], nature = [], product = [];
-  labels.forEach(l => {
-    if (STATUS_LABELS.has(l)) status.push(l);
-    else if (NATURE_LABELS.has(l)) nature.push(l);
-    else product.push(l);
-  });
-  return { status, nature, product };
-}
+// === Utilities ===
+const fmtDate = (iso) => new Date(iso).toLocaleDateString();
 
-function workingDaysBetween(startDate, endDate) {
-  let count = 0;
-  const cur = new Date(startDate);
-  while (cur <= endDate) {
-    const d = cur.getDay();
-    if (d !== 0 && d !== 6) count++;
-    cur.setDate(cur.getDate() + 1);
+function workingDaysBetween(startISO, end = new Date()) {
+  const start = new Date(startISO);
+  const d = new Date(start);
+  let days = 0;
+  while (d <= end) {
+    const day = d.getDay();
+    if (day !== 0 && day !== 6 && !isHoliday(d)) days++;
+    d.setDate(d.getDate() + 1);
   }
-  return count;
+  return Math.max(0, days - 1);
 }
 
-// SLA mapping
-function getSLAFor(labels) {
-  const { status, nature } = classifyLabels(labels || []);
-  const hasBug = nature.includes('Bug');
-  const hasQuestions = nature.includes('Questions');
-  const underEval = status.includes('Under Evaluation');
-  const noNature = nature.length === 0;
+// Brazilian national holidays (2025–2030)
+function isHoliday(date) {
+  const year = date.getFullYear();
+  const fixed = [
+    '01-01', '04-21', '05-01', '09-07', '10-12',
+    '11-02', '11-15', '12-25'
+  ];
+  const mmdd = date.toISOString().slice(5, 10);
 
-  if (hasBug) return { days: 10, reason: 'Bug' };
-  if (underEval || noNature) return { days: 3, reason: underEval ? 'Under Evaluation' : 'No Nature' };
-  if (hasQuestions) return { days: 10, reason: 'Questions' };
-  return { days: null, reason: 'No SLA' };
+  if (fixed.includes(mmdd)) return true;
+  if (easterBased(year).includes(mmdd)) return true;
+  return false;
 }
 
-/* SLA text + sorting rank (includes "SLA Paused") */
-function slaLabelAndRank(issue) {
-  const labels = issue.labels || [];
-  const { status } = classifyLabels(labels);
+function easterBased(year) {
+  // Meeus/Jones/Butcher algorithm
+  const f = Math.floor,
+    a = year % 19,
+    b = f(year / 100),
+    c = year % 100,
+    d = f(b / 4),
+    e = b % 4,
+    g = f((8 * b + 13) / 25),
+    h = (19 * a + b - d - g + 15) % 30,
+    i = f(c / 4),
+    k = c % 4,
+    l = (32 + 2 * e + 2 * i - h - k) % 7,
+    m = f((a + 11 * h + 22 * l) / 451),
+    month = f((h + l - 7 * m + 114) / 31),
+    day = ((h + l - 7 * m + 114) % 31) + 1;
+  const easter = new Date(year, month - 1, day);
+  const fmt = (d) => d.toISOString().slice(5, 10);
 
-  const paused =
-    status.includes('Under WG Evaluation') ||
-    status.includes('Waiting Participant') ||
-    status.includes('Production Testing');
+  return [
+    fmt(new Date(easter)),                      // Easter Sunday
+    fmt(new Date(easter.getTime() - 2 * 86400000)), // Good Friday
+    fmt(new Date(easter.getTime() - 47 * 86400000)), // Carnival Tuesday
+    fmt(new Date(easter.getTime() - 48 * 86400000)), // Carnival Monday
+    fmt(new Date(easter.getTime() + 60 * 86400000))  // Corpus Christi
+  ];
+}
 
-  if (paused) {
-    return { text: 'SLA Paused', class: 'paused', rank: 2 };
+function pickLabelGroups(labels) {
+  const nature = [];
+  const phase = [];
+  const platform = [];
+  const status = [];
+  const product = [];
+
+  for (const l of labels) {
+    const base = l.split('::')[0].trim();
+
+    if (/^(Bug|Questions|Change Request|Test Improvement|Breaking Change)$/i.test(base)) {
+      nature.push(cap(base));
+    } else if (/^Phase\s?(1|2|3|4a|4b)$/i.test(base)) {
+      phase.push(cap(base));
+    } else if (/^(FVP|Mock Bank|Mock TPP|Conformance Suite)$/i.test(base)) {
+      platform.push(base);
+    } else if (/^(Under Evaluation|Waiting Participant|Under WG\/DTO Evaluation|In Pipeline|Sandbox Testing|Waiting Deploy|Production Testing)$/i.test(base)) {
+      status.push(base);
+    } else {
+      product.push(base);
+    }
+  }
+  return { nature, phase, platform, status, product };
+}
+
+function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function deriveSLA(issue) {
+  const { nature, status } = issue.groupedLabels;
+
+  if (status.some(s => PAUSE_STATUSES.has(s))) return { type: 'paused' };
+
+  const key = nature.find(n => NATURE_SLA[n] != null);
+  if (key) return { type: 'timed', limit: NATURE_SLA[key] };
+
+  if (nature.length === 0 || nature.includes('Under Evaluation')) return { type: 'timed', limit: 3 };
+  return { type: 'none' };
+}
+
+function evalSLAStatus(issue) {
+  const w = issue.workingDays;
+  const sla = deriveSLA(issue);
+
+  if (sla.type === 'paused') return { label: 'SLA Paused', cls: 'paused' };
+  if (sla.type === 'none') return { label: 'No SLA', cls: 'none' };
+  if (w > sla.limit) return { label: 'Over SLA', cls: 'over' };
+  return { label: 'Within SLA', cls: 'within' };
+}
+function uniq(arr){ return [...new Set(arr)]; }
+
+// === Fetch ===
+async function loadProjectIssues(projectId, view) {
+  const base = `https://gitlab.com/api/v4/projects/${projectId}/issues`;
+  const params = new URLSearchParams({
+    per_page: '100',
+    order_by: 'created_at',
+    sort: 'asc',
+  });
+  if (view === 'open') params.set('state', 'opened');
+  if (view === 'closed7') {
+    params.set('state', 'closed');
+    const since = new Date();
+    since.setDate(since.getDate() - 7);
+    params.set('updated_after', since.toISOString());
+  }
+  const url = `${base}?${params.toString()}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`GitLab ${projectId} ${res.status}`);
+  const raw = await res.json();
+  return raw.map(r => normalizeIssue(r));
+}
+
+function normalizeIssue(r) {
+  const groupedLabels = pickLabelGroups(r.labels || []);
+  const workingDays = workingDaysBetween(r.created_at);
+  return {
+    id: r.id,
+    iid: r.iid,
+    title: r.title,
+    web_url: r.web_url,
+    created_at: r.created_at,
+    labels: r.labels || [],
+    groupedLabels,
+    workingDays,
+    notes: readNote(r.web_url) || '',
+  };
+}
+
+// === Notes (localStorage) ===
+const NOTE_KEY = 'sla-notes-v1';
+function readAllNotes(){ try{ return JSON.parse(localStorage.getItem(NOTE_KEY)||'{}'); }catch{return{}} }
+function writeAllNotes(map){ localStorage.setItem(NOTE_KEY, JSON.stringify(map)); }
+function readNote(url){ const all = readAllNotes(); return all[url]; }
+function writeNote(url, val){ const all = readAllNotes(); all[url]=val; writeAllNotes(all); }
+function clearAllNotes(){ localStorage.removeItem(NOTE_KEY); }
+
+// === Rendering ===
+function renderTable(sectionKey) {
+  const table = document.getElementById(sectionKey+"Table");
+  const tbody = table.querySelector('tbody');
+  const issues = applyFiltersAndSort(state.issues[sectionKey], sectionKey);
+
+  tbody.innerHTML = issues.map(issue => {
+    const sla = evalSLAStatus(issue);
+    const labelsHTML = renderLabels(issue.groupedLabels);
+    return `
+      <tr>
+        <td><a href="${issue.web_url}" target="_blank" rel="noreferrer">#${issue.iid}</a></td>
+        <td>${escapeHtml(issue.title)}</td>
+        <td>${fmtDate(issue.created_at)}</td>
+        <td>${issue.workingDays}</td>
+        <td><span class="sla ${sla.cls}">${sla.label}</span></td>
+        <td>${labelsHTML}</td>
+        <td>
+          <textarea class="note" data-url="${issue.web_url}" placeholder="Add a note…">${issue.notes||''}</textarea>
+          <button class="btn-ghost editNoteBtn" data-url="${issue.web_url}">Edit</button>
+        </td>
+      </tr>`;
+  }).join('');
+
+  // Empty state
+  const empty = document.getElementById(sectionKey+"Empty");
+  empty.classList.toggle('hidden', issues.length>0);
+  if (issues.length===0){
+    empty.textContent = state.view==='closed7' ?
+      'No issues closed in the last 7 days that match your filters.' :
+      'No open issues match your filters.';
   }
 
-  const slaDays = issue.sla.days;
-  const hasSLA = Number.isInteger(slaDays);
-  const over = hasSLA ? issue.daysOpen > slaDays : false;
+  // Summary
+  const sumEl = document.getElementById(sectionKey+"Summary");
+  const totals = summarize(issues);
+  sumEl.textContent = `Total: ${totals.total} • SLA-applicable: ${totals.applicable} • Over SLA: ${totals.over}`;
 
-  if (!hasSLA) return { text: 'No SLA', class: 'nosla', rank: 0 };
-  if (over) return { text: 'Over SLA', class: 'over-sla', rank: 3 };
-  return { text: 'Within SLA', class: 'within-sla', rank: 1 };
-}
-
-function setLoading(on) { document.getElementById('loading').style.display = on ? 'block' : 'none'; }
-function saveComment(key, value) { localStorage.setItem(key, value); }
-function clearAllComments() {
-  document.querySelectorAll('.comment-box').forEach(a => {
-    localStorage.removeItem(a.dataset.key);
-    a.value = '';
+  // Notes listeners
+  tbody.querySelectorAll('textarea.note').forEach(t => {
+    t.addEventListener('input', (e)=> writeNote(e.target.dataset.url, e.target.value));
+  });
+  tbody.querySelectorAll('.editNoteBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=> openModal(btn.dataset.url));
   });
 }
 
-/* ================= FILTER UI ================= */
-function renderFilterMenus() {
-  const natureSet = new Set(), productSet = new Set(), statusSet = new Set();
-  [...issues.finance, ...issues.insurance].forEach(i => {
-    const { status, nature, product } = classifyLabels(i.labels || []);
-    status.forEach(l => statusSet.add(l));
-    nature.forEach(l => natureSet.add(l));
-    product.forEach(l => productSet.add(l));
-  });
+function summarize(list){
+  const app = list.filter(i=>['within','over','paused'].includes(evalSLAStatus(i).cls));
+  const over = list.filter(i=>evalSLAStatus(i).cls==='over');
+  return { total:list.length, applicable:app.length, over:over.length };
+}
 
-  const fill = (containerId, values, cat) => {
-    const container = document.getElementById(containerId);
-    container.querySelectorAll('.row').forEach(r => r.remove());
-    [...values].sort().forEach(tag => {
-      const row = document.createElement('div');
-      row.className = 'row';
-      const id = `${cat}-${tag.replace(/[^a-z0-9-_]+/gi, '_')}`;
-      row.innerHTML = `
-        <input type="checkbox" id="${id}" ${selected[cat].has(tag) ? 'checked' : ''} />
-        <label for="${id}">${tag}</label>
-      `;
-      row.querySelector('input').addEventListener('change', (e) => {
-        if (e.target.checked) selected[cat].add(tag); else selected[cat].delete(tag);
-        updateCounts(); renderChips(); renderIssues();
+function renderLabels(groups){
+  const render = (arr, cls) => arr.map(l=>`<span class="label ${cls}">${escapeHtml(l)}</span>`).join(' ');
+  return `<div class="label-group">${render(groups.nature,'nature')}${render(groups.phase,'phase')}${render(groups.platform,'platform')}${render(groups.status,'status')}${render(groups.product,'product')}</div>`;
+}
+
+function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+
+function applyFiltersAndSort(list, sectionKey){
+  const { nature, phase, platform, status, product } = state.filters;
+  let out = list.filter(it => (
+    (nature.size===0 || it.groupedLabels.nature.some(l=>nature.has(l))) &&
+    (phase.size===0 || it.groupedLabels.phase.some(l=>phase.has(l))) &&
+    (platform.size===0 || it.groupedLabels.platform.some(l=>platform.has(l))) &&
+    (status.size===0 || it.groupedLabels.status.some(l=>status.has(l))) &&
+    (product.size===0 || it.groupedLabels.product.some(l=>product.has(l)))
+  ));
+  const { key, dir } = state.sort[sectionKey];
+  out.sort((a,b)=>{
+    const va = key==='sla' ? evalSLAStatus(a).label : a[key];
+    const vb = key==='sla' ? evalSLAStatus(b).label : b[key];
+    return (va>vb?1:va<vb?-1:0) * (dir==='asc'?1:-1);
+  });
+  return out;
+}
+
+function initSort(){
+  ['finance','insurance'].forEach(sectionKey=>{
+    document.querySelectorAll(`#${sectionKey}Table th[data-sort]`).forEach(th=>{
+      th.addEventListener('click', ()=>{
+        const key = th.getAttribute('data-sort');
+        const cur = state.sort[sectionKey];
+        state.sort[sectionKey] = { key, dir: (cur.key===key && cur.dir==='asc') ? 'desc' : 'asc' };
+        document.querySelectorAll(`#${sectionKey}Table th`).forEach(t=>t.classList.remove('sorted-asc','sorted-desc'));
+        th.classList.add(state.sort[sectionKey].dir==='asc'?'sorted-asc':'sorted-desc');
+        renderTable(sectionKey);
       });
-      container.appendChild(row);
+    });
+  });
+}
+
+function buildFilterChips(){
+  const all = { nature:new Set(), phase:new Set(), platform:new Set(), status:new Set(), product:new Set() };
+  ['finance','insurance'].forEach(key=>{
+    state.issues[key].forEach(i=>{
+      i.groupedLabels.nature.forEach(l=>all.nature.add(l));
+      i.groupedLabels.phase.forEach(l=>all.phase.add(l));
+      i.groupedLabels.platform.forEach(l=>all.platform.add(l));
+      i.groupedLabels.status.forEach(l=>all.status.add(l));
+      i.groupedLabels.product.forEach(l=>all.product.add(l));
+    });
+  });
+  const mount = (id, pool, set) => {
+    const host = document.getElementById(id);
+    host.innerHTML = [...pool].sort().map(l=>`<span class="chip ${set.has(l)?'on':''}" data-val="${l}">${l}</span>`).join('');
+    host.querySelectorAll('.chip').forEach(ch=>{
+      ch.addEventListener('click',()=>{
+        const v = ch.getAttribute('data-val');
+        if (set.has(v)) set.delete(v); else set.add(v);
+        ch.classList.toggle('on');
+        renderTable('finance');
+        renderTable('insurance');
+      });
     });
   };
-
-  fill('menu-nature', natureSet, 'nature');
-  fill('menu-product', productSet, 'product');
-  fill('menu-status', statusSet, 'status');
-
-  updateCounts(); renderChips();
+  mount('natureChips', all.nature, state.filters.nature);
+  mount('phaseChips', all.phase, state.filters.phase);
+  mount('platformChips', all.platform, state.filters.platform);
+  mount('statusChips', all.status, state.filters.status);
+  mount('productChips', all.product, state.filters.product);
 }
 
-function updateCounts() {
-  document.getElementById('count-nature').textContent = selected.nature.size;
-  document.getElementById('count-product').textContent = selected.product.size;
-  document.getElementById('count-status').textContent = selected.status.size;
-}
+async function refresh() {
+  document.getElementById('financeLink').href = `https://gitlab.com/${PROJECTS.finance.slug}/-/issues`;
+  document.getElementById('insuranceLink').href = `https://gitlab.com/${PROJECTS.insurance.slug}/-/issues`;
 
-function clearCategory(cat) {
-  selected[cat].clear();
-  renderFilterMenus(); renderIssues();
-}
-
-function renderChips() {
-  const chips = document.getElementById('chips');
-  chips.innerHTML = '';
-  ['nature', 'product', 'status'].forEach(cat => {
-    selected[cat].forEach(tag => {
-      const el = document.createElement('span');
-      el.className = 'chip';
-      el.innerHTML = `${cat}: ${tag} <span class="x" title="Remove">✕</span>`;
-      el.querySelector('.x').onclick = () => {
-        selected[cat].delete(tag);
-        renderFilterMenus(); renderIssues();
-      };
-      chips.appendChild(el);
-    });
-  });
-}
-
-function resetAllFilters() {
-  selected.nature.clear(); selected.product.clear(); selected.status.clear();
-  document.querySelectorAll('.filter details[open]').forEach(d => { d.open = false; });
-  renderFilterMenus(); renderIssues();
-}
-
-/* Collapse filters when clicking outside */
-document.addEventListener('click', (e) => {
-  const insideFilter = e.target.closest('.filter');
-  if (!insideFilter) {
-    document.querySelectorAll('.filter details[open]').forEach(d => d.removeAttribute('open'));
-  }
-});
-
-/* ================= SORTING ================= */
-function changeSort(tableId, key) {
-  const s = tableSort[tableId];
-  if (s.key === key) s.asc = !s.asc; else { s.key = key; s.asc = (key === 'title'); }
-  updateSortArrows(tableId); renderIssues();
-}
-
-function updateSortArrows(tableId) {
-  const table = document.getElementById(tableId);
-  table.querySelectorAll('.sort-arrow').forEach(el => el.textContent = '');
-  const s = tableSort[tableId];
-  const arrow = table.querySelector(`.sort-arrow[data-for="${s.key}"]`);
-  if (arrow) arrow.textContent = s.asc ? '▲' : '▼';
-}
-
-function getViewMode() { return document.getElementById('viewMode').value; }
-
-/* ================= DATA ================= */
-async function loadAllIssues() {
-  setLoading(true);
-  issues.finance = []; issues.insurance = [];
-
-  const mode = getViewMode();
-  document.getElementById('finance-date-label').textContent = mode === 'closed7' ? 'Closed At' : 'Created At';
-  document.getElementById('insurance-date-label').textContent = mode === 'closed7' ? 'Closed At' : 'Created At';
-
-  await Promise.all([
-    loadProjectIssues(26426113, 'finance'),
-    loadProjectIssues(32299006, 'insurance')
+  const view = state.view;
+  const [finance, insurance] = await Promise.all([
+    loadProjectIssues(PROJECTS.finance.id, view),
+    loadProjectIssues(PROJECTS.insurance.id, view),
   ]);
-
-  renderFilterMenus();
-  updateSortArrows('finance-table');
-  updateSortArrows('insurance-table');
-  renderIssues();
-  setLoading(false);
-}
-
-async function loadProjectIssues(projectId, key) {
-  const mode = getViewMode();
-  const now = new Date();
-  const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(now.getDate() - 7);
-  const since = sevenDaysAgo.toISOString();
-
-  let url = `https://gitlab.com/api/v4/projects/${projectId}/issues`;
-  if (mode === 'closed7') url += `?state=closed&updated_after=${since}`;
-  else url += `?state=opened`;
-
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-
-    let list = data.map(issue => ({ ...issue, projectId }));
-    if (mode === 'closed7') {
-      const cutoff = new Date(since);
-      list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff);
-    }
-    issues[key] = list;
-  } catch (err) {
-    console.error('Failed to load issues', { projectId, err });
-    issues[key] = [];
-  }
-}
-
-/* ================= RENDER ================= */
-function renderEmptyRow(tbody, colspan, message) {
-  const tr = document.createElement('tr');
-  tr.className = 'empty-state';
-  tr.innerHTML = `<td class="empty-cell" colspan="${colspan}">${message}</td>`;
-  tbody.appendChild(tr);
-}
-
-function renderIssues() {
-  const mode = getViewMode();
-  document.querySelectorAll('tbody').forEach(tb => tb.innerHTML = '');
-
-  const now = new Date();
-  const decorate = (list) => list.map(i => {
-    const created = new Date(i.created_at);
-    const endDate = (mode === 'closed7' && i.closed_at) ? new Date(i.closed_at) : now;
-    const daysOpen = workingDaysBetween(created, endDate);
-    const sla = getSLAFor(i.labels || []);
-    const base = { ...i, daysOpen, dateCol: (mode === 'closed7' && i.closed_at) ? i.closed_at : i.created_at, sla };
-    const { text, rank, class: klass } = slaLabelAndRank(base);
-    return { ...base, slaText: text, slaRank: rank, slaClass: klass };
-  });
-
+  state.issues.finance = finance;
+  state.issues.insurance = insurance;
+  buildFilterChips();
   renderTable('finance');
   renderTable('insurance');
-
-  function renderTable(which) {
-    const tableId = which === 'finance' ? 'finance-table' : 'insurance-table';
-    const summaryId = which === 'finance' ? 'finance-summary' : 'insurance-summary';
-    const sort = tableSort[tableId];
-
-    const base = decorate(issues[which]);
-
-    const tbody = document.querySelector(`#${tableId} tbody`);
-    tbody.innerHTML = '';
-
-    // If the data source returned no issues for this view (open/closed7)
-    if (base.length === 0) {
-      const msg = (mode === 'closed7')
-        ? 'No issues were closed in the last 7 days.'
-        : 'No open issues at the moment.';
-      renderEmptyRow(tbody, 9, msg);
-      document.getElementById(summaryId).textContent =
-        (mode === 'closed7')
-          ? '0 issues closed in last 7 days — SLA-applicable: 0, Over SLA: 0'
-          : '0 open issues — SLA-applicable: 0, Over SLA: 0';
-      updateSortArrows(tableId);
-      return;
-    }
-
-    const filtered = base.filter(i => {
-      const { status, nature, product } = classifyLabels(i.labels || []);
-      const matchNature = selected.nature.size ? nature.some(n => selected.nature.has(n)) : true;
-      const matchProduct = selected.product.size ? product.some(p => selected.product.has(p)) : true;
-      const matchStatus = selected.status.size ? status.some(s => selected.status.has(s)) : true;
-      return matchNature && matchProduct && matchStatus;
-    });
-
-    // If filters removed everything
-    if (filtered.length === 0) {
-      renderEmptyRow(tbody, 9, 'No issues match the selected filters. Try clearing filters or switching the view.');
-      document.getElementById(summaryId).textContent =
-        (mode === 'closed7')
-          ? '0 issues closed in last 7 days — SLA-applicable: 0, Over SLA: 0'
-          : '0 open issues — SLA-applicable: 0, Over SLA: 0';
-      updateSortArrows(tableId);
-      return;
-    }
-
-    const sorted = filtered.sort((a, b) => {
-      let va, vb;
-      switch (sort.key) {
-        case 'iid': va = Number(a.iid); vb = Number(b.iid); break;
-        case 'daysOpen': va = Number(a.daysOpen); vb = Number(b.daysOpen); break;
-        case 'dateCol': va = new Date(a.dateCol).getTime(); vb = new Date(b.dateCol).getTime(); break;
-        case 'slaRank': va = Number(a.slaRank); vb = Number(b.slaRank); break;
-        case 'title':
-        default: va = (a.title || '').toLowerCase(); vb = (b.title || '').toLowerCase();
-      }
-      if (va < vb) return sort.asc ? -1 : 1;
-      if (va > vb) return sort.asc ? 1 : -1;
-      return 0;
-    });
-
-    const counters = { total: 0, slaApplicable: 0, over: 0 };
-
-    sorted.forEach(issue => {
-      const dateShown = (mode === 'closed7' && issue.closed_at) ? new Date(issue.closed_at) : new Date(issue.created_at);
-      const slaDays = issue.sla.days;
-      const hasSLA = Number.isInteger(slaDays);
-      const over = hasSLA ? (issue.daysOpen > slaDays) : false;
-
-      const key = `comment-${issue.projectId}-${issue.iid}`;
-      const saved = localStorage.getItem(key) || '';
-
-      const { status, nature, product } = classifyLabels(issue.labels || []);
-      const badges = (arr) => arr.length
-        ? arr.map(l => `<span class="badge">${l}</span>`).join(' ')
-        : '<span style="opacity:.5;">—</span>';
-
-      const statusCell = `<span class="${issue.slaClass}">${issue.slaText}</span>`;
-
-      const tr = document.createElement('tr');
-      tr.className = (mode === 'closed7') ? 'closed-issue' : '';
-      tr.innerHTML = `
-        <td><a href="${issue.web_url}" target="_blank" style="color:var(--accent);">#${issue.iid}</a></td>
-        <td>${issue.title}${mode === 'closed7' ? '<span class="closed-badge">Closed</span>' : ''}</td>
-        <td>${dateShown.toLocaleDateString()}</td>
-        <td>${issue.daysOpen}</td>
-        <td>${statusCell}</td>
-        <td>${badges(nature)}</td>
-        <td>${badges(product)}</td>
-        <td>${badges(status)}</td>
-        <td><textarea class="comment-box" rows="2" data-key="${key}" oninput="saveComment('${key}', this.value)">${saved}</textarea></td>
-      `;
-      tbody.appendChild(tr);
-
-      counters.total++;
-      if (hasSLA) { counters.slaApplicable++; if (over) counters.over++; }
-    });
-
-    document.getElementById(summaryId).textContent =
-      (mode === 'closed7')
-        ? `${counters.total} issues closed in last 7 days — SLA-applicable: ${counters.slaApplicable}, Over SLA: ${counters.over}`
-        : `${counters.total} open issues — SLA-applicable: ${counters.slaApplicable}, Over SLA: ${counters.over}`;
-
-    updateSortArrows(tableId);
-  }
 }
 
-/* ================= INIT ================= */
-document.addEventListener('DOMContentLoaded', () => {
-  const p = document.getElementById('sla-rules');
-  if (p) p.textContent = SLA_RULES_TEXT;
-  loadAllIssues();
-});
+function init() {
+  document.getElementById('viewSelect').addEventListener('change', e=>{
+    state.view = e.target.value;
+    refresh();
+  });
+  document.getElementById('refreshBtn').addEventListener('click', refresh);
+  document.getElementById('resetFiltersBtn').addEventListener('click', ()=>{
+    Object.values(state.filters).forEach(set => set.clear());
+    buildFilterChips();
+    renderTable('finance');
+    renderTable('insurance');
+  });
+  document.getElementById('clearNotesBtn').addEventListener('click', ()=>{
+    if (confirm('Clear ALL comments for all issues?')) { clearAllNotes(); refresh(); }
+  });
+  initSort();
+  refresh();
+}
+
+window.addEventListener('DOMContentLoaded', init);
+
+// === Modal for editing notes ===
+function openModal(url) {
+  const current = readNote(url) || '';
+  const overlay = document.createElement('div');
+  overlay.style.position='fixed';
+  overlay.style.top=0; overlay.style.left=0; overlay.style.right=0; overlay.style.bottom=0;
+  overlay.style.background='rgba(0,0,0,0.6)';
+  overlay.style.display='flex'; overlay.style.alignItems='center'; overlay.style.justifyContent='center';
+  overlay.style.zIndex=1000;
+
+  const box = document.createElement('div');
+  box.style.background='#111827'; box.style.padding='20px'; box.style.borderRadius='12px'; box.style.width='500px'; box.style.maxWidth='90%';
+
+  const textarea = document.createElement('textarea');
+  textarea.className='note-large';
+  textarea.value=current;
+  box.appendChild(textarea);
+
+  const actions = document.createElement('div');
+  actions.style.marginTop='10px'; actions.style.textAlign='right';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className='btn'; saveBtn.textContent='Save';
+  saveBtn.onclick=()=>{ writeNote(url, textarea.value); document.body.removeChild(overlay); refresh(); };
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className='btn-outline'; cancelBtn.style.marginLeft='8px'; cancelBtn.textContent='Cancel';
+  cancelBtn.onclick=()=>{ document.body.removeChild(overlay); };
+
+  actions.appendChild(saveBtn); actions.appendChild(cancelBtn);
+  box.appendChild(actions);
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
