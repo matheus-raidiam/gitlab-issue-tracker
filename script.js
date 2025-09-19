@@ -1,16 +1,13 @@
-/* ================= CONFIG ================= */
-// Open Finance only
+* ================= CONFIG ================= */
 const issues = { finance: [] };
 
-/* Ordenação padrão: ID desc (mais recente primeiro) */
+/* Ordenação padrão por ID desc (mais recente primeiro) */
 const tableSort = { 'finance-table': { key: 'iid', asc: false } };
 
-/* Conjuntos de labels por grupo */
 const STATUS_LABELS = new Set([
   'Under Evaluation',
   'Waiting Participant',
   'Under WG/DTO Evaluation',
-  'Evaluated by WG/DTO',
   'In Pipeline',
   'Sandbox Testing',
   'Waiting Deploy',
@@ -18,52 +15,41 @@ const STATUS_LABELS = new Set([
 ]);
 
 const NATURE_LABELS = new Set([
-  'Questions', 'Bug', 'Change Request', 'Test Improvement', 'Breaking Change',
+  'Questions', 'Bug', 'Change Request', 'Test Improvement', 'Breaking Change'
 ]);
 
 const PLATFORM_LABELS = new Set(['FVP','Mock Bank','Mock TPP','Conformance Suite']);
-
-/* Filtros ativos */
-const selected = {
-  nature: new Set(), phase: new Set(), platform: new Set(), product: new Set(), status: new Set()
-};
-
-/* ================= NORMALIZAÇÃO DE LABELS ================= */
 const PHASE_RE = /^(?:phase)\s*(1|2|3|4a|4b)$/i;
 
+const selected = { nature: new Set(), phase: new Set(), platform: new Set(), product: new Set(), status: new Set() };
+
+/* ================= UTILITIES ================= */
 function baseLabel(l) { return String(l || '').split('::')[0].trim(); }
 
 function canonLabel(l) {
   const s = baseLabel(l);
-
-  // Nature
   if (/^bug$/i.test(s)) return 'Bug';
   if (/^questions?$/i.test(s)) return 'Questions';
   if (/^change\s*request$/i.test(s)) return 'Change Request';
   if (/^test\s*improvement$/i.test(s)) return 'Test Improvement';
   if (/^breaking\s*change$/i.test(s)) return 'Breaking Change';
 
-  // Status (todas as variações mapeadas)
   if (/^under\s*evaluation$/i.test(s)) return 'Under Evaluation';
   if (/^waiting\s*participant$/i.test(s)) return 'Waiting Participant';
   if (/^under\s*wg\/?dto\s*evaluation$/i.test(s)) return 'Under WG/DTO Evaluation';
-  if (/^evaluated\s*by\s*wg\/?dto$/i.test(s)) return 'Evaluated by WG/DTO';
   if (/^in\s*pipeline$/i.test(s)) return 'In Pipeline';
   if (/^sandbox\s*testing$/i.test(s)) return 'Sandbox Testing';
   if (/^waiting\s*deploy$/i.test(s)) return 'Waiting Deploy';
   if (/^production\s*testing$/i.test(s)) return 'Production Testing';
 
-  // Platform
   if (/^fvp$/i.test(s)) return 'FVP';
   if (/^mock\s*bank$/i.test(s)) return 'Mock Bank';
   if (/^mock\s*tpp$/i.test(s)) return 'Mock TPP';
   if (/^conformance\s*suite$/i.test(s)) return 'Conformance Suite';
 
-  // Phase
   const pm = s.match(PHASE_RE);
-  if (pm) return `Phase ${pm[1].toLowerCase()}`.replace(/\b\w/g, c => c.toUpperCase());
+  if (pm) return `Phase ${pm[1].toLowerCase()}`.replace(/\b\w/g,c=>c.toUpperCase());
 
-  // Fallback (vira Product)
   return s;
 }
 
@@ -80,7 +66,6 @@ function classifyLabels(labels = []) {
   return { status, nature, product, phase, platform };
 }
 
-/* ================= DIAS ÚTEIS ================= */
 function workingDaysBetween(startDate, endDate) {
   let count = 0;
   const cur = new Date(startDate);
@@ -92,8 +77,7 @@ function workingDaysBetween(startDate, endDate) {
   return count;
 }
 
-/* ================= SLA ================= */
-// Regra: Bug sempre 10 dias úteis (bypass pausa)
+// SLA mapping — Bug sempre 10d úteis (bypass pausa)
 function getSLAFor(labels) {
   const { status, nature } = classifyLabels(labels || []);
   const hasBug = nature.includes('Bug');
@@ -112,13 +96,12 @@ function slaLabelAndRank(issue) {
   const { status, nature } = classifyLabels(labels);
   const isBug = nature.includes('Bug');
 
-  // Pausa (exceto Bug)
   const paused = !isBug && (
     status.includes('Under WG/DTO Evaluation') ||
-    status.includes('Waiting Participant')   ||
-    status.includes('In Pipeline')           ||
-    status.includes('Sandbox Testing')       ||
-    status.includes('Waiting Deploy')        ||
+    status.includes('Waiting Participant') ||
+    status.includes('In Pipeline') ||
+    status.includes('Sandbox Testing') ||
+    status.includes('Waiting Deploy') ||
     status.includes('Production Testing')
   );
 
@@ -133,7 +116,7 @@ function slaLabelAndRank(issue) {
   return { text: 'Within SLA', class: 'within-sla', rank: 1 };
 }
 
-/* ================= NOTAS ================= */
+function setLoading(on) { document.getElementById('loading').style.display = on ? 'block' : 'none'; }
 function saveComment(key, value) { localStorage.setItem(key, value); }
 function clearAllComments() {
   if (!confirm('Are you sure you want to clear ALL comments? This cannot be undone.')) return;
@@ -143,11 +126,9 @@ function clearAllComments() {
   });
 }
 
-/* ================= FILTROS (UI) ================= */
+/* ================= FILTER UI ================= */
 function renderFilterMenus() {
-  const natureSet = new Set(), phaseSet = new Set(), platformSet = new Set(),
-        productSet = new Set(), statusSet = new Set();
-
+  const natureSet = new Set(), phaseSet = new Set(), platformSet = new Set(), productSet = new Set(), statusSet = new Set();
   issues.finance.forEach(i => {
     const { status, nature, product, phase, platform } = classifyLabels(i.labels || []);
     status.forEach(l => statusSet.add(l));
@@ -176,21 +157,21 @@ function renderFilterMenus() {
     });
   };
 
-  fill('menu-nature',   natureSet,   'nature');
-  fill('menu-phase',    phaseSet,    'phase');
+  fill('menu-nature', natureSet, 'nature');
+  fill('menu-phase', phaseSet, 'phase');
   fill('menu-platform', platformSet, 'platform');
-  fill('menu-product',  productSet,  'product');
-  fill('menu-status',   statusSet,   'status');
+  fill('menu-product', productSet, 'product');
+  fill('menu-status', statusSet, 'status');
 
   updateCounts(); renderChips();
 }
 
 function updateCounts() {
-  document.getElementById('count-nature').textContent   = selected.nature.size;
-  document.getElementById('count-phase').textContent    = selected.phase.size;
+  document.getElementById('count-nature').textContent = selected.nature.size;
+  document.getElementById('count-phase').textContent = selected.phase.size;
   document.getElementById('count-platform').textContent = selected.platform.size;
-  document.getElementById('count-product').textContent  = selected.product.size;
-  document.getElementById('count-status').textContent   = selected.status.size;
+  document.getElementById('count-product').textContent = selected.product.size;
+  document.getElementById('count-status').textContent = selected.status.size;
 }
 
 function clearCategory(cat) {
@@ -201,7 +182,7 @@ function clearCategory(cat) {
 function renderChips() {
   const chips = document.getElementById('chips');
   chips.innerHTML = '';
-  ['nature','phase','platform','product','status'].forEach(cat => {
+  ['nature', 'phase', 'platform', 'product', 'status'].forEach(cat => {
     selected[cat].forEach(tag => {
       const el = document.createElement('span');
       el.className = 'chip';
@@ -244,7 +225,7 @@ function updateSortArrows(tableId) {
 }
 function getViewMode() { return document.getElementById('viewMode').value; }
 
-/* ================= MODAL (editor grande) ================= */
+/* ================= NOTE MODAL ================= */
 let editorKey = null;
 const modalEl = () => document.getElementById('noteModal');
 const editorTitleEl = () => document.getElementById('noteEditorTitle');
@@ -267,15 +248,12 @@ function saveEditor(){
 }
 
 /* ================= DATA ================= */
-function setLoading(on) { document.getElementById('loading').style.display = on ? 'block' : 'none'; }
-
 async function loadAllIssues() {
   setLoading(true);
   issues.finance = [];
 
   const mode = getViewMode();
-  document.getElementById('finance-date-label').textContent =
-    mode === 'closed7' ? 'Closed At' : 'Created At';
+  document.getElementById('finance-date-label').textContent = mode === 'closed7' ? 'Closed At' : 'Created At';
 
   await loadProjectIssues(26426113, 'finance');
 
@@ -292,10 +270,8 @@ async function loadProjectIssues(projectId, key) {
   const since = sevenDaysAgo.toISOString();
 
   let url = `https://gitlab.com/api/v4/projects/${projectId}/issues`;
-  if (mode === 'closed7')
-    url += `?state=closed&per_page=100&order_by=created_at&sort=asc&updated_after=${since}`;
-  else
-    url += `?state=opened&per_page=100&order_by=created_at&sort=asc`;
+  if (mode === 'closed7') url += `?state=closed&per_page=100&order_by=created_at&sort=asc&updated_after=${since}`;
+  else url += `?state=opened&per_page=100&order_by=created_at&sort=asc`;
 
   try {
     const res = await fetch(url);
@@ -321,8 +297,6 @@ function renderEmptyRow(tbody, colspan, message) {
   tr.innerHTML = `<td class="empty-cell" colspan="${colspan}">${message}</td>`;
   tbody.appendChild(tr);
 }
-
-function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
 
 function renderIssues() {
   const mode = getViewMode();
@@ -401,10 +375,7 @@ function renderIssues() {
 
   sorted.forEach(issue => {
     const modeNow = getViewMode();
-    const dateShown = (modeNow === 'closed7' && issue.closed_at)
-      ? new Date(issue.closed_at)
-      : new Date(issue.created_at);
-
+    const dateShown = (modeNow === 'closed7' && issue.closed_at) ? new Date(issue.closed_at) : new Date(issue.created_at);
     const slaDays = issue.sla.days;
     const hasSLA = (modeNow !== 'closed7') && Number.isInteger(slaDays);
     const over = hasSLA ? (issue.daysOpen > slaDays) : false;
@@ -413,13 +384,9 @@ function renderIssues() {
     const saved = localStorage.getItem(key) || '';
 
     const { status, nature, product, phase, platform } = classifyLabels(issue.labels || []);
-
-    // badges (sem alterar seu tema; só adiciona classes extras quando necessário)
     const badges = (arr) => arr.length
       ? arr.map(l => {
-          const extra =
-            (l === 'Bug') ? ' badge-bug' :
-            (l === 'Under WG/DTO Evaluation') ? ' badge-status-ugdto' : '';
+          const extra = (l === 'Bug') ? ' badge-bug' : '';
           return `<span class="badge${extra}">${l}</span>`;
         }).join(' ')
       : '<span style="opacity:.5;">—</span>';
@@ -434,7 +401,7 @@ function renderIssues() {
       <td><a href="${issue.web_url}" target="_blank" style="color:var(--accent);">#${issue.iid}</a></td>
       <td>${issue.title}${modeNow === 'closed7' ? '<span class="closed-badge">Closed</span>' : ''}</td>
       <td>${dateShown.toLocaleDateString()}</td>
-      <td style="text-align:center">${issue.daysOpen}</td>
+      <td>${issue.daysOpen}</td>
       <td>${statusCell}</td>
       <td>${badges(nature)}</td>
       <td>${badges(phase)}</td>
@@ -450,11 +417,10 @@ function renderIssues() {
     `;
     tbody.appendChild(tr);
 
-    // sync do textarea pequeno
+    // sync comentário
     const small = tr.querySelector(`textarea.comment-box[data-key="${key}"]`);
     small.addEventListener('input', e=> localStorage.setItem(key, e.target.value));
 
-    // abrir editor grande
     const btn = tr.querySelector(`button.open-editor[data-key="${key}"]`);
     btn.onclick = () => openEditor(
       key,
@@ -466,6 +432,7 @@ function renderIssues() {
     if (hasSLA) { counters.slaApplicable++; if (over) counters.over++; }
   });
 
+  // resumo — em Open mostra “public open issues”
   document.getElementById('finance-summary').textContent =
     (mode === 'closed7')
       ? `${counters.total} issues closed in last 7 days`
@@ -474,14 +441,16 @@ function renderIssues() {
   updateSortArrows('finance-table');
 }
 
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
+
 /* ================= INIT ================= */
 document.addEventListener('DOMContentLoaded', () => {
   // modal
-  const m = document.getElementById('noteModal');
-  if (m) {
-    document.getElementById('noteEditorClose').onclick = closeEditor;
-    document.getElementById('noteEditorSave').onclick = saveEditor;
-    m.addEventListener('click', (e)=> { if (e.target.id === 'noteModal') closeEditor(); });
-  }
+  document.getElementById('noteEditorClose').onclick = closeEditor;
+  document.getElementById('noteEditorSave').onclick = saveEditor;
+  document.getElementById('noteModal').addEventListener('click', (e)=>{
+    if (e.target.id === 'noteModal') closeEditor();
+  });
+
   loadAllIssues();
 });
