@@ -5,6 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>GitLab Issues SLA Dashboard</title>
 <link rel="stylesheet" href="styles.css">
+<style>
+  /* vermelho suave para a tag Bug */
+  .badge-bug{
+    background: rgba(239,68,68,.12);
+    border: 1px solid rgba(239,68,68,.35);
+    color: #fca5a5;
+  }
+  /* card do resumo (usa o mesmo “look” dos filtros) */
+  .summary-card.filters-card{ padding:12px; }
+  .summary-title{ font-weight:600; display:block; margin-bottom:6px; }
+</style>
 </head>
 <body>
   <header>
@@ -45,6 +56,12 @@
         </ul>
       </div>
     </details>
+  </div>
+
+  <!-- Summary card (novo box) -->
+  <div class="filters-card summary-card">
+    <span class="summary-title">Summary</span>
+    <div id="finance-summary"></div>
   </div>
 
   <!-- Filters -->
@@ -120,7 +137,7 @@
     <div class="chips" id="chips"></div>
   </div>
 
-  <!-- NOTE MODAL (popup leve e integrado) -->
+  <!-- NOTE MODAL (leve e centralizado) -->
   <div id="noteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;">
     <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(900px,92vw);max-height:80vh;overflow:auto;background:var(--panel,#111827);border:1px solid #1f2937;border-radius:12px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.4)">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
@@ -141,7 +158,7 @@
           Open Finance Issues
         </a>
       </h2>
-      <div class="summary" id="finance-summary"></div>
+
       <table id="finance-table">
         <thead>
           <tr>
@@ -164,7 +181,7 @@
   </div>
 
   <footer>
-    <p id="sla-rules"></p>
+    <p>© Raidiam 2025</p>
   </footer>
 
   <script src="script.js"></script>
