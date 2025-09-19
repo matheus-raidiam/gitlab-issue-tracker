@@ -188,7 +188,9 @@ function renderTable(sectionKey) {
 
   tbody.innerHTML = issues.map(issue => {
     const sla = evalSLAStatus(issue);
-    const labelsHTML = renderLabels(issue.groupedLabels);
+    const g = issue.groupedLabels;
+    const render = (arr, cls) => arr.map(l=>`<span class="label ${cls}">${escapeHtml(l)}</span>`).join(' ') || '—';
+    const note = escapeHtml(issue.notes || '');
     return `
       <tr>
         <td><a href="${issue.web_url}" target="_blank" rel="noreferrer">#${issue.iid}</a></td>
@@ -196,10 +198,16 @@ function renderTable(sectionKey) {
         <td>${fmtDate(issue.created_at)}</td>
         <td>${issue.workingDays}</td>
         <td><span class="sla ${sla.cls}">${sla.label}</span></td>
-        <td>${labelsHTML}</td>
+        <td>${render(g.nature,'nature')}</td>
+        <td>${render(g.phase,'phase')}</td>
+        <td>${render(g.platform,'platform')}</td>
+        <td>${render(g.product,'product')}</td>
+        <td>${render(g.status,'status')}</td>
         <td>
-          <textarea class="note" data-url="${issue.web_url}" placeholder="Add a note…">${issue.notes||''}</textarea>
-          <button class="btn-ghost editNoteBtn" data-url="${issue.web_url}">Edit</button>
+          <textarea class="note" data-url="${issue.web_url}" placeholder="Add a comment…">${note}</textarea>
+          <div style="margin-top:6px">
+            <button class="btn btn-outline btn-sm" data-edit-url="${issue.web_url}">Edit</button>
+          </div>
         </td>
       </tr>`;
   }).join('');
@@ -208,9 +216,9 @@ function renderTable(sectionKey) {
   const empty = document.getElementById(sectionKey+"Empty");
   empty.classList.toggle('hidden', issues.length>0);
   if (issues.length===0){
-    empty.textContent = state.view==='closed7' ?
-      'No issues closed in the last 7 days that match your filters.' :
-      'No open issues match your filters.';
+    empty.textContent = state.view==='closed7'
+      ? 'No issues closed in the last 7 days that match your filters.'
+      : 'No open issues match your filters.';
   }
 
   // Summary
@@ -222,8 +230,8 @@ function renderTable(sectionKey) {
   tbody.querySelectorAll('textarea.note').forEach(t => {
     t.addEventListener('input', (e)=> writeNote(e.target.dataset.url, e.target.value));
   });
-  tbody.querySelectorAll('.editNoteBtn').forEach(btn=>{
-    btn.addEventListener('click', ()=> openModal(btn.dataset.url));
+  tbody.querySelectorAll('button[data-edit-url]').forEach(b => {
+    b.addEventListener('click', ()=> openModal(b.getAttribute('data-edit-url')));
   });
 }
 
