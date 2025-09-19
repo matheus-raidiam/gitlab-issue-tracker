@@ -1,6 +1,6 @@
 /* ================= CONFIG ================= */
 const SLA_RULES_TEXT =
-  "SLA rules: Bug & Questions = 10 working days; Under Evaluation or no Nature = 3 working days; Under WG/DTO Evaluation, Waiting Participant, In Pipeline, Sandbox Testing, Waiting Deploy or Production Testing = SLA Paused; Others = No SLA.";
+  "SLA rules: Bug & Questions = 10 working days; Under Evaluation or no Nature = 3 working days; Under WG/DTO Evaluation, Waiting Participant, In Pipeline, Sandbox Testing, Waiting Deploy or Production Testing = SLA Paused (except Bug, which always uses 10 days); Others = No SLA.";
 
 /* ================= STATE ================= */
 const issues = { finance: [], insurance: [] };
@@ -9,7 +9,7 @@ const tableSort = {
   'insurance-table': { key: 'daysOpen', asc: false }
 };
 
-// Status que aparecem na coluna "Status" E usados para SLA Paused
+// Status usados em coluna e também para SLA Paused
 const STATUS_LABELS = new Set([
   'Under Evaluation',
   'Waiting Participant',
@@ -25,22 +25,20 @@ const NATURE_LABELS = new Set([
   'Questions', 'Bug', 'Change Request', 'Test Improvement', 'Breaking Change'
 ]);
 
-// Platform canônicas (não exibimos coluna separada, só tiramos de Product)
+// Platform canônicas
 const PLATFORM_LABELS = new Set(['FVP','Mock Bank','Mock TPP','Conformance Suite']);
 
-// Regex de Phase (não exibimos coluna separada, só tiramos de Product)
+// Phase (regex)
 const PHASE_RE = /^(?:phase)\s*(1|2|3|4a|4b)$/i;
 
-// Seleções de filtro (mesmo HTML original)
-const selected = { nature: new Set(), product: new Set(), status: new Set() };
+// Seleções de filtro — agora com phase/platform
+const selected = { nature: new Set(), phase: new Set(), platform: new Set(), product: new Set(), status: new Set() };
 
 /* ================= UTILITIES ================= */
-// pega antes de "::", trim e normaliza para comparar
-function baseLabel(l) {
-  return String(l || '').split('::')[0].trim();
-}
+// pega antes de "::", trim e normaliza
+function baseLabel(l) { return String(l || '').split('::')[0].trim(); }
 
-// Canoniza certas variantes (case-insensitive)
+// Canoniza variantes
 function canonLabel(l) {
   const s = baseLabel(l);
   // Nature
@@ -49,7 +47,8 @@ function canonLabel(l) {
   if (/^change\s*request$/i.test(s)) return 'Change Request';
   if (/^test\s*improvement$/i.test(s)) return 'Test Improvement';
   if (/^breaking\s*change$/i.test(s)) return 'Breaking Change';
-  // Status (principais)
+
+  // Status
   if (/^under\s*evaluation$/i.test(s)) return 'Under Evaluation';
   if (/^waiting\s*participant$/i.test(s)) return 'Waiting Participant';
   if (/^under\s*wg\/?dto\s*evaluation$/i.test(s)) return 'Under WG/DTO Evaluation';
@@ -57,31 +56,33 @@ function canonLabel(l) {
   if (/^sandbox\s*testing$/i.test(s)) return 'Sandbox Testing';
   if (/^waiting\s*deploy$/i.test(s)) return 'Waiting Deploy';
   if (/^production\s*testing$/i.test(s)) return 'Production Testing';
-  // Platform (mantemos a forma canônica)
+
+  // Platform
   if (/^fvp$/i.test(s)) return 'FVP';
   if (/^mock\s*bank$/i.test(s)) return 'Mock Bank';
   if (/^mock\s*tpp$/i.test(s)) return 'Mock TPP';
   if (/^conformance\s*suite$/i.test(s)) return 'Conformance Suite';
-  // Phase (normaliza para "Phase X")
+
+  // Phase -> "Phase X"
   const pm = s.match(PHASE_RE);
   if (pm) return `Phase ${pm[1].toLowerCase()}`.replace(/\b\w/g,c=>c.toUpperCase());
-  // fallback: devolve base
+
   return s;
 }
 
-// Classifica labels em {status, nature, product}.
-// OBS: removemos Phase e Platform de Product (conforme sua regra).
+// Classificação com 5 grupos; Product = qualquer label que NÃO seja
+// Nature/Phase/Platform/Status
 function classifyLabels(labels = []) {
-  const status = [], nature = [], product = [];
+  const status = [], nature = [], product = [], phase = [], platform = [];
   labels.forEach(raw => {
     const canon = canonLabel(raw);
     if (STATUS_LABELS.has(canon)) { status.push(canon); return; }
     if (NATURE_LABELS.has(canon)) { nature.push(canon); return; }
-    if (PLATFORM_LABELS.has(canon)) { /* ignora em Product */ return; }
-    if (/^Phase\s*(1|2|3|4a|4b)$/i.test(canon)) { /* ignora em Product */ return; }
+    if (PLATFORM_LABELS.has(canon)) { platform.push(canon); return; }
+    if (/^Phase\s*(1|2|3|4a|4b)$/i.test(canon)) { phase.push(canon); return; }
     product.push(canon);
   });
-  return { status, nature, product };
+  return { status, nature, product, phase, platform };
 }
 
 function workingDaysBetween(startDate, endDate) {
@@ -95,10 +96,10 @@ function workingDaysBetween(startDate, endDate) {
   return count;
 }
 
-// SLA mapping (dias úteis). Mantido simples: sem feriados.
+// SLA mapping simples (sem feriados)
 function getSLAFor(labels) {
   const { status, nature } = classifyLabels(labels || []);
-  const hasBug = nature.includes('Bug');
+  const hasBug = nature.includes('Bug');       // BUG sempre 10 dias (bypass status)
   const hasQuestions = nature.includes('Questions');
   const underEval = status.includes('Under Evaluation');
   const noNature = nature.length === 0;
@@ -109,12 +110,14 @@ function getSLAFor(labels) {
   return { days: null, reason: 'No SLA' };
 }
 
-/* SLA text + sorting rank (inclui "SLA Paused") */
+/* SLA text + sorting rank; BUG ignora pausa */
 function slaLabelAndRank(issue) {
   const labels = issue.labels || [];
-  const { status } = classifyLabels(labels);
+  const { status, nature } = classifyLabels(labels);
+  const isBug = nature.includes('Bug');
 
-  const paused = (
+  // pausa só vale se NÃO for Bug
+  const paused = !isBug && (
     status.includes('Under WG/DTO Evaluation') ||
     status.includes('Waiting Participant') ||
     status.includes('In Pipeline') ||
@@ -145,12 +148,14 @@ function clearAllComments() {
 
 /* ================= FILTER UI ================= */
 function renderFilterMenus() {
-  const natureSet = new Set(), productSet = new Set(), statusSet = new Set();
+  const natureSet = new Set(), phaseSet = new Set(), platformSet = new Set(), productSet = new Set(), statusSet = new Set();
   [...issues.finance, ...issues.insurance].forEach(i => {
-    const { status, nature, product } = classifyLabels(i.labels || []);
+    const { status, nature, product, phase, platform } = classifyLabels(i.labels || []);
     status.forEach(l => statusSet.add(l));
     nature.forEach(l => natureSet.add(l));
     product.forEach(l => productSet.add(l));
+    phase.forEach(l => phaseSet.add(l));
+    platform.forEach(l => platformSet.add(l));
   });
 
   const fill = (containerId, values, cat) => {
@@ -173,6 +178,8 @@ function renderFilterMenus() {
   };
 
   fill('menu-nature', natureSet, 'nature');
+  fill('menu-phase', phaseSet, 'phase');           // NEW
+  fill('menu-platform', platformSet, 'platform');  // NEW
   fill('menu-product', productSet, 'product');
   fill('menu-status', statusSet, 'status');
 
@@ -181,6 +188,8 @@ function renderFilterMenus() {
 
 function updateCounts() {
   document.getElementById('count-nature').textContent = selected.nature.size;
+  document.getElementById('count-phase').textContent = selected.phase.size;         // NEW
+  document.getElementById('count-platform').textContent = selected.platform.size;   // NEW
   document.getElementById('count-product').textContent = selected.product.size;
   document.getElementById('count-status').textContent = selected.status.size;
 }
@@ -193,7 +202,7 @@ function clearCategory(cat) {
 function renderChips() {
   const chips = document.getElementById('chips');
   chips.innerHTML = '';
-  ['nature', 'product', 'status'].forEach(cat => {
+  ['nature', 'phase', 'platform', 'product', 'status'].forEach(cat => {  // inclui novos
     selected[cat].forEach(tag => {
       const el = document.createElement('span');
       el.className = 'chip';
@@ -208,7 +217,7 @@ function renderChips() {
 }
 
 function resetAllFilters() {
-  selected.nature.clear(); selected.product.clear(); selected.status.clear();
+  Object.values(selected).forEach(s => s.clear());
   document.querySelectorAll('.filter details[open]').forEach(d => { d.open = false; });
   renderFilterMenus(); renderIssues();
 }
@@ -322,12 +331,11 @@ function renderIssues() {
     const tbody = document.querySelector(`#${tableId} tbody`);
     tbody.innerHTML = '';
 
-    // Se não veio nada dessa fonte
     if (base.length === 0) {
       const msg = (mode === 'closed7')
         ? 'No issues were closed in the last 7 days.'
         : 'No open issues at the moment.';
-      renderEmptyRow(tbody, 9, msg);
+      renderEmptyRow(tbody, 11, msg); // agora são 11 colunas
       document.getElementById(summaryId).textContent =
         (mode === 'closed7')
           ? '0 issues closed in last 7 days — SLA-applicable: 0, Over SLA: 0'
@@ -337,15 +345,17 @@ function renderIssues() {
     }
 
     const filtered = base.filter(i => {
-      const { status, nature, product } = classifyLabels(i.labels || []);
-      const matchNature = selected.nature.size ? nature.some(n => selected.nature.has(n)) : true;
-      const matchProduct = selected.product.size ? product.some(p => selected.product.has(p)) : true;
-      const matchStatus = selected.status.size ? status.some(s => selected.status.has(s)) : true;
-      return matchNature && matchProduct && matchStatus;
+      const { status, nature, product, phase, platform } = classifyLabels(i.labels || []);
+      const matchNature   = selected.nature.size   ? nature.some(n => selected.nature.has(n))       : true;
+      const matchPhase    = selected.phase.size    ? phase.some(p => selected.phase.has(p))          : true;
+      const matchPlatform = selected.platform.size ? platform.some(p => selected.platform.has(p))    : true;
+      const matchProduct  = selected.product.size  ? product.some(p => selected.product.has(p))      : true;
+      const matchStatus   = selected.status.size   ? status.some(s => selected.status.has(s))        : true;
+      return matchNature && matchPhase && matchPlatform && matchProduct && matchStatus;
     });
 
     if (filtered.length === 0) {
-      renderEmptyRow(tbody, 9, 'No issues match the selected filters. Try clearing filters or switching the view.');
+      renderEmptyRow(tbody, 11, 'No issues match the selected filters. Try clearing filters or switching the view.');
       document.getElementById(summaryId).textContent =
         (mode === 'closed7')
           ? '0 issues closed in last 7 days — SLA-applicable: 0, Over SLA: 0'
@@ -380,7 +390,7 @@ function renderIssues() {
       const key = `comment-${issue.projectId}-${issue.iid}`;
       const saved = localStorage.getItem(key) || '';
 
-      const { status, nature, product } = classifyLabels(issue.labels || []);
+      const { status, nature, product, phase, platform } = classifyLabels(issue.labels || []);
       const badges = (arr) => arr.length
         ? arr.map(l => `<span class="badge">${l}</span>`).join(' ')
         : '<span style="opacity:.5;">—</span>';
@@ -396,11 +406,35 @@ function renderIssues() {
         <td>${issue.daysOpen}</td>
         <td>${statusCell}</td>
         <td>${badges(nature)}</td>
+        <td>${badges(phase)}</td>
+        <td>${badges(platform)}</td>
         <td>${badges(product)}</td>
         <td>${badges(status)}</td>
-        <td><textarea class="comment-box" rows="2" data-key="${key}" oninput="saveComment('${key}', this.value)">${saved}</textarea></td>
+        <td>
+          <div>
+            <textarea class="comment-box" rows="2" data-key="${key}">${saved}</textarea>
+            <button class="expand-btn" data-key="${key}" style="margin-top:6px">Expand</button>
+          </div>
+          <div class="expand-wrap" data-key="${key}" style="display:none;margin-top:6px">
+            <textarea class="comment-box-large" rows="6" data-key="${key}">${saved}</textarea>
+            <div style="margin-top:6px;display:flex;gap:8px">
+              <button class="collapse-btn" data-key="${key}">Close</button>
+            </div>
+          </div>
+        </td>
       `;
       tbody.appendChild(tr);
+
+      // listeners de comentário/expandir
+      const small = tr.querySelector(`textarea.comment-box[data-key="${key}"]`);
+      const big   = tr.querySelector(`textarea.comment-box-large[data-key="${key}"]`);
+      const wrap  = tr.querySelector(`.expand-wrap[data-key="${key}"]`);
+      tr.querySelector(`.expand-btn[data-key="${key}"]`).onclick = () => { big.value = small.value; wrap.style.display='block'; };
+      tr.querySelector(`.collapse-btn[data-key="${key}"]`).onclick = () => { wrap.style.display='none'; };
+
+      const syncSave = (val)=>{ localStorage.setItem(key, val); small.value = val; big.value = val; };
+      small.addEventListener('input', e=> syncSave(e.target.value));
+      big.addEventListener('input',   e=> syncSave(e.target.value));
 
       counters.total++;
       if (hasSLA) { counters.slaApplicable++; if (over) counters.over++; }
