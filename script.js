@@ -1,16 +1,30 @@
-// === Configuration ===
+// ==== Config ====
 const PROJECTS = {
   finance: { id: 26426113, slug: 'raidiam-conformance/open-finance/certification' },
   insurance: { id: 32299006, slug: 'raidiam-conformance/open-insurance/open-insurance-brasil' },
 };
 
-const NATURE_SLA = {
-  'Bug': 10,
-  'Questions': 10,
-  'Under Evaluation': 3,
-};
+// Canonical sets
+const NATURE = new Set(['Questions','Bug','Change Request','Test Improvement','Breaking Change']);
+const PLATFORM = new Set(['FVP','Mock Bank','Mock TPP','Conformance Suite']);
 
-const PAUSE_STATUSES = new Set([
+// Regex for Phase
+const PHASE_RE = /^(phase)\s*(1|2|3|4a|4b)$/i;
+
+// Status universe
+const STATUS_LIST = [
+  'Under Evaluation',
+  'Waiting Participant',
+  'Under WG/DTO Evaluation',
+  'In Pipeline',
+  'Sandbox Testing',
+  'Waiting Deploy',
+  'Production Testing',
+];
+
+// SLA rules
+const SLA_LIMITS = { Bug: 10, Questions: 10 }; // working days
+const PAUSE_STATUS = new Set([
   'Under WG/DTO Evaluation',
   'Waiting Participant',
   'In Pipeline',
@@ -19,368 +33,306 @@ const PAUSE_STATUSES = new Set([
   'Production Testing',
 ]);
 
-// === State ===
+// Holidays (BR nationals) 2025–2030
+const HOLIDAYS = buildBrazilHolidays(2025, 2030); // Set('YYYY-MM-DD')
+
+// ==== State ====
 const state = {
-  view: 'open',
-  filters: { nature: new Set(), phase: new Set(), platform: new Set(), status: new Set(), product: new Set() },
-  sort: { finance: { key: 'iid', dir: 'asc' }, insurance: { key: 'iid', dir: 'asc' } },
+  view: 'open', // 'open' | 'closed7'
   issues: { finance: [], insurance: [] },
+  filters: { nature:new Set(), phase:new Set(), platform:new Set(), product:new Set(), status:new Set() },
+  sort: {
+    'finance-table': { key: 'iid', dir: 'asc' },
+    'insurance-table': { key: 'iid', dir: 'asc' },
+  },
 };
 
-// === Utilities ===
+// ==== Utils ====
 const fmtDate = (iso) => new Date(iso).toLocaleDateString();
+const isoDate = (d) => d.toISOString().slice(0,10);
+const capWords = (s)=>String(s).toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+const splitPrefix = (v)=>String(v).split('::')[0].trim();
 
-function workingDaysBetween(startISO, end = new Date()) {
-  const start = new Date(startISO);
-  const d = new Date(start);
+function workingDaysBetween(startISO, end = new Date()){
+  const start = new Date(startISO); const d = new Date(start);
   let days = 0;
-  while (d <= end) {
-    const day = d.getDay();
-    if (day !== 0 && day !== 6 && !isHoliday(d)) days++;
-    d.setDate(d.getDate() + 1);
+  while (d <= end){
+    const w = d.getDay(); // 0 Sun, 6 Sat
+    if (w!==0 && w!==6 && !HOLIDAYS.has(isoDate(d))) days++;
+    d.setDate(d.getDate()+1);
   }
-  return Math.max(0, days - 1);
+  return Math.max(0, days-1);
 }
 
-// Brazilian national holidays (2025–2030)
-function isHoliday(date) {
-  const year = date.getFullYear();
-  const fixed = [
-    '01-01', '04-21', '05-01', '09-07', '10-12',
-    '11-02', '11-15', '12-25'
-  ];
-  const mmdd = date.toISOString().slice(5, 10);
-
-  if (fixed.includes(mmdd)) return true;
-  if (easterBased(year).includes(mmdd)) return true;
-  return false;
+function canonizePhase(s){
+  const m = String(s).match(PHASE_RE);
+  if (!m) return capWords(s);
+  const p = m[2].toLowerCase();
+  return `Phase ${p}`.replace(/(^|\s)\w/g,c=>c.toUpperCase());
 }
 
-function easterBased(year) {
-  // Meeus/Jones/Butcher algorithm
-  const f = Math.floor,
-    a = year % 19,
-    b = f(year / 100),
-    c = year % 100,
-    d = f(b / 4),
-    e = b % 4,
-    g = f((8 * b + 13) / 25),
-    h = (19 * a + b - d - g + 15) % 30,
-    i = f(c / 4),
-    k = c % 4,
-    l = (32 + 2 * e + 2 * i - h - k) % 7,
-    m = f((a + 11 * h + 22 * l) / 451),
-    month = f((h + l - 7 * m + 114) / 31),
-    day = ((h + l - 7 * m + 114) % 31) + 1;
-  const easter = new Date(year, month - 1, day);
-  const fmt = (d) => d.toISOString().slice(5, 10);
+function groupLabels(labels){
+  const nature=[]; const phase=[]; const platform=[]; const status=[]; const product=[];
+  for (const raw of labels||[]){
+    const base = splitPrefix(raw);
+    const canon = capWords(base);
 
-  return [
-    fmt(new Date(easter)),                      // Easter Sunday
-    fmt(new Date(easter.getTime() - 2 * 86400000)), // Good Friday
-    fmt(new Date(easter.getTime() - 47 * 86400000)), // Carnival Tuesday
-    fmt(new Date(easter.getTime() - 48 * 86400000)), // Carnival Monday
-    fmt(new Date(easter.getTime() + 60 * 86400000))  // Corpus Christi
-  ];
-}
+    if (NATURE.has(canon)) { nature.push(canon); continue; }
+    if (PHASE_RE.test(base)) { phase.push(canonizePhase(base)); continue; }
+    if (PLATFORM.has(canon)) { platform.push(canon); continue; }
+    if (STATUS_LIST.includes(canon)) { status.push(canon); continue; }
 
-function pickLabelGroups(labels) {
-  const nature = [];
-  const phase = [];
-  const platform = [];
-  const status = [];
-  const product = [];
-
-  for (const l of labels) {
-    const base = l.split('::')[0].trim();
-
-    if (/^(Bug|Questions|Change Request|Test Improvement|Breaking Change)$/i.test(base)) {
-      nature.push(cap(base));
-    } else if (/^Phase\s?(1|2|3|4a|4b)$/i.test(base)) {
-      phase.push(cap(base));
-    } else if (/^(FVP|Mock Bank|Mock TPP|Conformance Suite)$/i.test(base)) {
-      platform.push(base);
-    } else if (/^(Under Evaluation|Waiting Participant|Under WG\/DTO Evaluation|In Pipeline|Sandbox Testing|Waiting Deploy|Production Testing)$/i.test(base)) {
-      status.push(base);
-    } else {
-      product.push(base);
-    }
+    product.push(base); // everything else is Product
   }
   return { nature, phase, platform, status, product };
 }
 
-function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+function deriveSLA(g){
+  // Pause takes precedence
+  if (g.status.some(s=>PAUSE_STATUS.has(s))) return { type:'paused' };
 
-function deriveSLA(issue) {
-  const { nature, status } = issue.groupedLabels;
+  // Nature-based SLA
+  const nat = g.nature[0];
+  if (nat==='Bug' || nat==='Questions') return { type:'timed', limit: SLA_LIMITS[nat] };
 
-  if (status.some(s => PAUSE_STATUSES.has(s))) return { type: 'paused' };
+  // Under Evaluation or no Nature => 3 days
+  if (g.nature.length===0 || g.status.includes('Under Evaluation')) return { type:'timed', limit: 3 };
 
-  const key = nature.find(n => NATURE_SLA[n] != null);
-  if (key) return { type: 'timed', limit: NATURE_SLA[key] };
+  // Change Request/Test Improvement/Breaking Change => no SLA
+  if (['Change Request','Test Improvement','Breaking Change'].some(x=>g.nature.includes(x)))
+    return { type:'none' };
 
-  if (nature.length === 0 || nature.includes('Under Evaluation')) return { type: 'timed', limit: 3 };
-  return { type: 'none' };
+  return { type:'none' };
 }
 
-function evalSLAStatus(issue) {
-  const w = issue.workingDays;
-  const sla = deriveSLA(issue);
-
-  if (sla.type === 'paused') return { label: 'SLA Paused', cls: 'paused' };
-  if (sla.type === 'none') return { label: 'No SLA', cls: 'none' };
-  if (w > sla.limit) return { label: 'Over SLA', cls: 'over' };
-  return { label: 'Within SLA', cls: 'within' };
+function evalSLAStatus(issue){
+  const sla = deriveSLA(issue.groupedLabels);
+  if (sla.type==='paused') return { label:'SLA Paused', cls:'paused', rank:2 };
+  if (sla.type==='none')   return { label:'No SLA',   cls:'none',   rank:0 };
+  const over = issue.workingDays > sla.limit;
+  return over
+    ? { label:'Over SLA', cls:'over', rank:3 }
+    : { label:'Within SLA', cls:'within', rank:1 };
 }
-function uniq(arr){ return [...new Set(arr)]; }
 
-// === Fetch ===
-async function loadProjectIssues(projectId, view) {
-  const base = `https://gitlab.com/api/v4/projects/${projectId}/issues`;
-  const params = new URLSearchParams({
-    per_page: '100',
-    order_by: 'created_at',
-    sort: 'asc',
-  });
-  if (view === 'open') params.set('state', 'opened');
-  if (view === 'closed7') {
-    params.set('state', 'closed');
-    const since = new Date();
-    since.setDate(since.getDate() - 7);
-    params.set('updated_after', since.toISOString());
+// Holidays builder
+function buildBrazilHolidays(startYear, endYear){
+  const set = new Set();
+  for (let y=startYear; y<=endYear; y++){
+    // fixed
+    [`${y}-01-01`,`${y}-04-21`,`${y}-05-01`,`${y}-09-07`,`${y}-10-12`,`${y}-11-02`,`${y}-11-15`,`${y}-12-25`]
+      .forEach(d=>set.add(d));
+    // movable: carnival (Tue), good friday, corpus christi
+    const easter = easterDate(y);
+    set.add(isoDate(addDays(easter,-47))); // Carnival Tue
+    set.add(isoDate(addDays(easter,-2)));  // Good Friday
+    set.add(isoDate(addDays(easter,60)));  // Corpus Christi
   }
+  return set;
+}
+function easterDate(y){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),
+        g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,
+        l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+        month=Math.floor((h+l-7*m+114)/31), day=((h+l-7*m+114)%31)+1;
+  return new Date(y, month-1, day);
+}
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+
+// === Storage (comments) ===
+const NOTE_KEY = 'sla-notes-v2';
+const readAllNotes = ()=>{ try{ return JSON.parse(localStorage.getItem(NOTE_KEY)||'{}'); }catch{return{}} };
+const writeAllNotes = (m)=> localStorage.setItem(NOTE_KEY, JSON.stringify(m));
+const readNote = (url)=> readAllNotes()[url] || '';
+function writeNote(url,val){ const m=readAllNotes(); m[url]=val; writeAllNotes(m); }
+function clearAllComments(){ localStorage.removeItem(NOTE_KEY); loadAllIssues(); }
+
+// ==== Fetch ====
+async function fetchProjectIssues(projectId, view){
+  const base = `https://gitlab.com/api/v4/projects/${projectId}/issues`;
+  const params = new URLSearchParams({ per_page:'100', order_by:'created_at', sort:'asc' });
+  if (view==='open') params.set('state','opened');
+  if (view==='closed7') params.set('state','closed');
   const url = `${base}?${params.toString()}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`GitLab ${projectId} ${res.status}`);
   const raw = await res.json();
-  return raw.map(r => normalizeIssue(r));
+  let list = raw;
+  if (view==='closed7'){
+    const since = new Date(); since.setDate(since.getDate()-7);
+    list = raw.filter(r => r.closed_at && new Date(r.closed_at) >= since);
+  }
+  return list.map(r=>{
+    const g = groupLabels(r.labels||[]);
+    return {
+      id:r.id, iid:r.iid, title:r.title, web_url:r.web_url,
+      created_at:r.created_at, closed_at:r.closed_at||null,
+      groupedLabels:g,
+      workingDays: workingDaysBetween(r.created_at),
+      notes: readNote(r.web_url),
+      sla: evalSLAStatus({ groupedLabels:g, workingDays: workingDaysBetween(r.created_at) }),
+    };
+  });
 }
 
-function normalizeIssue(r) {
-  const groupedLabels = pickLabelGroups(r.labels || []);
-  const workingDays = workingDaysBetween(r.created_at);
-  return {
-    id: r.id,
-    iid: r.iid,
-    title: r.title,
-    web_url: r.web_url,
-    created_at: r.created_at,
-    labels: r.labels || [],
-    groupedLabels,
-    workingDays,
-    notes: readNote(r.web_url) || '',
-  };
-}
-
-// === Notes (localStorage) ===
-const NOTE_KEY = 'sla-notes-v1';
-function readAllNotes(){ try{ return JSON.parse(localStorage.getItem(NOTE_KEY)||'{}'); }catch{return{}} }
-function writeAllNotes(map){ localStorage.setItem(NOTE_KEY, JSON.stringify(map)); }
-function readNote(url){ const all = readAllNotes(); return all[url]; }
-function writeNote(url, val){ const all = readAllNotes(); all[url]=val; writeAllNotes(all); }
-function clearAllNotes(){ localStorage.removeItem(NOTE_KEY); }
-
-// === Rendering ===
-function renderTable(sectionKey) {
-  const table = document.getElementById(sectionKey+"Table");
+// ==== Rendering ====
+function renderSection(sectionKey, tableId, summaryId){
+  const table = document.getElementById(tableId);
   const tbody = table.querySelector('tbody');
-  const issues = applyFiltersAndSort(state.issues[sectionKey], sectionKey);
 
-  tbody.innerHTML = issues.map(issue => {
-    const sla = evalSLAStatus(issue);
-    const g = issue.groupedLabels;
-    const render = (arr, cls) => arr.map(l=>`<span class="label ${cls}">${escapeHtml(l)}</span>`).join(' ') || '—';
-    const note = escapeHtml(issue.notes || '');
+  // apply filters
+  const f = state.filters;
+  const src = state.issues[sectionKey].filter(it =>
+    (f.nature.size===0   || it.groupedLabels.nature.some(x=>f.nature.has(x))) &&
+    (f.phase.size===0    || it.groupedLabels.phase.some(x=>f.phase.has(x))) &&
+    (f.platform.size===0 || it.groupedLabels.platform.some(x=>f.platform.has(x))) &&
+    (f.product.size===0  || it.groupedLabels.product.some(x=>f.product.has(x))) &&
+    (f.status.size===0   || it.groupedLabels.status.some(x=>f.status.has(x)))
+  );
+
+  // sort
+  const {key,dir} = state.sort[tableId];
+  const sorted = [...src].sort((a,b)=>{
+    let va, vb;
+    if (key==='dateCol'){
+      va = state.view==='closed7' ? (a.closed_at||'') : a.created_at;
+      vb = state.view==='closed7' ? (b.closed_at||'') : b.created_at;
+    } else if (key==='slaRank'){
+      va = a.sla.rank; vb = b.sla.rank;
+    } else {
+      va = a[key]; vb = b[key];
+    }
+    return (va>vb?1:va<vb?-1:0) * (dir==='asc'?1:-1);
+  });
+
+  // rows
+  tbody.innerHTML = sorted.map(it=>{
+    const g = it.groupedLabels;
+    const render = (arr, cls)=> arr.length ? arr.map(l=>`<span class="label ${cls}">${escapeHtml(l)}</span>`).join(' ') : '—';
     return `
       <tr>
-        <td><a href="${issue.web_url}" target="_blank" rel="noreferrer">#${issue.iid}</a></td>
-        <td>${escapeHtml(issue.title)}</td>
-        <td>${fmtDate(issue.created_at)}</td>
-        <td>${issue.workingDays}</td>
-        <td><span class="sla ${sla.cls}">${sla.label}</span></td>
+        <td><a href="${it.web_url}" target="_blank" rel="noreferrer">#${it.iid}</a></td>
+        <td>${escapeHtml(it.title)}</td>
+        <td>${fmtDate(state.view==='closed7' && it.closed_at ? it.closed_at : it.created_at)}</td>
+        <td>${it.workingDays}</td>
+        <td><span class="sla ${it.sla.cls}">${it.sla.label}</span></td>
         <td>${render(g.nature,'nature')}</td>
         <td>${render(g.phase,'phase')}</td>
         <td>${render(g.platform,'platform')}</td>
         <td>${render(g.product,'product')}</td>
         <td>${render(g.status,'status')}</td>
         <td>
-          <textarea class="note" data-url="${issue.web_url}" placeholder="Add a comment…">${note}</textarea>
-          <div style="margin-top:6px">
-            <button class="btn btn-outline btn-sm" data-edit-url="${issue.web_url}">Edit</button>
-          </div>
+          <textarea class="note" data-url="${it.web_url}" placeholder="Add a comment…">${escapeHtml(it.notes||'')}</textarea>
         </td>
       </tr>`;
   }).join('');
 
-  // Empty state
-  const empty = document.getElementById(sectionKey+"Empty");
-  empty.classList.toggle('hidden', issues.length>0);
-  if (issues.length===0){
-    empty.textContent = state.view==='closed7'
-      ? 'No issues closed in the last 7 days that match your filters.'
-      : 'No open issues match your filters.';
-  }
-
-  // Summary
-  const sumEl = document.getElementById(sectionKey+"Summary");
-  const totals = summarize(issues);
-  sumEl.textContent = `Total: ${totals.total} • SLA-applicable: ${totals.applicable} • Over SLA: ${totals.over}`;
-
-  // Notes listeners
-  tbody.querySelectorAll('textarea.note').forEach(t => {
-    t.addEventListener('input', (e)=> writeNote(e.target.dataset.url, e.target.value));
+  // listeners notes
+  tbody.querySelectorAll('textarea.note').forEach(t=>{
+    t.addEventListener('input', e=> writeNote(e.target.dataset.url, e.target.value));
   });
-  tbody.querySelectorAll('button[data-edit-url]').forEach(b => {
-    b.addEventListener('click', ()=> openModal(b.getAttribute('data-edit-url')));
-  });
-}
 
-function summarize(list){
-  const app = list.filter(i=>['within','over','paused'].includes(evalSLAStatus(i).cls));
-  const over = list.filter(i=>evalSLAStatus(i).cls==='over');
-  return { total:list.length, applicable:app.length, over:over.length };
-}
-
-function renderLabels(groups){
-  const render = (arr, cls) => arr.map(l=>`<span class="label ${cls}">${escapeHtml(l)}</span>`).join(' ');
-  return `<div class="label-group">${render(groups.nature,'nature')}${render(groups.phase,'phase')}${render(groups.platform,'platform')}${render(groups.status,'status')}${render(groups.product,'product')}</div>`;
-}
-
-function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
-
-function applyFiltersAndSort(list, sectionKey){
-  const { nature, phase, platform, status, product } = state.filters;
-  let out = list.filter(it => (
-    (nature.size===0 || it.groupedLabels.nature.some(l=>nature.has(l))) &&
-    (phase.size===0 || it.groupedLabels.phase.some(l=>phase.has(l))) &&
-    (platform.size===0 || it.groupedLabels.platform.some(l=>platform.has(l))) &&
-    (status.size===0 || it.groupedLabels.status.some(l=>status.has(l))) &&
-    (product.size===0 || it.groupedLabels.product.some(l=>product.has(l)))
-  ));
-  const { key, dir } = state.sort[sectionKey];
-  out.sort((a,b)=>{
-    const va = key==='sla' ? evalSLAStatus(a).label : a[key];
-    const vb = key==='sla' ? evalSLAStatus(b).label : b[key];
-    return (va>vb?1:va<vb?-1:0) * (dir==='asc'?1:-1);
-  });
-  return out;
-}
-
-function initSort(){
-  ['finance','insurance'].forEach(sectionKey=>{
-    document.querySelectorAll(`#${sectionKey}Table th[data-sort]`).forEach(th=>{
-      th.addEventListener('click', ()=>{
-        const key = th.getAttribute('data-sort');
-        const cur = state.sort[sectionKey];
-        state.sort[sectionKey] = { key, dir: (cur.key===key && cur.dir==='asc') ? 'desc' : 'asc' };
-        document.querySelectorAll(`#${sectionKey}Table th`).forEach(t=>t.classList.remove('sorted-asc','sorted-desc'));
-        th.classList.add(state.sort[sectionKey].dir==='asc'?'sorted-asc':'sorted-desc');
-        renderTable(sectionKey);
-      });
-    });
-  });
-}
-
-function buildFilterChips(){
-  const all = { nature:new Set(), phase:new Set(), platform:new Set(), status:new Set(), product:new Set() };
-  ['finance','insurance'].forEach(key=>{
-    state.issues[key].forEach(i=>{
-      i.groupedLabels.nature.forEach(l=>all.nature.add(l));
-      i.groupedLabels.phase.forEach(l=>all.phase.add(l));
-      i.groupedLabels.platform.forEach(l=>all.platform.add(l));
-      i.groupedLabels.status.forEach(l=>all.status.add(l));
-      i.groupedLabels.product.forEach(l=>all.product.add(l));
-    });
-  });
-  const mount = (id, pool, set) => {
-    const host = document.getElementById(id);
-    host.innerHTML = [...pool].sort().map(l=>`<span class="chip ${set.has(l)?'on':''}" data-val="${l}">${l}</span>`).join('');
-    host.querySelectorAll('.chip').forEach(ch=>{
-      ch.addEventListener('click',()=>{
-        const v = ch.getAttribute('data-val');
-        if (set.has(v)) set.delete(v); else set.add(v);
-        ch.classList.toggle('on');
-        renderTable('finance');
-        renderTable('insurance');
-      });
-    });
+  // summary
+  const totals = {
+    total: sorted.length,
+    applicable: sorted.filter(x=>['within','over','paused'].includes(x.sla.cls)).length,
+    over: sorted.filter(x=>x.sla.cls==='over').length,
   };
-  mount('natureChips', all.nature, state.filters.nature);
-  mount('phaseChips', all.phase, state.filters.phase);
-  mount('platformChips', all.platform, state.filters.platform);
-  mount('statusChips', all.status, state.filters.status);
-  mount('productChips', all.product, state.filters.product);
+  document.getElementById(summaryId).textContent =
+    `Total: ${totals.total} • SLA-applicable: ${totals.applicable} • Over SLA: ${totals.over}`;
 }
 
-async function refresh() {
-  document.getElementById('financeLink').href = `https://gitlab.com/${PROJECTS.finance.slug}/-/issues`;
-  document.getElementById('insuranceLink').href = `https://gitlab.com/${PROJECTS.insurance.slug}/-/issues`;
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
 
-  const view = state.view;
+// ==== Menus (chips) ====
+function buildMenus(){
+  const pools = { nature:new Set(), phase:new Set(), platform:new Set(), product:new Set(), status:new Set() };
+  ['finance','insurance'].forEach(sec=>{
+    state.issues[sec].forEach(i=>{
+      i.groupedLabels.nature.forEach(x=>pools.nature.add(x));
+      i.groupedLabels.phase.forEach(x=>pools.phase.add(x));
+      i.groupedLabels.platform.forEach(x=>pools.platform.add(x));
+      i.groupedLabels.product.forEach(x=>pools.product.add(x));
+      i.groupedLabels.status.forEach(x=>pools.status.add(x));
+    });
+  });
+
+  const mount = (id,set,values,countId)=>{
+    const host = document.getElementById(id); host.innerHTML='';
+    [...values].sort().forEach(v=>{
+      const el = document.createElement('span');
+      el.className = 'chip'+(set.has(v)?' on':'');
+      el.textContent = v;
+      el.onclick = ()=>{ set.has(v)?set.delete(v):set.add(v); mount(id,set,values,countId); renderAll(); };
+      host.appendChild(el);
+    });
+    const cnt = document.getElementById(countId); if (cnt) cnt.textContent = set.size;
+  };
+
+  mount('menu-nature',   state.filters.nature,   pools.nature,   'count-nature');
+  mount('menu-phase',    state.filters.phase,    pools.phase,    'count-phase');
+  mount('menu-platform', state.filters.platform, pools.platform, 'count-platform');
+  mount('menu-product',  state.filters.product,  pools.product,  'count-product');
+  mount('menu-status',   state.filters.status,   pools.status,   'count-status');
+
+  // active chips line
+  const active = [];
+  Object.entries(state.filters).forEach(([k,set])=>{
+    [...set].forEach(v=> active.push([k,v]));
+  });
+  const chips = document.getElementById('chips'); chips.innerHTML='';
+  active.forEach(([k,v])=>{
+    const c = document.createElement('span');
+    c.className='chip on';
+    c.textContent=`${k}: ${v}`;
+    c.onclick=()=>{ state.filters[k].delete(v); buildMenus(); renderAll(); };
+    chips.appendChild(c);
+  });
+}
+
+function resetAllFilters(){
+  Object.values(state.filters).forEach(s=>s.clear());
+  buildMenus(); renderAll();
+}
+
+// ==== Sort header click ====
+function changeSort(tableId, key){
+  const cur = state.sort[tableId];
+  const dir = (cur.key===key && cur.dir==='asc') ? 'desc' : 'asc';
+  state.sort[tableId] = { key, dir };
+  // arrow visuals (optional; will work even sem CSS custom)
+  document.querySelectorAll(`#${tableId} th`).forEach(th=> th.classList.remove('sorted-asc','sorted-desc'));
+  const th = document.querySelector(`#${tableId} th[data-key="${key}"]`);
+  if (th) th.classList.add(dir==='asc'?'sorted-asc':'sorted-desc');
+  renderAll();
+}
+
+// ==== Main ====
+async function loadAllIssues(){
+  document.getElementById('loading').style.display='block';
+  state.view = document.getElementById('viewMode').value;
+
+  // Update date column labels
+  document.getElementById('finance-date-label').textContent = state.view==='closed7' ? 'Closed At' : 'Created At';
+  document.getElementById('insurance-date-label').textContent = state.view==='closed7' ? 'Closed At' : 'Created At';
+
   const [finance, insurance] = await Promise.all([
-    loadProjectIssues(PROJECTS.finance.id, view),
-    loadProjectIssues(PROJECTS.insurance.id, view),
+    fetchProjectIssues(PROJECTS.finance.id, state.view),
+    fetchProjectIssues(PROJECTS.insurance.id, state.view),
   ]);
+
   state.issues.finance = finance;
   state.issues.insurance = insurance;
-  buildFilterChips();
-  renderTable('finance');
-  renderTable('insurance');
+
+  buildMenus();
+  renderAll();
+  document.getElementById('loading').style.display='none';
 }
 
-function init() {
-  document.getElementById('viewSelect').addEventListener('change', e=>{
-    state.view = e.target.value;
-    refresh();
-  });
-  document.getElementById('refreshBtn').addEventListener('click', refresh);
-  document.getElementById('resetFiltersBtn').addEventListener('click', ()=>{
-    Object.values(state.filters).forEach(set => set.clear());
-    buildFilterChips();
-    renderTable('finance');
-    renderTable('insurance');
-  });
-  document.getElementById('clearNotesBtn').addEventListener('click', ()=>{
-    if (confirm('Clear ALL comments for all issues?')) { clearAllNotes(); refresh(); }
-  });
-  initSort();
-  refresh();
+function renderAll(){
+  renderSection('finance','finance-table','finance-summary');
+  renderSection('insurance','insurance-table','insurance-summary');
 }
 
-window.addEventListener('DOMContentLoaded', init);
-
-// === Modal for editing notes ===
-function openModal(url) {
-  const current = readNote(url) || '';
-  const overlay = document.createElement('div');
-  overlay.style.position='fixed';
-  overlay.style.top=0; overlay.style.left=0; overlay.style.right=0; overlay.style.bottom=0;
-  overlay.style.background='rgba(0,0,0,0.6)';
-  overlay.style.display='flex'; overlay.style.alignItems='center'; overlay.style.justifyContent='center';
-  overlay.style.zIndex=1000;
-
-  const box = document.createElement('div');
-  box.style.background='#111827'; box.style.padding='20px'; box.style.borderRadius='12px'; box.style.width='500px'; box.style.maxWidth='90%';
-
-  const textarea = document.createElement('textarea');
-  textarea.className='note-large';
-  textarea.value=current;
-  box.appendChild(textarea);
-
-  const actions = document.createElement('div');
-  actions.style.marginTop='10px'; actions.style.textAlign='right';
-
-  const saveBtn = document.createElement('button');
-  saveBtn.className='btn'; saveBtn.textContent='Save';
-  saveBtn.onclick=()=>{ writeNote(url, textarea.value); document.body.removeChild(overlay); refresh(); };
-
-  const cancelBtn = document.createElement('button');
-  cancelBtn.className='btn-outline'; cancelBtn.style.marginLeft='8px'; cancelBtn.textContent='Cancel';
-  cancelBtn.onclick=()=>{ document.body.removeChild(overlay); };
-
-  actions.appendChild(saveBtn); actions.appendChild(cancelBtn);
-  box.appendChild(actions);
-
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
-}
+// init
+window.addEventListener('DOMContentLoaded', loadAllIssues);
