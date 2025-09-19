@@ -13,11 +13,11 @@
   </header>
 
   <p class="page-intro">
-    This dashboard pulls issues from our GitLab projects (Open Finance & Open Insurance) and gives the Service team a quick view of SLA risk, activity, and context.
-    It calculates <strong>working days</strong> and applies SLAs based on tags (Nature/Status). Use filters, sorting, and local notes to triage faster.
+    This dashboard pulls issues from the <strong>Open Finance</strong> GitLab project and gives a quick view of SLA risk, activity, and context.
+    It calculates <strong>working days</strong> and applies SLAs based on tags (<strong>Nature, Phase, Platform, Product, Status</strong>). Use filters, sorting, and local notes to triage faster.
   </p>
 
-  <!-- Toolbar (square) -->
+  <!-- Toolbar -->
   <div class="toolbar">
     <label for="viewMode" style="font-weight:600">View:</label>
     <select id="viewMode" onchange="loadAllIssues()">
@@ -31,7 +31,24 @@
     <div id="loading">Loading…</div>
   </div>
 
-  <!-- Filters (square) -->
+  <!-- (5) SLA Rules (collapsible) -->
+  <div class="filters-card" style="margin-top:10px">
+    <details>
+      <summary style="cursor:pointer"><strong>SLA rules &amp; notes</strong></summary>
+      <div style="margin-top:8px;opacity:.9">
+        <ul style="margin:0 0 8px 16px">
+          <li><b>Bug</b>: 10 working days (always counted, even if status is paused)</li>
+          <li><b>Questions</b>: 10 working days</li>
+          <li><b>Under Evaluation</b> or <b>No Nature</b>: 3 working days</li>
+          <li><b>Under WG/DTO Evaluation</b>, <b>Waiting Participant</b>, <b>In Pipeline</b>, <b>Sandbox Testing</b>, <b>Waiting Deploy</b>, <b>Production Testing</b>: <i>SLA Paused</i> (except Bug)</li>
+          <li>Working days = Mon–Fri (no holidays)</li>
+        </ul>
+        <small>Tip: use the filters below to slice by Nature, Phase, Platform, Product and Status.</small>
+      </div>
+    </details>
+  </div>
+
+  <!-- Filters -->
   <div class="filters-card">
     <div class="filters-row">
       <!-- Nature -->
@@ -47,7 +64,7 @@
         </details>
       </div>
 
-      <!-- Phase (NEW) -->
+      <!-- Phase -->
       <div class="filter" id="filterPhase">
         <details>
           <summary>
@@ -60,7 +77,7 @@
         </details>
       </div>
 
-      <!-- Platform (NEW) -->
+      <!-- Platform -->
       <div class="filter" id="filterPlatform">
         <details>
           <summary>
@@ -104,6 +121,18 @@
     <div class="chips" id="chips"></div>
   </div>
 
+  <!-- (4) Editor integrado grande (inicialmente oculto) -->
+  <div id="noteEditor" class="filters-card" style="display:none; padding:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div id="noteEditorTitle" style="font-weight:600"></div>
+      <button id="noteEditorClose">Close editor</button>
+    </div>
+    <textarea id="noteEditorTextarea" rows="10" style="width:100%;margin-top:10px"></textarea>
+    <div style="margin-top:8px;display:flex;gap:8px">
+      <button id="noteEditorSave">Save</button>
+    </div>
+  </div>
+
   <div class="grid">
     <section>
       <h2>
@@ -121,39 +150,8 @@
             <th class="sortable" data-key="daysOpen" onclick="changeSort('finance-table','daysOpen')"><span class="sort-label">Working Days <span class="sort-arrow" data-for="daysOpen"></span></span></th>
             <th class="sortable" data-key="slaRank" onclick="changeSort('finance-table','slaRank')"><span class="sort-label">SLA Status <span class="sort-arrow" data-for="slaRank"></span></span></th>
             <th>Nature</th>
-            <!-- NEW -->
             <th>Phase</th>
             <th>Platform</th>
-            <!-- /NEW -->
-            <th>Product</th>
-            <th>Status</th>
-            <th>Comments</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </section>
-
-    <section>
-      <h2>
-        <a href="https://gitlab.com/raidiam-conformance/open-insurance/open-insurance-brasil/-/issues/" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:none;">
-          Open Insurance Issues
-        </a>
-      </h2>
-      <div class="summary" id="insurance-summary"></div>
-      <table id="insurance-table">
-        <thead>
-          <tr>
-            <th class="sortable" data-key="iid" onclick="changeSort('insurance-table','iid')"><span class="sort-label">ID <span class="sort-arrow" data-for="iid"></span></span></th>
-            <th class="sortable" data-key="title" onclick="changeSort('insurance-table','title')"><span class="sort-label">Title <span class="sort-arrow" data-for="title"></span></span></th>
-            <th class="sortable" data-key="dateCol" onclick="changeSort('insurance-table','dateCol')"><span class="sort-label"><span id="insurance-date-label">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span></th>
-            <th class="sortable" data-key="daysOpen" onclick="changeSort('insurance-table','daysOpen')"><span class="sort-label">Working Days <span class="sort-arrow" data-for="daysOpen"></span></span></th>
-            <th class="sortable" data-key="slaRank" onclick="changeSort('insurance-table','slaRank')"><span class="sort-label">SLA Status <span class="sort-arrow" data-for="slaRank"></span></span></th>
-            <th>Nature</th>
-            <!-- NEW -->
-            <th>Phase</th>
-            <th>Platform</th>
-            <!-- /NEW -->
             <th>Product</th>
             <th>Status</th>
             <th>Comments</th>
