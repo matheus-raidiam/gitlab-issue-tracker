@@ -80,7 +80,7 @@ Para publicar em plataformas como **Netlify** ou **Vercel**:
 ---
 
 ## 📁 Estrutura
-![Estrutura do projeto](./docs/estrutura-projeto.png)
+![Estrutura do projeto](./estrutura-projeto.png)
 ---
 
 ## 📌 Limitações
