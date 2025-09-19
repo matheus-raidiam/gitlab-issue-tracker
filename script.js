@@ -1,6 +1,6 @@
 /* ================= CONFIG ================= */
 const SLA_RULES_TEXT =
-  "SLA rules: Bug & Questions = 10 working days; Under Evaluation or no Nature = 3 working days; Under WG/DTO Evaluation, Waiting Participant, In Pipeline, Sandbox Testing, Waiting Deploy or Production Testing = SLA Paused (except Bug, which always uses 10 days). Working days = Mon–Fri.";
+  "SLA rules: Bug & Questions = 10 working days; Under Evaluation or no tags = 3 working days; Under WG/DTO Evaluation, Waiting Participant, In Pipeline, Sandbox Testing, Waiting Deploy or Production Testing = SLA Paused (Bug still uses 10 days). Working days = Mon–Fri.";
 
 /* ================= STATE ================= */
 const issues = { finance: [] };
@@ -23,7 +23,6 @@ const NATURE_LABELS = new Set([
 const PLATFORM_LABELS = new Set(['FVP','Mock Bank','Mock TPP','Conformance Suite']);
 const PHASE_RE = /^(?:phase)\s*(1|2|3|4a|4b)$/i;
 
-// filtros agora com phase/platform
 const selected = { nature: new Set(), phase: new Set(), platform: new Set(), product: new Set(), status: new Set() };
 
 /* ================= UTILITIES ================= */
@@ -80,10 +79,10 @@ function workingDaysBetween(startDate, endDate) {
   return count;
 }
 
-// (1) SLA mapping — Bug ignora pausa e sempre 10 dias; sem feriados
+// SLA mapping — Bug ignora pausa e sempre 10 dias; sem feriados
 function getSLAFor(labels) {
   const { status, nature } = classifyLabels(labels || []);
-  const hasBug = nature.includes('Bug');       // bypass pause
+  const hasBug = nature.includes('Bug');
   const hasQuestions = nature.includes('Questions');
   const underEval = status.includes('Under Evaluation');
   const noNature = nature.length === 0;
@@ -204,7 +203,7 @@ function resetAllFilters() {
   renderFilterMenus(); renderIssues();
 }
 
-/* Fechar detalhes se clicar fora */
+/* Collapse details if clicking outside */
 document.addEventListener('click', (e) => {
   const insideFilter = e.target.closest('.filter');
   if (!insideFilter) {
@@ -227,9 +226,9 @@ function updateSortArrows(tableId) {
 }
 function getViewMode() { return document.getElementById('viewMode').value; }
 
-/* ================= BIG NOTE EDITOR (4) ================= */
+/* ================= NOTE MODAL ================= */
 let editorKey = null;
-const editorEl = () => document.getElementById('noteEditor');
+const modalEl = () => document.getElementById('noteModal');
 const editorTitleEl = () => document.getElementById('noteEditorTitle');
 const editorTextEl = () => document.getElementById('noteEditorTextarea');
 
@@ -237,17 +236,16 @@ function openEditor(key, title, currentVal){
   editorKey = key;
   editorTitleEl().innerHTML = `<a href="${title.url}" target="_blank" style="color:var(--accent)">#${title.iid}</a> — ${title.text}`;
   editorTextEl().value = currentVal || '';
-  editorEl().style.display = 'block';
-  window.scrollTo({ top: editorEl().offsetTop - 12, behavior: 'smooth' });
+  modalEl().style.display = 'block';
 }
-function closeEditor(){ editorEl().style.display = 'none'; editorKey = null; }
+function closeEditor(){ modalEl().style.display = 'none'; editorKey = null; }
 function saveEditor(){
   if (!editorKey) return;
   const val = editorTextEl().value;
   localStorage.setItem(editorKey, val);
-  // sincroniza textarea pequena, se estiver na DOM
   const small = document.querySelector(`textarea.comment-box[data-key="${editorKey}"]`);
   if (small) small.value = val;
+  closeEditor();
 }
 
 /* ================= DATA ================= */
@@ -272,7 +270,6 @@ async function loadProjectIssues(projectId, key) {
   const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(now.getDate() - 7);
   const since = sevenDaysAgo.toISOString();
 
-  // per_page=100 para evitar paginação
   let url = `https://gitlab.com/api/v4/projects/${projectId}/issues`;
   if (mode === 'closed7') url += `?state=closed&per_page=100&order_by=created_at&sort=asc&updated_after=${since}`;
   else url += `?state=opened&per_page=100&order_by=created_at&sort=asc`;
@@ -313,7 +310,7 @@ function renderIssues() {
     const endDate = (mode === 'closed7' && i.closed_at) ? new Date(i.closed_at) : now;
     const daysOpen = workingDaysBetween(created, endDate);
 
-    // (1) se closed7, não calcular SLA/Rank (mostra "—")
+    // closed7 => não mostramos SLA
     const sla = (mode === 'closed7') ? { days:null } : getSLAFor(i.labels || []);
     const base = { ...i, daysOpen, dateCol: (mode === 'closed7' && i.closed_at) ? i.closed_at : i.created_at, sla };
 
@@ -379,6 +376,7 @@ function renderIssues() {
   const counters = { total: 0, slaApplicable: 0, over: 0 };
 
   sorted.forEach(issue => {
+    const mode = getViewMode();
     const dateShown = (mode === 'closed7' && issue.closed_at) ? new Date(issue.closed_at) : new Date(issue.created_at);
     const slaDays = issue.sla.days;
     const hasSLA = (mode !== 'closed7') && Number.isInteger(slaDays);
@@ -418,7 +416,7 @@ function renderIssues() {
     `;
     tbody.appendChild(tr);
 
-    // listeners
+    // comment sync
     const small = tr.querySelector(`textarea.comment-box[data-key="${key}"]`);
     small.addEventListener('input', e=> localStorage.setItem(key, e.target.value));
 
@@ -448,9 +446,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const p = document.getElementById('sla-rules');
   if (p) p.textContent = SLA_RULES_TEXT;
 
-  // editor events
+  // modal events
   document.getElementById('noteEditorClose').onclick = closeEditor;
-  document.getElementById('noteEditorSave').onclick = () => { saveEditor(); closeEditor(); };
+  document.getElementById('noteEditorSave').onclick = saveEditor;
+
+  // click fora da caixa fecha o modal
+  document.getElementById('noteModal').addEventListener('click', (e)=>{
+    if (e.target.id === 'noteModal') closeEditor();
+  });
 
   loadAllIssues();
 });
