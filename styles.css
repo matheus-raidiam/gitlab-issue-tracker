@@ -124,38 +124,34 @@ th.sortable{cursor:pointer}
 /* Footer */
 footer{margin-top:16px; font-size:12px; color:var(--muted)}
 
-/* ===== Layout estável da tabela ===== */
+/***** === TABELA — LAYOUT FINAL E ESTÁVEL === *****/
 #finance-table{
-  table-layout: fixed;
+  table-layout: fixed;   /* respeita as larguras abaixo */
   width: 100%;
 }
 #finance-table th,
 #finance-table td{
-  overflow-wrap: anywhere;   /* evita que textos largos empurrem as colunas vizinhas */
+  overflow-wrap: anywhere;  /* evita “invadir” a coluna vizinha */
   word-break: break-word;
 }
 
-/* Larguras por coluna (1..11) – soma ≈ 100% */
-#finance-table th:nth-child(1),  #finance-table td:nth-child(1)  { width: 6%;  }  /* ID */
-#finance-table th:nth-child(2),  #finance-table td:nth-child(2)  { width: 26%; }  /* Title */
-#finance-table th:nth-child(3),  #finance-table td:nth-child(3)  { width: 9%;  }  /* Created/Closed */
-#finance-table th:nth-child(4),  #finance-table td:nth-child(4)  { width: 7%;  }  /* Working Days */
-#finance-table th:nth-child(5),  #finance-table td:nth-child(5)  { width: 8%;  }  /* SLA Status */
-#finance-table th:nth-child(6),  #finance-table td:nth-child(6)  { width: 9%;  }  /* Nature */
-#finance-table th:nth-child(7),  #finance-table td:nth-child(7)  { width: 7%;  }  /* Phase */
-#finance-table th:nth-child(8),  #finance-table td:nth-child(8)  { width: 7%;  }  /* Platform */
-#finance-table th:nth-child(9),  #finance-table td:nth-child(9)  { width: 8%;  }  /* Product */
-#finance-table th:nth-child(10), #finance-table td:nth-child(10) { width: 7%;  }  /* Status */
-#finance-table th:nth-child(11), #finance-table td:nth-child(11) { width: 6%;  }  /* Comments */
+/* Larguras por coluna (somam 100%) */
+#finance-table th:nth-child(1),  #finance-table td:nth-child(1)  { width: 5%;  } /* ID */
+#finance-table th:nth-child(2),  #finance-table td:nth-child(2)  { width: 25%; } /* Title */
+#finance-table th:nth-child(3),  #finance-table td:nth-child(3)  { width: 8%;  } /* Created At */
+#finance-table th:nth-child(4),  #finance-table td:nth-child(4)  { width: 6%;  } /* Working Days */
+#finance-table th:nth-child(5),  #finance-table td:nth-child(5)  { width: 7%;  } /* SLA Status */
+#finance-table th:nth-child(6),  #finance-table td:nth-child(6)  { width: 7%;  } /* Nature */
+#finance-table th:nth-child(7),  #finance-table td:nth-child(7)  { width: 7%;  } /* Phase */
+#finance-table th:nth-child(8),  #finance-table td:nth-child(8)  { width: 7%;  } /* Platform */
+#finance-table th:nth-child(9),  #finance-table td:nth-child(9)  { width: 7%;  } /* Product */
+#finance-table th:nth-child(10), #finance-table td:nth-child(10) { width: 6%;  } /* Status */
+#finance-table th:nth-child(11), #finance-table td:nth-child(11) { width: 15%; } /* Comments */
 
-/* ===== Altura da caixa de comentário — metade do que estava =====
-   Força override do <style> interno do index.html */
+/* Caixa de comentários: metade da altura anterior + ocupa toda a largura */
 textarea.comment-box{
-  min-height: 42px !important;   /* 120px -> 42px */
   width: 100%;
-  resize: vertical;
-  box-sizing: border-box;
-}
+  min-height: 42px !important;  /* força override de estilos inline (antes 84/120px) */
   resize: vertical;
   box-sizing: border-box;
 }
