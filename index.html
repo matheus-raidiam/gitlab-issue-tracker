@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>GitLab Issues SLA Dashboard</title>
-  <link rel="stylesheet" href="styles.css">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GitLab Issues SLA Dashboard</title>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="container header">
@@ -21,61 +21,72 @@
 
   <!-- Toolbar -->
   <div class="container controls" style="margin-bottom:12px">
-    <div class="control">
-      <label for="viewSelect" style="font-weight:600">View</label>
-      <select id="viewSelect">
-        <option value="open" selected>Open issues</option>
-        <option value="closed7">Closed (last 7 days)</option>
-      </select>
-    </div>
-    <button id="refreshBtn" class="btn">Refresh</button>
-    <button id="clearNotesBtn" class="btn btn-danger">Clear All Comments</button>
-    <button id="resetFiltersBtn" class="btn btn-outline">Reset Filters</button>
+    <label for="viewMode" style="font-weight:600">View:</label>
+    <select id="viewMode" onchange="loadAllIssues()">
+      <option value="open" selected>Open issues</option>
+      <option value="closed7">Closed (last 7 days)</option>
+    </select>
+    <button onclick="loadAllIssues()" class="btn">Refresh</button>
+    <button onclick="clearAllComments()" class="btn btn-danger">Clear All Comments</button>
+    <button onclick="resetAllFilters()" class="btn btn-outline">Reset Filters</button>
+    <div class="spacer"></div>
+    <div id="loading" style="display:none">Loading…</div>
   </div>
 
-  <!-- Filters (chips) -->
+  <!-- Filters (menus + chips) -->
   <div class="container table-wrap" style="padding:12px">
     <div class="control">
       <label>Nature</label>
-      <div id="natureChips" class="chips"></div>
+      <div id="menu-nature" class="chips"></div>
+      <small>Selected: <span id="count-nature">0</span></small>
     </div>
+
     <div class="control" style="margin-top:10px">
       <label>Phase</label>
-      <div id="phaseChips" class="chips"></div>
+      <div id="menu-phase" class="chips"></div>
+      <small>Selected: <span id="count-phase">0</span></small>
     </div>
+
     <div class="control" style="margin-top:10px">
       <label>Platform</label>
-      <div id="platformChips" class="chips"></div>
+      <div id="menu-platform" class="chips"></div>
+      <small>Selected: <span id="count-platform">0</span></small>
     </div>
+
     <div class="control" style="margin-top:10px">
       <label>Product</label>
-      <div id="productChips" class="chips"></div>
+      <div id="menu-product" class="chips"></div>
+      <small>Selected: <span id="count-product">0</span></small>
     </div>
+
     <div class="control" style="margin-top:10px">
       <label>Status</label>
-      <div id="statusChips" class="chips"></div>
+      <div id="menu-status" class="chips"></div>
+      <small>Selected: <span id="count-status">0</span></small>
     </div>
+
+    <!-- Active chips -->
+    <div class="chips" id="chips" style="margin-top:10px"></div>
   </div>
 
   <main class="container">
-    <section id="financeSection" class="section">
+    <section>
       <div class="section-head">
         <h2>
           Open Finance Issues
-          <a id="financeLink" class="section-link" target="_blank" rel="noreferrer">(view in GitLab)</a>
+          <a href="https://gitlab.com/raidiam-conformance/open-finance/certification/-/issues/" target="_blank" rel="noopener noreferrer" class="section-link">(view in GitLab)</a>
         </h2>
-        <div class="summary" id="financeSummary"></div>
+        <div class="summary" id="finance-summary"></div>
       </div>
-      <div id="financeEmpty" class="empty hidden"></div>
       <div class="table-wrap">
-        <table class="tbl" id="financeTable">
+        <table class="tbl" id="finance-table">
           <thead>
             <tr>
-              <th data-sort="iid">ID</th>
-              <th data-sort="title">Title</th>
-              <th data-sort="created_at">Created</th>
-              <th data-sort="wdays">Working Days</th>
-              <th data-sort="sla">SLA Status</th>
+              <th class="sortable" data-key="iid" onclick="changeSort('finance-table','iid')"><span class="sort-label">ID <span class="sort-arrow" data-for="iid"></span></span></th>
+              <th class="sortable" data-key="title" onclick="changeSort('finance-table','title')"><span class="sort-label">Title <span class="sort-arrow" data-for="title"></span></span></th>
+              <th class="sortable" data-key="dateCol" onclick="changeSort('finance-table','dateCol')"><span class="sort-label"><span id="finance-date-label">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span></th>
+              <th class="sortable" data-key="daysOpen" onclick="changeSort('finance-table','daysOpen')"><span class="sort-label">Working Days <span class="sort-arrow" data-for="daysOpen"></span></span></th>
+              <th class="sortable" data-key="slaRank" onclick="changeSort('finance-table','slaRank')"><span class="sort-label">SLA Status <span class="sort-arrow" data-for="slaRank"></span></span></th>
               <th>Nature</th>
               <th>Phase</th>
               <th>Platform</th>
@@ -89,24 +100,23 @@
       </div>
     </section>
 
-    <section id="insuranceSection" class="section">
+    <section>
       <div class="section-head">
         <h2>
           Open Insurance Issues
-          <a id="insuranceLink" class="section-link" target="_blank" rel="noreferrer">(view in GitLab)</a>
+          <a href="https://gitlab.com/raidiam-conformance/open-insurance/open-insurance-brasil/-/issues/" target="_blank" rel="noopener noreferrer" class="section-link">(view in GitLab)</a>
         </h2>
-        <div class="summary" id="insuranceSummary"></div>
+        <div class="summary" id="insurance-summary"></div>
       </div>
-      <div id="insuranceEmpty" class="empty hidden"></div>
       <div class="table-wrap">
-        <table class="tbl" id="insuranceTable">
+        <table class="tbl" id="insurance-table">
           <thead>
             <tr>
-              <th data-sort="iid">ID</th>
-              <th data-sort="title">Title</th>
-              <th data-sort="created_at">Created</th>
-              <th data-sort="wdays">Working Days</th>
-              <th data-sort="sla">SLA Status</th>
+              <th class="sortable" data-key="iid" onclick="changeSort('insurance-table','iid')"><span class="sort-label">ID <span class="sort-arrow" data-for="iid"></span></span></th>
+              <th class="sortable" data-key="title" onclick="changeSort('insurance-table','title')"><span class="sort-label">Title <span class="sort-arrow" data-for="title"></span></span></th>
+              <th class="sortable" data-key="dateCol" onclick="changeSort('insurance-table','dateCol')"><span class="sort-label"><span id="insurance-date-label">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span></th>
+              <th class="sortable" data-key="daysOpen" onclick="changeSort('insurance-table','daysOpen')"><span class="sort-label">Working Days <span class="sort-arrow" data-for="daysOpen"></span></span></th>
+              <th class="sortable" data-key="slaRank" onclick="changeSort('insurance-table','slaRank')"><span class="sort-label">SLA Status <span class="sort-arrow" data-for="slaRank"></span></span></th>
               <th>Nature</th>
               <th>Phase</th>
               <th>Platform</th>
