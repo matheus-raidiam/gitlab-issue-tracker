@@ -46,6 +46,33 @@
           </div>
         </details>
       </div>
+
+      <!-- Phase (NEW) -->
+      <div class="filter" id="filterPhase">
+        <details>
+          <summary>
+            <span class="title">Phase</span>
+            <span class="count-badge" id="count-phase">0</span>
+          </summary>
+          <div class="menu" id="menu-phase">
+            <div class="clear" onclick="clearCategory('phase')">Clear Phase</div>
+          </div>
+        </details>
+      </div>
+
+      <!-- Platform (NEW) -->
+      <div class="filter" id="filterPlatform">
+        <details>
+          <summary>
+            <span class="title">Platform</span>
+            <span class="count-badge" id="count-platform">0</span>
+          </summary>
+          <div class="menu" id="menu-platform">
+            <div class="clear" onclick="clearCategory('platform')">Clear Platform</div>
+          </div>
+        </details>
+      </div>
+
       <!-- Product -->
       <div class="filter" id="filterProduct">
         <details>
@@ -58,6 +85,7 @@
           </div>
         </details>
       </div>
+
       <!-- Status -->
       <div class="filter" id="filterStatus">
         <details>
@@ -93,6 +121,10 @@
             <th class="sortable" data-key="daysOpen" onclick="changeSort('finance-table','daysOpen')"><span class="sort-label">Working Days <span class="sort-arrow" data-for="daysOpen"></span></span></th>
             <th class="sortable" data-key="slaRank" onclick="changeSort('finance-table','slaRank')"><span class="sort-label">SLA Status <span class="sort-arrow" data-for="slaRank"></span></span></th>
             <th>Nature</th>
+            <!-- NEW -->
+            <th>Phase</th>
+            <th>Platform</th>
+            <!-- /NEW -->
             <th>Product</th>
             <th>Status</th>
             <th>Comments</th>
@@ -118,6 +150,10 @@
             <th class="sortable" data-key="daysOpen" onclick="changeSort('insurance-table','daysOpen')"><span class="sort-label">Working Days <span class="sort-arrow" data-for="daysOpen"></span></span></th>
             <th class="sortable" data-key="slaRank" onclick="changeSort('insurance-table','slaRank')"><span class="sort-label">SLA Status <span class="sort-arrow" data-for="slaRank"></span></span></th>
             <th>Nature</th>
+            <!-- NEW -->
+            <th>Phase</th>
+            <th>Platform</th>
+            <!-- /NEW -->
             <th>Product</th>
             <th>Status</th>
             <th>Comments</th>
