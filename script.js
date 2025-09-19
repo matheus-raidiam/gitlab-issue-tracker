@@ -1,7 +1,6 @@
-
 /* ================= CONFIG ================= */
 const SLA_RULES_TEXT =
-  "SLA rules: Bug & Questions = 10 working days; Under Evaluation or no Nature = 3 working days; Under WG Evaluation, Waiting Participant or Production Testing = SLA Paused; Others = No SLA.";
+  "SLA rules: Bug & Questions = 10 working days; Under Evaluation or no Nature = 3 working days; Under WG/DTO Evaluation, Waiting Participant, In Pipeline, Sandbox Testing, Waiting Deploy or Production Testing = SLA Paused; Others = No SLA.";
 
 /* ================= STATE ================= */
 const issues = { finance: [], insurance: [] };
@@ -9,22 +8,78 @@ const tableSort = {
   'finance-table': { key: 'daysOpen', asc: false },
   'insurance-table': { key: 'daysOpen', asc: false }
 };
+
+// Status que aparecem na coluna "Status" E usados para SLA Paused
 const STATUS_LABELS = new Set([
-  'Under Evaluation', 'Waiting Participant', 'Under WG Evaluation', 'Evaluated by WG', 'Production Testing'
+  'Under Evaluation',
+  'Waiting Participant',
+  'Under WG/DTO Evaluation',
+  'In Pipeline',
+  'Sandbox Testing',
+  'Waiting Deploy',
+  'Production Testing',
 ]);
+
+// Nature canônicas
 const NATURE_LABELS = new Set([
   'Questions', 'Bug', 'Change Request', 'Test Improvement', 'Breaking Change'
 ]);
 
+// Platform canônicas (não exibimos coluna separada, só tiramos de Product)
+const PLATFORM_LABELS = new Set(['FVP','Mock Bank','Mock TPP','Conformance Suite']);
+
+// Regex de Phase (não exibimos coluna separada, só tiramos de Product)
+const PHASE_RE = /^(?:phase)\s*(1|2|3|4a|4b)$/i;
+
+// Seleções de filtro (mesmo HTML original)
 const selected = { nature: new Set(), product: new Set(), status: new Set() };
 
 /* ================= UTILITIES ================= */
+// pega antes de "::", trim e normaliza para comparar
+function baseLabel(l) {
+  return String(l || '').split('::')[0].trim();
+}
+
+// Canoniza certas variantes (case-insensitive)
+function canonLabel(l) {
+  const s = baseLabel(l);
+  // Nature
+  if (/^bug$/i.test(s)) return 'Bug';
+  if (/^questions?$/i.test(s)) return 'Questions';
+  if (/^change\s*request$/i.test(s)) return 'Change Request';
+  if (/^test\s*improvement$/i.test(s)) return 'Test Improvement';
+  if (/^breaking\s*change$/i.test(s)) return 'Breaking Change';
+  // Status (principais)
+  if (/^under\s*evaluation$/i.test(s)) return 'Under Evaluation';
+  if (/^waiting\s*participant$/i.test(s)) return 'Waiting Participant';
+  if (/^under\s*wg\/?dto\s*evaluation$/i.test(s)) return 'Under WG/DTO Evaluation';
+  if (/^in\s*pipeline$/i.test(s)) return 'In Pipeline';
+  if (/^sandbox\s*testing$/i.test(s)) return 'Sandbox Testing';
+  if (/^waiting\s*deploy$/i.test(s)) return 'Waiting Deploy';
+  if (/^production\s*testing$/i.test(s)) return 'Production Testing';
+  // Platform (mantemos a forma canônica)
+  if (/^fvp$/i.test(s)) return 'FVP';
+  if (/^mock\s*bank$/i.test(s)) return 'Mock Bank';
+  if (/^mock\s*tpp$/i.test(s)) return 'Mock TPP';
+  if (/^conformance\s*suite$/i.test(s)) return 'Conformance Suite';
+  // Phase (normaliza para "Phase X")
+  const pm = s.match(PHASE_RE);
+  if (pm) return `Phase ${pm[1].toLowerCase()}`.replace(/\b\w/g,c=>c.toUpperCase());
+  // fallback: devolve base
+  return s;
+}
+
+// Classifica labels em {status, nature, product}.
+// OBS: removemos Phase e Platform de Product (conforme sua regra).
 function classifyLabels(labels = []) {
   const status = [], nature = [], product = [];
-  labels.forEach(l => {
-    if (STATUS_LABELS.has(l)) status.push(l);
-    else if (NATURE_LABELS.has(l)) nature.push(l);
-    else product.push(l);
+  labels.forEach(raw => {
+    const canon = canonLabel(raw);
+    if (STATUS_LABELS.has(canon)) { status.push(canon); return; }
+    if (NATURE_LABELS.has(canon)) { nature.push(canon); return; }
+    if (PLATFORM_LABELS.has(canon)) { /* ignora em Product */ return; }
+    if (/^Phase\s*(1|2|3|4a|4b)$/i.test(canon)) { /* ignora em Product */ return; }
+    product.push(canon);
   });
   return { status, nature, product };
 }
@@ -40,7 +95,7 @@ function workingDaysBetween(startDate, endDate) {
   return count;
 }
 
-// SLA mapping
+// SLA mapping (dias úteis). Mantido simples: sem feriados.
 function getSLAFor(labels) {
   const { status, nature } = classifyLabels(labels || []);
   const hasBug = nature.includes('Bug');
@@ -54,26 +109,28 @@ function getSLAFor(labels) {
   return { days: null, reason: 'No SLA' };
 }
 
-/* SLA text + sorting rank (includes "SLA Paused") */
+/* SLA text + sorting rank (inclui "SLA Paused") */
 function slaLabelAndRank(issue) {
   const labels = issue.labels || [];
   const { status } = classifyLabels(labels);
 
-  const paused =
-    status.includes('Under WG Evaluation') ||
+  const paused = (
+    status.includes('Under WG/DTO Evaluation') ||
     status.includes('Waiting Participant') ||
-    status.includes('Production Testing');
+    status.includes('In Pipeline') ||
+    status.includes('Sandbox Testing') ||
+    status.includes('Waiting Deploy') ||
+    status.includes('Production Testing')
+  );
 
-  if (paused) {
-    return { text: 'SLA Paused', class: 'paused', rank: 2 };
-  }
+  if (paused) return { text: 'SLA Paused', class: 'paused', rank: 2 };
 
   const slaDays = issue.sla.days;
   const hasSLA = Number.isInteger(slaDays);
   const over = hasSLA ? issue.daysOpen > slaDays : false;
 
   if (!hasSLA) return { text: 'No SLA', class: 'nosla', rank: 0 };
-  if (over) return { text: 'Over SLA', class: 'over-sla', rank: 3 };
+  if (over)     return { text: 'Over SLA', class: 'over-sla', rank: 3 };
   return { text: 'Within SLA', class: 'within-sla', rank: 1 };
 }
 
@@ -265,7 +322,7 @@ function renderIssues() {
     const tbody = document.querySelector(`#${tableId} tbody`);
     tbody.innerHTML = '';
 
-    // If the data source returned no issues for this view (open/closed7)
+    // Se não veio nada dessa fonte
     if (base.length === 0) {
       const msg = (mode === 'closed7')
         ? 'No issues were closed in the last 7 days.'
@@ -287,7 +344,6 @@ function renderIssues() {
       return matchNature && matchProduct && matchStatus;
     });
 
-    // If filters removed everything
     if (filtered.length === 0) {
       renderEmptyRow(tbody, 9, 'No issues match the selected filters. Try clearing filters or switching the view.');
       document.getElementById(summaryId).textContent =
@@ -301,12 +357,12 @@ function renderIssues() {
     const sorted = filtered.sort((a, b) => {
       let va, vb;
       switch (sort.key) {
-        case 'iid': va = Number(a.iid); vb = Number(b.iid); break;
+        case 'iid':      va = Number(a.iid); vb = Number(b.iid); break;
         case 'daysOpen': va = Number(a.daysOpen); vb = Number(b.daysOpen); break;
-        case 'dateCol': va = new Date(a.dateCol).getTime(); vb = new Date(b.dateCol).getTime(); break;
-        case 'slaRank': va = Number(a.slaRank); vb = Number(b.slaRank); break;
+        case 'dateCol':  va = new Date(a.dateCol).getTime(); vb = new Date(b.dateCol).getTime(); break;
+        case 'slaRank':  va = Number(a.slaRank); vb = Number(b.slaRank); break;
         case 'title':
-        default: va = (a.title || '').toLowerCase(); vb = (b.title || '').toLowerCase();
+        default:         va = (a.title || '').toLowerCase(); vb = (b.title || '').toLowerCase();
       }
       if (va < vb) return sort.asc ? -1 : 1;
       if (va > vb) return sort.asc ? 1 : -1;
