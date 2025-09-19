@@ -1,10 +1,8 @@
 /* ================= CONFIG ================= */
-const SLA_RULES_TEXT =
-  "SLA rules: Bug & Questions = 10 working days; Under Evaluation or no tags = 3 working days; Under WG/DTO Evaluation, Waiting Participant, In Pipeline, Sandbox Testing, Waiting Deploy or Production Testing = SLA Paused (Bug still uses 10 days). Working days = Mon–Fri.";
-
-/* ================= STATE ================= */
 const issues = { finance: [] };
-const tableSort = { 'finance-table': { key: 'daysOpen', asc: false } };
+
+/* Ordenação padrão por ID desc (mais recente primeiro) */
+const tableSort = { 'finance-table': { key: 'iid', asc: false } };
 
 const STATUS_LABELS = new Set([
   'Under Evaluation',
@@ -79,7 +77,7 @@ function workingDaysBetween(startDate, endDate) {
   return count;
 }
 
-// SLA mapping — Bug ignora pausa e sempre 10 dias; sem feriados
+// SLA mapping — Bug sempre 10d úteis (bypass pausa); sem feriados
 function getSLAFor(labels) {
   const { status, nature } = classifyLabels(labels || []);
   const hasBug = nature.includes('Bug');
@@ -98,6 +96,7 @@ function slaLabelAndRank(issue) {
   const { status, nature } = classifyLabels(labels);
   const isBug = nature.includes('Bug');
 
+  // pausa só se NÃO for bug
   const paused = !isBug && (
     status.includes('Under WG/DTO Evaluation') ||
     status.includes('Waiting Participant') ||
@@ -121,6 +120,7 @@ function slaLabelAndRank(issue) {
 function setLoading(on) { document.getElementById('loading').style.display = on ? 'block' : 'none'; }
 function saveComment(key, value) { localStorage.setItem(key, value); }
 function clearAllComments() {
+  if (!confirm('Are you sure you want to clear ALL comments? This cannot be undone.')) return; // (2) confirmação
   document.querySelectorAll('.comment-box').forEach(a => {
     localStorage.removeItem(a.dataset.key);
     a.value = '';
@@ -203,7 +203,7 @@ function resetAllFilters() {
   renderFilterMenus(); renderIssues();
 }
 
-/* Collapse details if clicking outside */
+/* Fecha details ao clicar fora */
 document.addEventListener('click', (e) => {
   const insideFilter = e.target.closest('.filter');
   if (!insideFilter) {
@@ -310,7 +310,6 @@ function renderIssues() {
     const endDate = (mode === 'closed7' && i.closed_at) ? new Date(i.closed_at) : now;
     const daysOpen = workingDaysBetween(created, endDate);
 
-    // closed7 => não mostramos SLA
     const sla = (mode === 'closed7') ? { days:null } : getSLAFor(i.labels || []);
     const base = { ...i, daysOpen, dateCol: (mode === 'closed7' && i.closed_at) ? i.closed_at : i.created_at, sla };
 
@@ -329,10 +328,11 @@ function renderIssues() {
       ? 'No issues were closed in the last 7 days.'
       : 'No open issues at the moment.';
     renderEmptyRow(tbody, 11, msg);
+    // resumo
     document.getElementById('finance-summary').textContent =
       (mode === 'closed7')
         ? '0 issues closed in last 7 days'
-        : '0 open issues — SLA-applicable: 0, Over SLA: 0';
+        : '0 public open issues — SLA-applicable: 0, Over SLA: 0';
     updateSortArrows('finance-table');
     return;
   }
@@ -352,7 +352,7 @@ function renderIssues() {
     document.getElementById('finance-summary').textContent =
       (mode === 'closed7')
         ? '0 issues closed in last 7 days'
-        : '0 open issues — SLA-applicable: 0, Over SLA: 0';
+        : '0 public open issues — SLA-applicable: 0, Over SLA: 0';
     updateSortArrows('finance-table');
     return;
   }
@@ -376,10 +376,10 @@ function renderIssues() {
   const counters = { total: 0, slaApplicable: 0, over: 0 };
 
   sorted.forEach(issue => {
-    const mode = getViewMode();
-    const dateShown = (mode === 'closed7' && issue.closed_at) ? new Date(issue.closed_at) : new Date(issue.created_at);
+    const modeNow = getViewMode();
+    const dateShown = (modeNow === 'closed7' && issue.closed_at) ? new Date(issue.closed_at) : new Date(issue.created_at);
     const slaDays = issue.sla.days;
-    const hasSLA = (mode !== 'closed7') && Number.isInteger(slaDays);
+    const hasSLA = (modeNow !== 'closed7') && Number.isInteger(slaDays);
     const over = hasSLA ? (issue.daysOpen > slaDays) : false;
 
     const key = `comment-${issue.projectId}-${issue.iid}`;
@@ -387,18 +387,21 @@ function renderIssues() {
 
     const { status, nature, product, phase, platform } = classifyLabels(issue.labels || []);
     const badges = (arr) => arr.length
-      ? arr.map(l => `<span class="badge">${l}</span>`).join(' ')
+      ? arr.map(l => {
+          const extra = (l === 'Bug') ? ' badge-bug' : '';
+          return `<span class="badge${extra}">${l}</span>`;
+        }).join(' ')
       : '<span style="opacity:.5;">—</span>';
 
-    const statusCell = (mode === 'closed7')
+    const statusCell = (modeNow === 'closed7')
       ? '—'
       : `<span class="${issue.slaClass}">${issue.slaText}</span>`;
 
     const tr = document.createElement('tr');
-    tr.className = (mode === 'closed7') ? 'closed-issue' : '';
+    tr.className = (modeNow === 'closed7') ? 'closed-issue' : '';
     tr.innerHTML = `
       <td><a href="${issue.web_url}" target="_blank" style="color:var(--accent);">#${issue.iid}</a></td>
-      <td>${issue.title}${mode === 'closed7' ? '<span class="closed-badge">Closed</span>' : ''}</td>
+      <td>${issue.title}${modeNow === 'closed7' ? '<span class="closed-badge">Closed</span>' : ''}</td>
       <td>${dateShown.toLocaleDateString()}</td>
       <td>${issue.daysOpen}</td>
       <td>${statusCell}</td>
@@ -416,7 +419,7 @@ function renderIssues() {
     `;
     tbody.appendChild(tr);
 
-    // comment sync
+    // sync comentário
     const small = tr.querySelector(`textarea.comment-box[data-key="${key}"]`);
     small.addEventListener('input', e=> localStorage.setItem(key, e.target.value));
 
@@ -431,10 +434,11 @@ function renderIssues() {
     if (hasSLA) { counters.slaApplicable++; if (over) counters.over++; }
   });
 
+  // resumo (3) — em Open mostra “public open issues”
   document.getElementById('finance-summary').textContent =
     (mode === 'closed7')
       ? `${counters.total} issues closed in last 7 days`
-      : `${counters.total} open issues — SLA-applicable: ${counters.slaApplicable}, Over SLA: ${counters.over}`;
+      : `${counters.total} public open issues — SLA-applicable: ${counters.slaApplicable}, Over SLA: ${counters.over}`;
 
   updateSortArrows('finance-table');
 }
@@ -443,14 +447,9 @@ function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({ "&":"&amp
 
 /* ================= INIT ================= */
 document.addEventListener('DOMContentLoaded', () => {
-  const p = document.getElementById('sla-rules');
-  if (p) p.textContent = SLA_RULES_TEXT;
-
-  // modal events
+  // Eventos do modal
   document.getElementById('noteEditorClose').onclick = closeEditor;
   document.getElementById('noteEditorSave').onclick = saveEditor;
-
-  // click fora da caixa fecha o modal
   document.getElementById('noteModal').addEventListener('click', (e)=>{
     if (e.target.id === 'noteModal') closeEditor();
   });
