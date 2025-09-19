@@ -123,7 +123,7 @@ th.sortable{cursor:pointer}
 /* Comentários */
 .comment-box{
   width:100%; font-size:12px; background:#092e34; color:#fff;
-  border:1px solid #066f5f; border-radius:4px; min-height:42px; /* ~metade da altura */
+  border:1px solid #066f5f; border-radius:4px; min-height:20px; /* ~metade da altura */
   resize:vertical;
 }
 
