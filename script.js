@@ -474,7 +474,12 @@ function renderIssues() {
     );
 
     counters.total++;
-    if (hasSLA) { counters.slaApplicable++; if (over) counters.over++; }
+if (mode !== 'closed7') {                       // só conta SLA na visão Open
+  const cls = issue.slaClass;                   // 'within-sla' | 'over-sla' | 'paused' | 'nosla'
+  const applicable = (cls === 'within-sla' || cls === 'over-sla' || cls === 'paused');
+  if (applicable) counters.slaApplicable++;
+  if (cls === 'over-sla') counters.over++;
+}
   });
 
   if (summaryEl) {
