@@ -155,3 +155,37 @@ textarea.comment-box{
   resize: vertical;
   box-sizing: border-box;
 }
+/* ==== FIXES: ID não quebra; "Working Days" não quebra a palavra ==== */
+
+/* headers não devem quebrar em várias linhas */
+#finance-table th { white-space: nowrap; }
+
+/* Coluna ID: mais larga e sem quebra */
+#finance-table th:nth-child(1),
+#finance-table td:nth-child(1) {
+  width: 7%;                 /* antes 5% */
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  text-align: left;
+}
+/* garante que o link #1234 não quebre */
+#finance-table td:nth-child(1) a {
+  display: inline-block;
+  min-width: 52px;           /* ajuste fino se precisar */
+}
+
+/* Working Days: não quebrar "Working" e centralizar valor */
+#finance-table th:nth-child(4),
+#finance-table td:nth-child(4) {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  text-align: center;
+}
+
+/* Rebalanceia a largura tirando 2% do Title para dar ao ID */
+#finance-table th:nth-child(2),
+#finance-table td:nth-child(2) {
+  width: 20%;                /* antes 22% */
+}
