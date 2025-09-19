@@ -77,7 +77,7 @@ function workingDaysBetween(startDate, endDate) {
   return count;
 }
 
-// SLA mapping — Bug sempre 10d úteis (bypass pausa); sem feriados
+// SLA mapping — Bug sempre 10d úteis (bypass pausa)
 function getSLAFor(labels) {
   const { status, nature } = classifyLabels(labels || []);
   const hasBug = nature.includes('Bug');
@@ -96,7 +96,6 @@ function slaLabelAndRank(issue) {
   const { status, nature } = classifyLabels(labels);
   const isBug = nature.includes('Bug');
 
-  // pausa só se NÃO for bug
   const paused = !isBug && (
     status.includes('Under WG/DTO Evaluation') ||
     status.includes('Waiting Participant') ||
@@ -120,7 +119,7 @@ function slaLabelAndRank(issue) {
 function setLoading(on) { document.getElementById('loading').style.display = on ? 'block' : 'none'; }
 function saveComment(key, value) { localStorage.setItem(key, value); }
 function clearAllComments() {
-  if (!confirm('Are you sure you want to clear ALL comments? This cannot be undone.')) return; // (2) confirmação
+  if (!confirm('Are you sure you want to clear ALL comments? This cannot be undone.')) return;
   document.querySelectorAll('.comment-box').forEach(a => {
     localStorage.removeItem(a.dataset.key);
     a.value = '';
@@ -328,7 +327,6 @@ function renderIssues() {
       ? 'No issues were closed in the last 7 days.'
       : 'No open issues at the moment.';
     renderEmptyRow(tbody, 11, msg);
-    // resumo
     document.getElementById('finance-summary').textContent =
       (mode === 'closed7')
         ? '0 issues closed in last 7 days'
@@ -412,7 +410,7 @@ function renderIssues() {
       <td>${badges(status)}</td>
       <td>
         <div>
-          <textarea class="comment-box" rows="2" data-key="${key}">${saved}</textarea>
+          <textarea class="comment-box" data-key="${key}">${saved}</textarea>
           <button class="open-editor" data-key="${key}" data-iid="${issue.iid}" data-url="${issue.web_url}" data-title="${escapeHtml(issue.title)}" style="margin-top:6px">Open editor</button>
         </div>
       </td>
@@ -434,7 +432,7 @@ function renderIssues() {
     if (hasSLA) { counters.slaApplicable++; if (over) counters.over++; }
   });
 
-  // resumo (3) — em Open mostra “public open issues”
+  // resumo — em Open mostra “public open issues”
   document.getElementById('finance-summary').textContent =
     (mode === 'closed7')
       ? `${counters.total} issues closed in last 7 days`
@@ -447,7 +445,7 @@ function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({ "&":"&amp
 
 /* ================= INIT ================= */
 document.addEventListener('DOMContentLoaded', () => {
-  // Eventos do modal
+  // modal
   document.getElementById('noteEditorClose').onclick = closeEditor;
   document.getElementById('noteEditorSave').onclick = saveEditor;
   document.getElementById('noteModal').addEventListener('click', (e)=>{
