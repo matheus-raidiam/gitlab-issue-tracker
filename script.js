@@ -1,15 +1,11 @@
 /* ================= CONFIG ================= */
 const SLA_RULES_TEXT =
-  "SLA rules: Bug & Questions = 10 working days; Under Evaluation or no Nature = 3 working days; Under WG/DTO Evaluation, Waiting Participant, In Pipeline, Sandbox Testing, Waiting Deploy or Production Testing = SLA Paused (except Bug, which always uses 10 days); Others = No SLA.";
+  "SLA rules: Bug & Questions = 10 working days; Under Evaluation or no Nature = 3 working days; Under WG/DTO Evaluation, Waiting Participant, In Pipeline, Sandbox Testing, Waiting Deploy or Production Testing = SLA Paused (except Bug, which always uses 10 days). Working days = Mon–Fri.";
 
 /* ================= STATE ================= */
-const issues = { finance: [], insurance: [] };
-const tableSort = {
-  'finance-table': { key: 'daysOpen', asc: false },
-  'insurance-table': { key: 'daysOpen', asc: false }
-};
+const issues = { finance: [] };
+const tableSort = { 'finance-table': { key: 'daysOpen', asc: false } };
 
-// Status usados em coluna e também para SLA Paused
 const STATUS_LABELS = new Set([
   'Under Evaluation',
   'Waiting Participant',
@@ -20,35 +16,27 @@ const STATUS_LABELS = new Set([
   'Production Testing',
 ]);
 
-// Nature canônicas
 const NATURE_LABELS = new Set([
   'Questions', 'Bug', 'Change Request', 'Test Improvement', 'Breaking Change'
 ]);
 
-// Platform canônicas
 const PLATFORM_LABELS = new Set(['FVP','Mock Bank','Mock TPP','Conformance Suite']);
-
-// Phase (regex)
 const PHASE_RE = /^(?:phase)\s*(1|2|3|4a|4b)$/i;
 
-// Seleções de filtro — agora com phase/platform
+// filtros agora com phase/platform
 const selected = { nature: new Set(), phase: new Set(), platform: new Set(), product: new Set(), status: new Set() };
 
 /* ================= UTILITIES ================= */
-// pega antes de "::", trim e normaliza
 function baseLabel(l) { return String(l || '').split('::')[0].trim(); }
 
-// Canoniza variantes
 function canonLabel(l) {
   const s = baseLabel(l);
-  // Nature
   if (/^bug$/i.test(s)) return 'Bug';
   if (/^questions?$/i.test(s)) return 'Questions';
   if (/^change\s*request$/i.test(s)) return 'Change Request';
   if (/^test\s*improvement$/i.test(s)) return 'Test Improvement';
   if (/^breaking\s*change$/i.test(s)) return 'Breaking Change';
 
-  // Status
   if (/^under\s*evaluation$/i.test(s)) return 'Under Evaluation';
   if (/^waiting\s*participant$/i.test(s)) return 'Waiting Participant';
   if (/^under\s*wg\/?dto\s*evaluation$/i.test(s)) return 'Under WG/DTO Evaluation';
@@ -57,21 +45,17 @@ function canonLabel(l) {
   if (/^waiting\s*deploy$/i.test(s)) return 'Waiting Deploy';
   if (/^production\s*testing$/i.test(s)) return 'Production Testing';
 
-  // Platform
   if (/^fvp$/i.test(s)) return 'FVP';
   if (/^mock\s*bank$/i.test(s)) return 'Mock Bank';
   if (/^mock\s*tpp$/i.test(s)) return 'Mock TPP';
   if (/^conformance\s*suite$/i.test(s)) return 'Conformance Suite';
 
-  // Phase -> "Phase X"
   const pm = s.match(PHASE_RE);
   if (pm) return `Phase ${pm[1].toLowerCase()}`.replace(/\b\w/g,c=>c.toUpperCase());
 
   return s;
 }
 
-// Classificação com 5 grupos; Product = qualquer label que NÃO seja
-// Nature/Phase/Platform/Status
 function classifyLabels(labels = []) {
   const status = [], nature = [], product = [], phase = [], platform = [];
   labels.forEach(raw => {
@@ -96,10 +80,10 @@ function workingDaysBetween(startDate, endDate) {
   return count;
 }
 
-// SLA mapping simples (sem feriados)
+// (1) SLA mapping — Bug ignora pausa e sempre 10 dias; sem feriados
 function getSLAFor(labels) {
   const { status, nature } = classifyLabels(labels || []);
-  const hasBug = nature.includes('Bug');       // BUG sempre 10 dias (bypass status)
+  const hasBug = nature.includes('Bug');       // bypass pause
   const hasQuestions = nature.includes('Questions');
   const underEval = status.includes('Under Evaluation');
   const noNature = nature.length === 0;
@@ -110,13 +94,11 @@ function getSLAFor(labels) {
   return { days: null, reason: 'No SLA' };
 }
 
-/* SLA text + sorting rank; BUG ignora pausa */
 function slaLabelAndRank(issue) {
   const labels = issue.labels || [];
   const { status, nature } = classifyLabels(labels);
   const isBug = nature.includes('Bug');
 
-  // pausa só vale se NÃO for Bug
   const paused = !isBug && (
     status.includes('Under WG/DTO Evaluation') ||
     status.includes('Waiting Participant') ||
@@ -149,7 +131,7 @@ function clearAllComments() {
 /* ================= FILTER UI ================= */
 function renderFilterMenus() {
   const natureSet = new Set(), phaseSet = new Set(), platformSet = new Set(), productSet = new Set(), statusSet = new Set();
-  [...issues.finance, ...issues.insurance].forEach(i => {
+  issues.finance.forEach(i => {
     const { status, nature, product, phase, platform } = classifyLabels(i.labels || []);
     status.forEach(l => statusSet.add(l));
     nature.forEach(l => natureSet.add(l));
@@ -178,8 +160,8 @@ function renderFilterMenus() {
   };
 
   fill('menu-nature', natureSet, 'nature');
-  fill('menu-phase', phaseSet, 'phase');           // NEW
-  fill('menu-platform', platformSet, 'platform');  // NEW
+  fill('menu-phase', phaseSet, 'phase');
+  fill('menu-platform', platformSet, 'platform');
   fill('menu-product', productSet, 'product');
   fill('menu-status', statusSet, 'status');
 
@@ -188,8 +170,8 @@ function renderFilterMenus() {
 
 function updateCounts() {
   document.getElementById('count-nature').textContent = selected.nature.size;
-  document.getElementById('count-phase').textContent = selected.phase.size;         // NEW
-  document.getElementById('count-platform').textContent = selected.platform.size;   // NEW
+  document.getElementById('count-phase').textContent = selected.phase.size;
+  document.getElementById('count-platform').textContent = selected.platform.size;
   document.getElementById('count-product').textContent = selected.product.size;
   document.getElementById('count-status').textContent = selected.status.size;
 }
@@ -202,7 +184,7 @@ function clearCategory(cat) {
 function renderChips() {
   const chips = document.getElementById('chips');
   chips.innerHTML = '';
-  ['nature', 'phase', 'platform', 'product', 'status'].forEach(cat => {  // inclui novos
+  ['nature', 'phase', 'platform', 'product', 'status'].forEach(cat => {
     selected[cat].forEach(tag => {
       const el = document.createElement('span');
       el.className = 'chip';
@@ -222,7 +204,7 @@ function resetAllFilters() {
   renderFilterMenus(); renderIssues();
 }
 
-/* Collapse filters when clicking outside */
+/* Fechar detalhes se clicar fora */
 document.addEventListener('click', (e) => {
   const insideFilter = e.target.closest('.filter');
   if (!insideFilter) {
@@ -236,7 +218,6 @@ function changeSort(tableId, key) {
   if (s.key === key) s.asc = !s.asc; else { s.key = key; s.asc = (key === 'title'); }
   updateSortArrows(tableId); renderIssues();
 }
-
 function updateSortArrows(tableId) {
   const table = document.getElementById(tableId);
   table.querySelectorAll('.sort-arrow').forEach(el => el.textContent = '');
@@ -244,26 +225,43 @@ function updateSortArrows(tableId) {
   const arrow = table.querySelector(`.sort-arrow[data-for="${s.key}"]`);
   if (arrow) arrow.textContent = s.asc ? '▲' : '▼';
 }
-
 function getViewMode() { return document.getElementById('viewMode').value; }
+
+/* ================= BIG NOTE EDITOR (4) ================= */
+let editorKey = null;
+const editorEl = () => document.getElementById('noteEditor');
+const editorTitleEl = () => document.getElementById('noteEditorTitle');
+const editorTextEl = () => document.getElementById('noteEditorTextarea');
+
+function openEditor(key, title, currentVal){
+  editorKey = key;
+  editorTitleEl().innerHTML = `<a href="${title.url}" target="_blank" style="color:var(--accent)">#${title.iid}</a> — ${title.text}`;
+  editorTextEl().value = currentVal || '';
+  editorEl().style.display = 'block';
+  window.scrollTo({ top: editorEl().offsetTop - 12, behavior: 'smooth' });
+}
+function closeEditor(){ editorEl().style.display = 'none'; editorKey = null; }
+function saveEditor(){
+  if (!editorKey) return;
+  const val = editorTextEl().value;
+  localStorage.setItem(editorKey, val);
+  // sincroniza textarea pequena, se estiver na DOM
+  const small = document.querySelector(`textarea.comment-box[data-key="${editorKey}"]`);
+  if (small) small.value = val;
+}
 
 /* ================= DATA ================= */
 async function loadAllIssues() {
   setLoading(true);
-  issues.finance = []; issues.insurance = [];
+  issues.finance = [];
 
   const mode = getViewMode();
   document.getElementById('finance-date-label').textContent = mode === 'closed7' ? 'Closed At' : 'Created At';
-  document.getElementById('insurance-date-label').textContent = mode === 'closed7' ? 'Closed At' : 'Created At';
 
-  await Promise.all([
-    loadProjectIssues(26426113, 'finance'),
-    loadProjectIssues(32299006, 'insurance')
-  ]);
+  await loadProjectIssues(26426113, 'finance');
 
   renderFilterMenus();
   updateSortArrows('finance-table');
-  updateSortArrows('insurance-table');
   renderIssues();
   setLoading(false);
 }
@@ -274,9 +272,10 @@ async function loadProjectIssues(projectId, key) {
   const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(now.getDate() - 7);
   const since = sevenDaysAgo.toISOString();
 
+  // per_page=100 para evitar paginação
   let url = `https://gitlab.com/api/v4/projects/${projectId}/issues`;
-  if (mode === 'closed7') url += `?state=closed&updated_after=${since}`;
-  else url += `?state=opened`;
+  if (mode === 'closed7') url += `?state=closed&per_page=100&order_by=created_at&sort=asc&updated_after=${since}`;
+  else url += `?state=opened&per_page=100&order_by=created_at&sort=asc`;
 
   try {
     const res = await fetch(url);
@@ -305,153 +304,153 @@ function renderEmptyRow(tbody, colspan, message) {
 
 function renderIssues() {
   const mode = getViewMode();
-  document.querySelectorAll('tbody').forEach(tb => tb.innerHTML = '');
+  const tbody = document.querySelector('#finance-table tbody');
+  tbody.innerHTML = '';
 
   const now = new Date();
   const decorate = (list) => list.map(i => {
     const created = new Date(i.created_at);
     const endDate = (mode === 'closed7' && i.closed_at) ? new Date(i.closed_at) : now;
     const daysOpen = workingDaysBetween(created, endDate);
-    const sla = getSLAFor(i.labels || []);
+
+    // (1) se closed7, não calcular SLA/Rank (mostra "—")
+    const sla = (mode === 'closed7') ? { days:null } : getSLAFor(i.labels || []);
     const base = { ...i, daysOpen, dateCol: (mode === 'closed7' && i.closed_at) ? i.closed_at : i.created_at, sla };
-    const { text, rank, class: klass } = slaLabelAndRank(base);
+
+    let text='—', rank=-1, klass='nosla';
+    if (mode !== 'closed7') {
+      const r = slaLabelAndRank(base);
+      text = r.text; rank = r.rank; klass = r.class;
+    }
     return { ...base, slaText: text, slaRank: rank, slaClass: klass };
   });
 
-  renderTable('finance');
-  renderTable('insurance');
+  const base = decorate(issues.finance);
 
-  function renderTable(which) {
-    const tableId = which === 'finance' ? 'finance-table' : 'insurance-table';
-    const summaryId = which === 'finance' ? 'finance-summary' : 'insurance-summary';
-    const sort = tableSort[tableId];
-
-    const base = decorate(issues[which]);
-
-    const tbody = document.querySelector(`#${tableId} tbody`);
-    tbody.innerHTML = '';
-
-    if (base.length === 0) {
-      const msg = (mode === 'closed7')
-        ? 'No issues were closed in the last 7 days.'
-        : 'No open issues at the moment.';
-      renderEmptyRow(tbody, 11, msg); // agora são 11 colunas
-      document.getElementById(summaryId).textContent =
-        (mode === 'closed7')
-          ? '0 issues closed in last 7 days — SLA-applicable: 0, Over SLA: 0'
-          : '0 open issues — SLA-applicable: 0, Over SLA: 0';
-      updateSortArrows(tableId);
-      return;
-    }
-
-    const filtered = base.filter(i => {
-      const { status, nature, product, phase, platform } = classifyLabels(i.labels || []);
-      const matchNature   = selected.nature.size   ? nature.some(n => selected.nature.has(n))       : true;
-      const matchPhase    = selected.phase.size    ? phase.some(p => selected.phase.has(p))          : true;
-      const matchPlatform = selected.platform.size ? platform.some(p => selected.platform.has(p))    : true;
-      const matchProduct  = selected.product.size  ? product.some(p => selected.product.has(p))      : true;
-      const matchStatus   = selected.status.size   ? status.some(s => selected.status.has(s))        : true;
-      return matchNature && matchPhase && matchPlatform && matchProduct && matchStatus;
-    });
-
-    if (filtered.length === 0) {
-      renderEmptyRow(tbody, 11, 'No issues match the selected filters. Try clearing filters or switching the view.');
-      document.getElementById(summaryId).textContent =
-        (mode === 'closed7')
-          ? '0 issues closed in last 7 days — SLA-applicable: 0, Over SLA: 0'
-          : '0 open issues — SLA-applicable: 0, Over SLA: 0';
-      updateSortArrows(tableId);
-      return;
-    }
-
-    const sorted = filtered.sort((a, b) => {
-      let va, vb;
-      switch (sort.key) {
-        case 'iid':      va = Number(a.iid); vb = Number(b.iid); break;
-        case 'daysOpen': va = Number(a.daysOpen); vb = Number(b.daysOpen); break;
-        case 'dateCol':  va = new Date(a.dateCol).getTime(); vb = new Date(b.dateCol).getTime(); break;
-        case 'slaRank':  va = Number(a.slaRank); vb = Number(b.slaRank); break;
-        case 'title':
-        default:         va = (a.title || '').toLowerCase(); vb = (b.title || '').toLowerCase();
-      }
-      if (va < vb) return sort.asc ? -1 : 1;
-      if (va > vb) return sort.asc ? 1 : -1;
-      return 0;
-    });
-
-    const counters = { total: 0, slaApplicable: 0, over: 0 };
-
-    sorted.forEach(issue => {
-      const dateShown = (mode === 'closed7' && issue.closed_at) ? new Date(issue.closed_at) : new Date(issue.created_at);
-      const slaDays = issue.sla.days;
-      const hasSLA = Number.isInteger(slaDays);
-      const over = hasSLA ? (issue.daysOpen > slaDays) : false;
-
-      const key = `comment-${issue.projectId}-${issue.iid}`;
-      const saved = localStorage.getItem(key) || '';
-
-      const { status, nature, product, phase, platform } = classifyLabels(issue.labels || []);
-      const badges = (arr) => arr.length
-        ? arr.map(l => `<span class="badge">${l}</span>`).join(' ')
-        : '<span style="opacity:.5;">—</span>';
-
-      const statusCell = `<span class="${issue.slaClass}">${issue.slaText}</span>`;
-
-      const tr = document.createElement('tr');
-      tr.className = (mode === 'closed7') ? 'closed-issue' : '';
-      tr.innerHTML = `
-        <td><a href="${issue.web_url}" target="_blank" style="color:var(--accent);">#${issue.iid}</a></td>
-        <td>${issue.title}${mode === 'closed7' ? '<span class="closed-badge">Closed</span>' : ''}</td>
-        <td>${dateShown.toLocaleDateString()}</td>
-        <td>${issue.daysOpen}</td>
-        <td>${statusCell}</td>
-        <td>${badges(nature)}</td>
-        <td>${badges(phase)}</td>
-        <td>${badges(platform)}</td>
-        <td>${badges(product)}</td>
-        <td>${badges(status)}</td>
-        <td>
-          <div>
-            <textarea class="comment-box" rows="2" data-key="${key}">${saved}</textarea>
-            <button class="expand-btn" data-key="${key}" style="margin-top:6px">Expand</button>
-          </div>
-          <div class="expand-wrap" data-key="${key}" style="display:none;margin-top:6px">
-            <textarea class="comment-box-large" rows="6" data-key="${key}">${saved}</textarea>
-            <div style="margin-top:6px;display:flex;gap:8px">
-              <button class="collapse-btn" data-key="${key}">Close</button>
-            </div>
-          </div>
-        </td>
-      `;
-      tbody.appendChild(tr);
-
-      // listeners de comentário/expandir
-      const small = tr.querySelector(`textarea.comment-box[data-key="${key}"]`);
-      const big   = tr.querySelector(`textarea.comment-box-large[data-key="${key}"]`);
-      const wrap  = tr.querySelector(`.expand-wrap[data-key="${key}"]`);
-      tr.querySelector(`.expand-btn[data-key="${key}"]`).onclick = () => { big.value = small.value; wrap.style.display='block'; };
-      tr.querySelector(`.collapse-btn[data-key="${key}"]`).onclick = () => { wrap.style.display='none'; };
-
-      const syncSave = (val)=>{ localStorage.setItem(key, val); small.value = val; big.value = val; };
-      small.addEventListener('input', e=> syncSave(e.target.value));
-      big.addEventListener('input',   e=> syncSave(e.target.value));
-
-      counters.total++;
-      if (hasSLA) { counters.slaApplicable++; if (over) counters.over++; }
-    });
-
-    document.getElementById(summaryId).textContent =
+  if (base.length === 0) {
+    const msg = (mode === 'closed7')
+      ? 'No issues were closed in the last 7 days.'
+      : 'No open issues at the moment.';
+    renderEmptyRow(tbody, 11, msg);
+    document.getElementById('finance-summary').textContent =
       (mode === 'closed7')
-        ? `${counters.total} issues closed in last 7 days — SLA-applicable: ${counters.slaApplicable}, Over SLA: ${counters.over}`
-        : `${counters.total} open issues — SLA-applicable: ${counters.slaApplicable}, Over SLA: ${counters.over}`;
-
-    updateSortArrows(tableId);
+        ? '0 issues closed in last 7 days'
+        : '0 open issues — SLA-applicable: 0, Over SLA: 0';
+    updateSortArrows('finance-table');
+    return;
   }
+
+  const filtered = base.filter(i => {
+    const { status, nature, product, phase, platform } = classifyLabels(i.labels || []);
+    const matchNature   = selected.nature.size   ? nature.some(n => selected.nature.has(n))       : true;
+    const matchPhase    = selected.phase.size    ? phase.some(p => selected.phase.has(p))          : true;
+    const matchPlatform = selected.platform.size ? platform.some(p => selected.platform.has(p))    : true;
+    const matchProduct  = selected.product.size  ? product.some(p => selected.product.has(p))      : true;
+    const matchStatus   = selected.status.size   ? status.some(s => selected.status.has(s))        : true;
+    return matchNature && matchPhase && matchPlatform && matchProduct && matchStatus;
+  });
+
+  if (filtered.length === 0) {
+    renderEmptyRow(tbody, 11, 'No issues match the selected filters. Try clearing filters or switching the view.');
+    document.getElementById('finance-summary').textContent =
+      (mode === 'closed7')
+        ? '0 issues closed in last 7 days'
+        : '0 open issues — SLA-applicable: 0, Over SLA: 0';
+    updateSortArrows('finance-table');
+    return;
+  }
+
+  const sort = tableSort['finance-table'];
+  const sorted = filtered.sort((a, b) => {
+    let va, vb;
+    switch (sort.key) {
+      case 'iid':      va = Number(a.iid); vb = Number(b.iid); break;
+      case 'daysOpen': va = Number(a.daysOpen); vb = Number(b.daysOpen); break;
+      case 'dateCol':  va = new Date(a.dateCol).getTime(); vb = new Date(b.dateCol).getTime(); break;
+      case 'slaRank':  va = Number(a.slaRank); vb = Number(b.slaRank); break;
+      case 'title':
+      default:         va = (a.title || '').toLowerCase(); vb = (b.title || '').toLowerCase();
+    }
+    if (va < vb) return sort.asc ? -1 : 1;
+    if (va > vb) return sort.asc ? 1 : -1;
+    return 0;
+  });
+
+  const counters = { total: 0, slaApplicable: 0, over: 0 };
+
+  sorted.forEach(issue => {
+    const dateShown = (mode === 'closed7' && issue.closed_at) ? new Date(issue.closed_at) : new Date(issue.created_at);
+    const slaDays = issue.sla.days;
+    const hasSLA = (mode !== 'closed7') && Number.isInteger(slaDays);
+    const over = hasSLA ? (issue.daysOpen > slaDays) : false;
+
+    const key = `comment-${issue.projectId}-${issue.iid}`;
+    const saved = localStorage.getItem(key) || '';
+
+    const { status, nature, product, phase, platform } = classifyLabels(issue.labels || []);
+    const badges = (arr) => arr.length
+      ? arr.map(l => `<span class="badge">${l}</span>`).join(' ')
+      : '<span style="opacity:.5;">—</span>';
+
+    const statusCell = (mode === 'closed7')
+      ? '—'
+      : `<span class="${issue.slaClass}">${issue.slaText}</span>`;
+
+    const tr = document.createElement('tr');
+    tr.className = (mode === 'closed7') ? 'closed-issue' : '';
+    tr.innerHTML = `
+      <td><a href="${issue.web_url}" target="_blank" style="color:var(--accent);">#${issue.iid}</a></td>
+      <td>${issue.title}${mode === 'closed7' ? '<span class="closed-badge">Closed</span>' : ''}</td>
+      <td>${dateShown.toLocaleDateString()}</td>
+      <td>${issue.daysOpen}</td>
+      <td>${statusCell}</td>
+      <td>${badges(nature)}</td>
+      <td>${badges(phase)}</td>
+      <td>${badges(platform)}</td>
+      <td>${badges(product)}</td>
+      <td>${badges(status)}</td>
+      <td>
+        <div>
+          <textarea class="comment-box" rows="2" data-key="${key}">${saved}</textarea>
+          <button class="open-editor" data-key="${key}" data-iid="${issue.iid}" data-url="${issue.web_url}" data-title="${escapeHtml(issue.title)}" style="margin-top:6px">Open editor</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+
+    // listeners
+    const small = tr.querySelector(`textarea.comment-box[data-key="${key}"]`);
+    small.addEventListener('input', e=> localStorage.setItem(key, e.target.value));
+
+    const btn = tr.querySelector(`button.open-editor[data-key="${key}"]`);
+    btn.onclick = () => openEditor(
+      key,
+      { iid: btn.dataset.iid, text: btn.dataset.title, url: btn.dataset.url },
+      localStorage.getItem(key) || ''
+    );
+
+    counters.total++;
+    if (hasSLA) { counters.slaApplicable++; if (over) counters.over++; }
+  });
+
+  document.getElementById('finance-summary').textContent =
+    (mode === 'closed7')
+      ? `${counters.total} issues closed in last 7 days`
+      : `${counters.total} open issues — SLA-applicable: ${counters.slaApplicable}, Over SLA: ${counters.over}`;
+
+  updateSortArrows('finance-table');
 }
+
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
 
 /* ================= INIT ================= */
 document.addEventListener('DOMContentLoaded', () => {
   const p = document.getElementById('sla-rules');
   if (p) p.textContent = SLA_RULES_TEXT;
+
+  // editor events
+  document.getElementById('noteEditorClose').onclick = closeEditor;
+  document.getElementById('noteEditorSave').onclick = () => { saveEditor(); closeEditor(); };
+
   loadAllIssues();
 });
