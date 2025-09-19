@@ -1,94 +1,97 @@
 # GitLab Issues SLA Dashboard
 
-A lightweight, static dashboard to monitor GitLab issues (Open Finance + Open Insurance) with SLA awareness, filters, sorting, and local notes.
+Um dashboard estático e leve para monitorar **issues** do GitLab (Open Finance + Open Insurance), com lógica de **SLA**, filtros, ordenação e comentários locais.
 
-## Purpose
+🌐 **Demo:** [draftdashsla.netlify.app](https://draftdashsla.netlify.app/)
 
-Help the Service team quickly triage issues by showing:
+---
 
-* how long each issue has been open (in **working days**, Mon–Fri),
-* whether it’s **Within SLA**, **Over SLA**, **SLA Paused**, or **No SLA**,
-* grouped labels (Nature, Product, Status),
-* and handy filters + per-issue notes saved in your browser.
+## 🎯 Objetivo
 
-Live demo: [https://sla-gitlab.netlify.app/](https://sla-gitlab.netlify.app/)
+Auxiliar o time de Service a triar rapidamente os issues, mostrando:
 
-## Features
+- Quantos dias úteis cada issue está aberta (exclui finais de semana e feriados nacionais do Brasil — 2025 a 2030);
+- Status em relação ao SLA: **Within SLA, Over SLA, SLA Paused, No SLA**;
+- Agrupamento de labels por **Nature, Phase, Platform, Product, Status**;
+- Filtros rápidos e comentários por issue, salvos no navegador.
 
-* **Two project feeds**:
+---
 
-  * Open Finance (OPF): `raidiam-conformance/open-finance/certification`
-  * Open Insurance (OPIN): `raidiam-conformance/open-insurance/open-insurance-brasil`
-* **Views**: Open issues, or issues **closed in the last 7 days**
-* **SLA logic** (working days only) with automatic status:
+## ⚙️ Funcionalidades
 
-  * Bug & Questions → **10** working days
-  * Under Evaluation or **no Nature** tag → **3** working days
-  * Under WG Evaluation / Waiting Participant / Production Testing → **SLA Paused**
-  * Others → **No SLA**
-* **Filters** by Nature, Product, and Status (with chips + quick clear)
-* **Sorting** per table (ID, Title, Date, Working Days, SLA Status) with arrows
-* **Local notes** (comments per issue) persisted via `localStorage`
-* **Summary counters** (totals, SLA-applicable, Over SLA)
-* **Empty states** that clearly explain why a table is empty
-* **Refresh** button and **Reset Filters / Clear All Comments** actions
-* **Deep links** from section titles to each project’s issues list in GitLab
+- **Projetos monitorados**  
+  - Open Finance (OPF): `raidiam-conformance/open-finance/certification`  
+  - Open Insurance (OPIN): `raidiam-conformance/open-insurance/open-insurance-brasil`
 
-## How it works
+- **Visões**  
+  - Issues abertos (`Open issues`)  
+  - Issues fechados nos últimos 7 dias (`Closed in last 7 days`, via `closed_at`)
 
-* Public GitLab REST endpoints (no tokens):
+- **Taxonomia de Labels**  
+  - **Nature:** `Questions`, `Bug`, `Change Request`, `Test Improvement`, `Breaking Change`  
+  - **Phase:** `Phase 1`, `Phase 2`, `Phase 3`, `Phase 4a`, `Phase 4b`  
+  - **Platform:** `FVP`, `Mock Bank`, `Mock TPP`, `Conformance Suite`  
+  - **Status:** `Under Evaluation`, `Waiting Participant`, `Under WG/DTO Evaluation`, `In Pipeline`, `Sandbox Testing`, `Waiting Deploy`, `Production Testing`  
+  - **Product:** qualquer label que não seja Nature, Phase, Platform ou Status
 
-  * OPF: `https://gitlab.com/api/v4/projects/26426113/issues`
-  * OPIN: `https://gitlab.com/api/v4/projects/32299006/issues`
-* Working-day math excludes weekends.
-* Comments are stored in the browser (no backend).
-* “SLA Paused” when Status has **Under WG Evaluation**, **Waiting Participant**, or **Production Testing**.
+- **Regras de SLA (dias úteis)**  
+  - `Bug` e `Questions` → 10 dias  
+  - `Under Evaluation` **ou sem Nature** → 3 dias  
+  - `Change Request`, `Test Improvement`, `Breaking Change` → **sem SLA**  
+  - **Status pausam SLA** → `Under WG/DTO Evaluation`, `Waiting Participant`, `In Pipeline`, `Sandbox Testing`, `Waiting Deploy`, `Production Testing`  
+  - Outros → **No SLA**  
 
-## Getting started (local)
+  > ⚠️ *Dias úteis continuam correndo mesmo durante SLA Paused; o contador não congela.*
 
-1. Download the three files: `index.html`, `styles.css`, `script.js`.
-2. Put them in the same folder and open `index.html` in your browser.
+- **Interface**  
+  - Filtros por chips (Nature, Phase, Platform, Status, Product)  
+  - Ordenação por coluna (ID, Título, Criado em, Working Days, SLA) com setas ↑↓  
+  - Contadores de resumo: **Total, SLA-applicable, Over SLA**  
+  - Estados vazios explicativos  
+  - Botões: **Refresh, Reset filters, Clear all comments**  
+  - Links diretos para as listas de issues no GitLab  
+  - Tema **dark**
 
-> Tip: No build or server is required. It’s a static app.
+- **Comentários locais**  
+  - Campo de texto inline + botão **Edit** que abre modal para edição maior  
+  - Salvos em `localStorage` (limpos se o cache do navegador for apagado)
 
-## Deploying (Netlify or similar)
+---
 
-* Connect the repo and deploy as a static site.
-* No environment variables or keys are needed (uses public APIs).
+## 🚀 Como rodar localmente
 
-## File structure
+1. Baixe os três arquivos: `index.html`, `styles.css`, `script.js`
+2. Coloque todos na mesma pasta
+3. Abra `index.html` direto no navegador
 
-```
-/ (project root)
-├─ index.html     # HTML shell + links to CSS/JS
-├─ styles.css     # Theme + layout + empty state styles
-└─ script.js      # Fetch, SLA logic, filters, sorting, render
-```
+> ⚡ Não precisa de build, servidor ou variáveis de ambiente.  
+> Tudo roda via chamadas públicas da API do GitLab.
 
-## Configuration
+---
 
-If you need to point at different GitLab projects, change the IDs in `script.js`:
+## 🌐 Deploy
 
-```js
-await Promise.all([
-  loadProjectIssues(26426113, 'finance'),  // Open Finance
-  loadProjectIssues(32299006, 'insurance') // Open Insurance
-]);
-```
+Para publicar em plataformas como **Netlify** ou **Vercel**:
 
-## SLA rules (summary)
+1. Suba os arquivos para um repositório (GitHub, GitLab etc.)
+2. Conecte o repositório na plataforma de deploy
+3. Configure como site **estático**
 
-* **Bug & Questions**: 10 working days
-* **Under Evaluation** or **no Nature**: 3 working days
-* **Under WG Evaluation / Waiting Participant / Production Testing**: SLA Paused
-* **Others**: No SLA
+---
 
-## Limitations
+## 📁 Estrutura
+![Estrutura do projeto](./docs/estrutura-projeto.png)
+---
 
-* Assumes label taxonomy as described (Nature / Status / Product).
-* National holidays are not excluded (only weekends).
-* Browser storage for comments (cleared if you wipe site data).
+## 📌 Limitações
 
-## Credits
+- Assume a taxonomia de labels definida acima  
+- Não considera feriados estaduais ou municipais  
+- Apenas issues abertos ou fechados nos últimos 7 dias  
+- Comentários armazenados apenas no navegador (sem backend)
 
-Built as a POC by the team for internal use and fast iteration.
+---
+
+## 🙏 Créditos
+
+Construído como **prova de conceito (PoC)** para apoiar a triagem rápida de issues nos ecossistemas Open Finance e Open Insurance Brasil.
