@@ -169,3 +169,9 @@ footer{margin-top:16px; font-size:12px; color:var(--muted)}
 
 /* ID: não quebrar o link (#1234) */
 #finance-table td:nth-child(1) a{display:inline-block; white-space:nowrap; min-width:56px;}
+/* Working Days: pode quebrar ENTRE palavras e não ultrapassar */
+#finance-table th:nth-child(4) {
+  white-space: normal;      /* permite quebrar “Working Days” em duas linhas */
+  word-break: keep-all;     /* não quebra dentro da palavra */
+  overflow-wrap: normal;
+}
