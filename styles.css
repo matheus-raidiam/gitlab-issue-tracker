@@ -1,191 +1,199 @@
-:root{
-  --bg:#041920;
-  --card:#06292f;
-  --card-2:#0d383e;
-  --header:#0a2e33;
-  --accent:#00e38c;
-  --text:#f1f1f1;
-  --error:#ff6b6b;
-  --muted:#9bb7b3;
+/* ================= GLOBAL ================= */
+:root {
+  --bg: #0c2020;
+  --panel: #102828;
+  --accent: #1db954;
+  --text: #d9f5e5;
+  --header: #1ed760;
 
-  /* Filter UI */
-  --chip:#08333a;
-  --chip-border:#0c5056;
-  --dropdown:#08333a;
-  --dropdown-border:#0d5a60;
-  --shadow:0 8px 24px rgba(0,0,0,.25);
-}
-*{box-sizing:border-box}
-body{
-  font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;
-  background:var(--bg); color:var(--text); margin:0; padding:20px;
-}
-header{display:flex; align-items:center; gap:16px; margin-bottom:8px;}
-header img{height:40px; background:#fff; border-radius:6px; padding:2px;}
-h1{color:var(--accent); font-size:28px; margin:0;}
-h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
+  --badge-bg: #173737;
+  --chip-bg: #163232;
+  --chip-text: #d9f5e5;
 
-/* Plain intro paragraph (outside squares) */
-.page-intro{margin:10px 0 16px; line-height:1.4;}
-
-/* Toolbar (square card) */
-.toolbar{
-  display:flex; gap:12px; align-items:center; flex-wrap:wrap;
-  background:var(--card); border:1px solid var(--dropdown-border);
-  border-radius:10px; padding:10px 12px; margin-bottom:10px;
-}
-.toolbar select, .toolbar button{
-  background:var(--accent); color:var(--bg); border:none; border-radius:7px;
-  font-weight:700; cursor:pointer; padding:8px 12px;
-}
-.toolbar .spacer{flex:1}
-#loading{display:none; color:var(--accent); font-weight:700}
-
-/* Filters (square card) */
-.filters-card{
-  background:var(--card); border:1px solid var(--dropdown-border);
-  border-radius:10px; padding:10px 12px; margin-bottom:8px;
-}
-.filters-row{display:flex; gap:12px; flex-wrap:wrap}
-.filter{position:relative; min-width:240px; flex:1 1 280px}
-.filter details{
-  background:var(--dropdown); border:1px solid var(--dropdown-border);
-  border-radius:8px; box-shadow:var(--shadow);
-}
-.filter summary{
-  list-style:none; padding:10px 12px; cursor:pointer; user-select:none;
-  display:flex; justify-content:space-between; align-items:center;
-}
-.filter summary::-webkit-details-marker{display:none}
-.filter .title{font-weight:700; color:var(--accent)}
-.filter .count-badge{
-  font-size:12px; padding:2px 8px; border-radius:999px; background:var(--chip);
-  border:1px solid var(--chip-border); color:var(--text);
-}
-.filter .menu{
-  border-top:1px solid var(--dropdown-border); padding:8px 10px; max-height:280px; overflow:auto;
-}
-.filter .menu .row{display:flex; align-items:center; gap:8px; padding:6px 2px}
-.filter .menu input[type="checkbox"]{transform:scale(1.1)}
-.filter .menu .clear{
-  display:inline-block; margin:4px 0 6px; font-size:12px; cursor:pointer;
-  color:var(--accent); text-decoration:underline;
+  --within: #1ed760;
+  --over: #ff5c5c;
+  --paused: #ffb84d;
+  --nosla: #9aa6a6;
 }
 
-/* Filter chips */
-.chips{display:flex; flex-wrap:wrap; gap:6px; padding:6px 0 2px}
-.chip{
-  display:inline-flex; align-items:center; gap:8px; padding:4px 10px; border-radius:999px;
-  background:var(--chip); border:1px solid var(--chip-border); font-size:12px;
-}
-.chip .x{cursor:pointer; opacity:.85}
+* { box-sizing: border-box; }
 
-/* Tables */
-table{width:100%; border-collapse:separate; border-spacing:0; background:var(--card);
-      border-radius:8px; overflow:hidden}
-thead th{background:var(--header); color:var(--accent); text-align:left; padding:12px; user-select:none}
-tbody td{padding:12px; vertical-align:top}
-tbody tr:nth-child(even) td{background:var(--card-2)}
-th.sortable{cursor:pointer}
-.sort-label{display:inline-flex; align-items:center; gap:6px}
-.sort-arrow{font-size:12px; color:var(--accent); opacity:.9}
-.over-sla{color:var(--error); font-weight:700}
-.within-sla{color:var(--accent)}
-.nosla{color:var(--muted)}
-.paused{color:#f0d98c; font-weight:normal} /* SLA Paused color */
-
-/* Unified tag badge style (for Nature, Product, Status) */
-.badge{
-  display:inline-block;
-  background-color:#055b4e;
-  color:#00e38c;
-  border-radius:4px;
-  padding:2px 6px;
-  margin:2px 4px 2px 0;
-  font-size:12px;
-  font-weight: normal; /* tags not bold */
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 }
 
-.comment-box{width:100%; font-size:12px; background:#092e34; color:#fff; border:1px solid #066f5f; border-radius:4px}
-.summary{font-size:14px; margin:8px 0 12px; opacity:.9}
-.closed-issue td{opacity:.9}
-.closed-badge{display:inline-block; padding:2px 6px; border-radius:4px; background:#244447; color:var(--muted); font-size:11px; margin-left:8px}
-.grid{display:grid; grid-template-columns:1fr; gap:28px}
+a { color: var(--header); text-decoration: none; }
+a:hover { text-decoration: underline; }
 
-/* Empty-state row (when no results) */
-.empty-state td.empty-cell{
-  padding:18px;
-  text-align:center;
-  color:var(--muted);
-  background:var(--card-2);
-  font-style:italic;
+header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px;
+}
+header img { width: 40px; height: 40px; }
+h1 { margin: 0; font-size: 1.6rem; color: var(--header); }
+
+.page-intro { padding: 0 16px; margin: 8px 0 16px; }
+
+/* ================= TOOLBAR ================= */
+.toolbar {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--panel); padding: 10px; border-radius: 8px;
+  margin: 0 16px 16px;
+}
+.toolbar select, .toolbar button {
+  background: var(--accent); color: #002b18; border: 0;
+  padding: 6px 10px; border-radius: 6px; font-weight: 600; cursor: pointer;
+}
+.toolbar .spacer { flex: 1; }
+#loading { display: none; font-style: italic; }
+
+/* ================= FILTERS ================= */
+.filters-card {
+  background: var(--panel); padding: 12px; margin: 0 16px 16px; border-radius: 8px;
+}
+.filters-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.filter details summary { cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.filter .title { font-weight: 700; }
+.count-badge {
+  background: var(--accent); color: #001f12; border-radius: 999px; padding: 2px 8px; font-size: .75rem;
 }
 
-/* Footer */
-footer{margin-top:16px; font-size:12px; color:var(--muted)}
+.menu .row { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.menu .clear { color: var(--over); font-size: .8rem; cursor: pointer; }
 
-/***** === TABELA — LAYOUT FINAL E ESTÁVEL === *****/
-#finance-table{
-  table-layout: fixed;   /* respeita as larguras abaixo */
-  width: 100%;
+.chips { margin-top: 10px; }
+.chip {
+  display: inline-block; background: var(--chip-bg); color: var(--chip-text);
+  padding: 4px 8px; border-radius: 999px; margin: 2px; font-size: .82rem;
 }
-#finance-table th,
-#finance-table td{
-  overflow-wrap: anywhere;  /* evita “invadir” a coluna vizinha */
-  word-break: break-word;
+.chip .x { margin-left: 6px; cursor: pointer; }
+
+/* ================= SUMMARY BOX ================= */
+.summary-card.filters-card { padding: 12px; margin-top: 10px; }
+.summary-title { font-weight: 700; display: block; margin-bottom: 6px; }
+
+/* ================= TABLES ================= */
+.grid { margin: 0 16px 16px; }
+section { margin-bottom: 28px; }
+section h2 { margin: 0 0 8px; color: var(--header); }
+
+table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 10px; overflow: hidden; }
+th, td { padding: 10px 12px; text-align: left; font-size: .95rem; }
+th { color: var(--header); }
+th.sortable { cursor: pointer; }
+.sort-arrow { font-size: .8rem; }
+
+/* linhas alternadas leves */
+tbody tr:nth-child(even) { background: rgba(255,255,255,.02); }
+
+/* estados vazios */
+.empty-state td { text-align: center; font-style: italic; opacity: .7; }
+
+/* “Closed” badge na visão closed7 */
+.closed-badge {
+  background: var(--nosla); color: #001517; padding: 2px 6px; border-radius: 6px;
+  font-size: .72rem; margin-left: 6px;
 }
 
-/* Larguras por coluna (somam 100%) */
-#finance-table th:nth-child(1),  #finance-table td:nth-child(1)  { width: 5%;  } /* ID */
-#finance-table th:nth-child(2),  #finance-table td:nth-child(2)  { width: 25%; } /* Title */
-#finance-table th:nth-child(3),  #finance-table td:nth-child(3)  { width: 8%;  } /* Created At */
-#finance-table th:nth-child(4),  #finance-table td:nth-child(4)  { width: 6%;  } /* Working Days */
-#finance-table th:nth-child(5),  #finance-table td:nth-child(5)  { width: 7%;  } /* SLA Status */
-#finance-table th:nth-child(6),  #finance-table td:nth-child(6)  { width: 7%;  } /* Nature */
-#finance-table th:nth-child(7),  #finance-table td:nth-child(7)  { width: 7%;  } /* Phase */
-#finance-table th:nth-child(8),  #finance-table td:nth-child(8)  { width: 7%;  } /* Platform */
-#finance-table th:nth-child(9),  #finance-table td:nth-child(9)  { width: 7%;  } /* Product */
-#finance-table th:nth-child(10), #finance-table td:nth-child(10) { width: 6%;  } /* Status */
-#finance-table th:nth-child(11), #finance-table td:nth-child(11) { width: 15%; } /* Comments */
+/* ====== BADGES (labels) ====== */
+.badge {
+  display: inline-block;
+  background: var(--badge-bg);
+  color: var(--chip-text);
+  border-radius: 8px;
+  padding: 4px 8px;
+  margin: 2px 4px 2px 0;
+  font-size: .82rem;
+  line-height: 1.15rem;
 
-/* Caixa de comentários: metade da altura anterior + ocupa toda a largura */
+  /* importante: NÃO quebrar no meio das palavras; pode quebrar ENTRE palavras */
+  word-break: normal;
+  overflow-wrap: normal;
+  white-space: normal;
+}
+
+/* Bug (vermelho suave) – aceitamos tanto classe gerada (badge-bug) quanto pelo texto “Bug” */
+.badge-bug, .badge.Bug {
+  background: rgba(239,68,68,.14);
+  border: 1px solid rgba(239,68,68,.35);
+  color: #f8b5b5;
+}
+
+/* Under WG/DTO Evaluation (azul claro suave) – precisa de classe no HTML: badge-status-ugdto */
+.badge-status-ugdto{
+  background: rgba(56,189,248,.16);
+  border: 1px solid rgba(56,189,248,.35);
+  color: #bfeeff;
+}
+
+/* ====== SLA cores (texto da coluna SLA Status) ====== */
+.within-sla { color: var(--within); font-weight: 700; }
+.over-sla   { color: var(--over);   font-weight: 700; }
+.paused     { color: var(--paused); font-weight: 700; }
+.nosla      { color: var(--nosla);  font-style: italic; }
+
+/* ================= COMMENTS ================= */
 textarea.comment-box{
   width: 100%;
-  min-height: 42px !important;  /* força override de estilos inline (antes 84/120px) */
+  min-height: 42px !important;   /* metade da anterior */
   resize: vertical;
-  box-sizing: border-box;
+  font: 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text);
+  background: #0f2323;
+  border: 1px solid #1f3a3a;
+  border-radius: 8px;
+  padding: 8px;
 }
-/* ==== FIXES: ID não quebra; "Working Days" não quebra a palavra ==== */
 
-/* headers não devem quebrar em várias linhas */
+/* ================= MODAL DE NOTA ================= */
+#noteModal{
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:9999;
+}
+#noteModal > div{
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:min(900px,92vw); max-height:80vh; overflow:auto;
+  background:var(--panel); border:1px solid #1f3a3a; border-radius:12px; padding:16px;
+  box-shadow:0 12px 32px rgba(0,0,0,.45);
+}
+#noteEditorTextarea{ width:100%; margin-top:12px; }
+
+/* ================= FOOTER ================= */
+footer { margin: 16px; text-align:center; font-size:.85rem; color: var(--nosla); }
+
+/* ================= TABELA – LAYOUT FIXO E SEM QUEBRAR PALAVRAS ================= */
+#finance-table { table-layout: fixed; width: 100%; }
+
+/* cabeçalhos nunca quebram no meio da palavra */
 #finance-table th { white-space: nowrap; }
 
-/* Coluna ID: mais larga e sem quebra */
-#finance-table th:nth-child(1),
-#finance-table td:nth-child(1) {
-  width: 7%;                 /* antes 5% */
-  white-space: nowrap;
-  overflow-wrap: normal;
-  word-break: normal;
-  text-align: left;
-}
-/* garante que o link #1234 não quebre */
-#finance-table td:nth-child(1) a {
-  display: inline-block;
-  min-width: 52px;           /* ajuste fino se precisar */
+/* células: podem quebrar ENTRE palavras; nunca no meio delas */
+#finance-table td {
+  word-break: normal;         /* não quebra dentro da palavra */
+  overflow-wrap: normal;      /* quebra só em espaços */
 }
 
-/* Working Days: não quebrar "Working" e centralizar valor */
-#finance-table th:nth-child(4),
-#finance-table td:nth-child(4) {
-  white-space: nowrap;
-  overflow-wrap: normal;
-  word-break: normal;
-  text-align: center;
+/* larguras estáveis por coluna (somam 100%) */
+#finance-table th:nth-child(1),  #finance-table td:nth-child(1)  { width: 7%;  } /* ID */
+#finance-table th:nth-child(2),  #finance-table td:nth-child(2)  { width: 20%; } /* Title */
+#finance-table th:nth-child(3),  #finance-table td:nth-child(3)  { width: 9%;  } /* Created At */
+#finance-table th:nth-child(4),  #finance-table td:nth-child(4)  { width: 7%;  } /* Working Days */
+#finance-table th:nth-child(5),  #finance-table td:nth-child(5)  { width: 8%;  } /* SLA Status */
+#finance-table th:nth-child(6),  #finance-table td:nth-child(6)  { width: 8%;  } /* Nature */
+#finance-table th:nth-child(7),  #finance-table td:nth-child(7)  { width: 7%;  } /* Phase */
+#finance-table th:nth-child(8),  #finance-table td:nth-child(8)  { width: 7%;  } /* Platform */
+#finance-table th:nth-child(9),  #finance-table td:nth-child(9)  { width: 8%;  } /* Product */
+#finance-table th:nth-child(10), #finance-table td:nth-child(10) { width: 7%;  } /* Status */
+#finance-table th:nth-child(11), #finance-table td:nth-child(11) { width: 12%; } /* Comments */
+
+/* ID: impede quebra do #1234 e mantém alinhado */
+#finance-table td:nth-child(1) a{
+  display:inline-block; white-space:nowrap; min-width:56px;
 }
 
-/* Rebalanceia a largura tirando 2% do Title para dar ao ID */
-#finance-table th:nth-child(2),
-#finance-table td:nth-child(2) {
-  width: 20%;                /* antes 22% */
+/* Working Days: centralizado e sem quebrar */
+#finance-table th:nth-child(4), #finance-table td:nth-child(4){
+  text-align: center; white-space: nowrap;
 }
