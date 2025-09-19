@@ -123,3 +123,29 @@ th.sortable{cursor:pointer}
 
 /* Footer */
 footer{margin-top:16px; font-size:12px; color:var(--muted)}
+
+/* ===== Ajuste de larguras (Title menor, Comments maior) ===== */
+
+/* aplica layout fixo para respeitar width das colunas */
+#finance-table { table-layout: fixed; }
+
+/* Coluna 2 = Title: reduz pela metade (ajuste fino aqui se quiser) */
+#finance-table th:nth-child(2),
+#finance-table td:nth-child(2) {
+  width: 18%;             /* <= metade do que estava (~36% em muitos navegadores) */
+  word-break: break-word; /* mantém quebra bonitinha no título */
+}
+
+/* Coluna 11 = Comments: ganha o espaço "roubado" do Title */
+#finance-table th:nth-child(11),
+#finance-table td:nth-child(11) {
+  width: 34%;             /* aumente/diminua conforme seu gosto */
+}
+
+/* Textarea mais baixa (30% a menos) e ocupando toda a nova largura */
+textarea.comment-box{
+  width: 100%;
+  min-height: 84px;       /* 120px -> 84px (−30%) */
+  resize: vertical;
+  box-sizing: border-box; /* garante que width 100% respeite padding/borda */
+}
