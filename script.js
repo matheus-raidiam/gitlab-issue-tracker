@@ -112,15 +112,18 @@ function slaLabelAndRank(issue) {
   const { status, nature } = classifyLabels(labels);
   const isBug = nature.includes('Bug');
 
-  // Pausa (exceto Bug)
-  const paused = !isBug && (
+  // NOVO: "Production Testing" pausa SEMPRE, até se for Bug
+  const hasProdTesting = status.includes('Production Testing');
+
+  // Os demais status de pausa só pausam se NÃO for Bug
+  const otherPause =
     status.includes('Under WG/DTO Evaluation') ||
-    status.includes('Waiting Participant')   ||
-    status.includes('In Pipeline')           ||
-    status.includes('Sandbox Testing')       ||
-    status.includes('Waiting Deploy')        ||
-    status.includes('Production Testing')
-  );
+    status.includes('Waiting Participant')     ||
+    status.includes('In Pipeline')             ||
+    status.includes('Sandbox Testing')         ||
+    status.includes('Waiting Deploy');
+
+  const paused = hasProdTesting || (!isBug && otherPause);
 
   if (paused) return { text: 'SLA Paused', class: 'paused', rank: 2 };
 
@@ -473,11 +476,10 @@ function renderIssues() {
       localStorage.getItem(key) || ''
     );
 
-    counters.total++;
-if (mode !== 'closed7') {                       // só conta SLA na visão Open
-  const cls = issue.slaClass;                   // 'within-sla' | 'over-sla' | 'paused' | 'nosla'
-  const applicable = (cls === 'within-sla' || cls === 'over-sla' || cls === 'paused');
-  if (applicable) counters.slaApplicable++;
+   counters.total++;
+if (mode !== 'closed7') {
+  const cls = issue.slaClass; // 'within-sla' | 'over-sla' | 'paused' | 'nosla'
+  if (cls !== 'paused') counters.slaApplicable++; // tudo que NÃO é "SLA Paused"
   if (cls === 'over-sla') counters.over++;
 }
   });
