@@ -124,27 +124,38 @@ th.sortable{cursor:pointer}
 /* Footer */
 footer{margin-top:16px; font-size:12px; color:var(--muted)}
 
-/* ===== Ajuste balanceado: Title ~30%, Comments ~17% ===== */
-
-#finance-table { table-layout: fixed; }
-
-/* Title balanceado */
-#finance-table th:nth-child(2),
-#finance-table td:nth-child(2) {
-  width: 30%;
+/* ===== Layout estável da tabela ===== */
+#finance-table{
+  table-layout: fixed;
+  width: 100%;
+}
+#finance-table th,
+#finance-table td{
+  overflow-wrap: anywhere;   /* evita que textos largos empurrem as colunas vizinhas */
   word-break: break-word;
 }
 
-/* Comments menor */
-#finance-table th:nth-child(11),
-#finance-table td:nth-child(11) {
-  width: 17%;
-}
+/* Larguras por coluna (1..11) – soma ≈ 100% */
+#finance-table th:nth-child(1),  #finance-table td:nth-child(1)  { width: 6%;  }  /* ID */
+#finance-table th:nth-child(2),  #finance-table td:nth-child(2)  { width: 26%; }  /* Title */
+#finance-table th:nth-child(3),  #finance-table td:nth-child(3)  { width: 9%;  }  /* Created/Closed */
+#finance-table th:nth-child(4),  #finance-table td:nth-child(4)  { width: 7%;  }  /* Working Days */
+#finance-table th:nth-child(5),  #finance-table td:nth-child(5)  { width: 8%;  }  /* SLA Status */
+#finance-table th:nth-child(6),  #finance-table td:nth-child(6)  { width: 9%;  }  /* Nature */
+#finance-table th:nth-child(7),  #finance-table td:nth-child(7)  { width: 7%;  }  /* Phase */
+#finance-table th:nth-child(8),  #finance-table td:nth-child(8)  { width: 7%;  }  /* Platform */
+#finance-table th:nth-child(9),  #finance-table td:nth-child(9)  { width: 8%;  }  /* Product */
+#finance-table th:nth-child(10), #finance-table td:nth-child(10) { width: 7%;  }  /* Status */
+#finance-table th:nth-child(11), #finance-table td:nth-child(11) { width: 6%;  }  /* Comments */
 
-/* Textarea menor (metade da altura anterior) */
-textarea.comment-box {
+/* ===== Altura da caixa de comentário — metade do que estava =====
+   Força override do <style> interno do index.html */
+textarea.comment-box{
+  min-height: 42px !important;   /* 120px -> 42px */
   width: 100%;
-  min-height: 42px;  /* antes 84px */
+  resize: vertical;
+  box-sizing: border-box;
+}
   resize: vertical;
   box-sizing: border-box;
 }
