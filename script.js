@@ -488,7 +488,50 @@ function renderIssues() {
 
   updateSortArrows('finance-table');
 }
+/* ====== Modal (Open editor) ====== */
+let editorKey = null;
 
+function openEditor(key, meta, currentVal){
+  const modal = document.getElementById('noteModal');
+  const title = document.getElementById('noteEditorTitle');
+  const ta    = document.getElementById('noteEditorTextarea');
+  if (!modal || !title || !ta) return;
+
+  editorKey = key;
+  title.innerHTML = `<a href="${meta.url}" target="_blank" style="color:var(--accent)">#${meta.iid}</a> — ${meta.text}`;
+  ta.value = currentVal || '';
+  modal.style.display = 'block';
+}
+
+function closeEditor(){
+  const modal = document.getElementById('noteModal');
+  if (modal) modal.style.display = 'none';
+  editorKey = null;
+}
+
+function saveEditor(){
+  if (!editorKey) return;
+  const ta = document.getElementById('noteEditorTextarea');
+  const val = ta ? ta.value : '';
+  localStorage.setItem(editorKey, val);
+
+  // reflete na caixinha da tabela
+  const small = document.querySelector(`textarea.comment-box[data-key="${editorKey}"]`);
+  if (small) small.value = val;
+
+  closeEditor();
+}
+
+// plug do modal (idêntico ao que seu HTML expõe)
+document.addEventListener('DOMContentLoaded', () => {
+  const saveBtn  = document.getElementById('noteEditorSave');
+  const closeBtn = document.getElementById('noteEditorClose');
+  if (saveBtn)  saveBtn.onclick  = saveEditor;
+  if (closeBtn) closeBtn.onclick = closeEditor;
+  // fechar clicando fora
+  const modal = document.getElementById('noteModal');
+  if (modal) modal.addEventListener('click', (e) => { if (e.target.id === 'noteModal') closeEditor(); });
+});
 /* ================= INIT ================= */
 document.addEventListener('DOMContentLoaded', () => {
   // liga botões do modal (se existir no HTML)
