@@ -275,8 +275,9 @@ function getViewMode() { return document.getElementById('viewMode').value; }
 async function fetchLabelEvents(projectId, iid){
   // só busca se o modo estiver ligado
   if (!USE_LABEL_EVENTS) return [];
-  const urlBase = `https://gitlab.com/api/v4/projects/${projectId}/issues/${iid}/resource_label_events?per_page=100`;
-  const token = getToken();
+  // antes: https://gitlab.com/api/v4/projects/${id}/issues/${iid}/resource_label_events?per_page=100
+   const base = `/.netlify/functions/gitlab?path=/projects/${projectId}/issues/${iid}/resource_label_events&per_page=100`;
+   const res = await fetch(base); // sem headers, sem token no cliente
   try{
     let res;
     if (token){
