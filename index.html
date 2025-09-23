@@ -30,8 +30,9 @@
   </header>
 
   <p class="page-intro">
-    This dashboard pulls issues from the <strong>Open Finance</strong> GitLab project and gives a quick view of SLA risk, activity, and context.
-    It calculates <strong>working days</strong> and applies SLAs based on tags (<strong>Nature, Phase, Platform, Product, Status</strong>). Use filters, sorting, and local notes to triage faster.
+    This dashboard pulls issues from the Open Finance GitLab project and gives a quick view of SLA risk, activity, and context.
+    It calculates <strong>working days</strong> and applies SLAs based on tags (<strong>Nature, Platform, Product, Working Group, and Status</strong>).
+    Use filters, sorting, and local notes to triage faster.
   </p>
 
   <!-- Toolbar -->
@@ -79,15 +80,15 @@
         </details>
       </div>
 
-      <!-- Phase -->
-      <div class="filter" id="filterPhase">
+      <!-- Working Group -->
+      <div class="filter" id="filterWG">
         <details>
           <summary>
-            <span class="title">Phase</span>
-            <span class="count-badge" id="count-phase">0</span>
+            <span class="title">Working Group</span>
+            <span class="count-badge" id="count-wg">0</span>
           </summary>
-          <div class="menu" id="menu-phase">
-            <div class="clear" onclick="clearCategory('phase')">Clear Phase</div>
+          <div class="menu" id="menu-wg">
+            <div class="clear" onclick="clearCategory('wg')">Clear Working Group</div>
           </div>
         </details>
       </div>
@@ -167,15 +168,25 @@
       <table id="finance-table">
         <thead>
           <tr>
-            <th class="sortable" data-key="iid" onclick="changeSort('finance-table','iid')"><span class="sort-label">ID <span class="sort-arrow" data-for="iid"></span></span></th>
-            <th class="sortable" data-key="title" onclick="changeSort('finance-table','title')"><span class="sort-label">Title <span class="sort-arrow" data-for="title"></span></span></th>
-            <th class="sortable" data-key="dateCol" onclick="changeSort('finance-table','dateCol')"><span class="sort-label"><span id="finance-date-label">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span></th>
-            <th class="sortable" data-key="daysOpen" onclick="changeSort('finance-table','daysOpen')"><span class="sort-label">Working Days <span class="sort-arrow" data-for="daysOpen"></span></span></th>
-            <th class="sortable" data-key="slaRank" onclick="changeSort('finance-table','slaRank')"><span class="sort-label">SLA Status <span class="sort-arrow" data-for="slaRank"></span></span></th>
+            <th class="sortable" data-key="iid"       onclick="changeSort('finance-table','iid')">
+              <span class="sort-label">ID <span class="sort-arrow" data-for="iid"></span></span>
+            </th>
+            <th class="sortable" data-key="title"     onclick="changeSort('finance-table','title')">
+              <span class="sort-label">Title <span class="sort-arrow" data-for="title"></span></span>
+            </th>
+            <th class="sortable" data-key="dateCol"   onclick="changeSort('finance-table','dateCol')">
+              <span class="sort-label"><span id="finance-date-label">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span>
+            </th>
+            <th class="sortable" data-key="daysOpen"  onclick="changeSort('finance-table','daysOpen')">
+              <span class="sort-label">Working Days <span class="sort-arrow" data-for="daysOpen"></span></span>
+            </th>
+            <th class="sortable" data-key="slaRank"   onclick="changeSort('finance-table','slaRank')">
+              <span class="sort-label">SLA Status <span class="sort-arrow" data-for="slaRank"></span></span>
+            </th>
             <th>Nature</th>
-            <th>Phase</th>
             <th>Platform</th>
             <th>Product</th>
+            <th>Working Group</th>
             <th>Status</th>
             <th>Comments</th>
           </tr>
