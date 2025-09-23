@@ -381,10 +381,8 @@ function renderIssues() {
 
   const now = new Date();
   const decorate = (list) => list.map(i => {
-    // start para Working Days:
     let start = new Date(i.created_at);
 
-    // se histórico estiver ligado, usar a última data de "Waiting Participant" OU "Under WG/DTO Evaluation" (se posterior)
     if (USE_LABEL_EVENTS && Array.isArray(i._statusTimeline) && i._statusTimeline.length) {
       const lastWait = [...i._statusTimeline].reverse().find(e =>
         e.label === 'Waiting Participant' || e.label === 'Under WG/DTO Evaluation'
@@ -402,7 +400,6 @@ function renderIssues() {
       ? { text:'—', rank:-1, class:'nosla' }
       : slaLabelAndRank(base);
 
-    // tooltip do SLA (linha do tempo)
     let tip = '';
     if (USE_LABEL_EVENTS && Array.isArray(i._statusTimeline) && i._statusTimeline.length) {
       tip = i._statusTimeline.map(e =>
@@ -414,7 +411,7 @@ function renderIssues() {
   });
 
   const base = decorate(issues.finance);
-  const summaryEl = document.getElementById('finance-summary');
+  const summaryEl = document.getElementById('finance-summary'); // <— única declaração
 
   if (base.length === 0) {
     const msg = (mode === 'closed7')
@@ -431,7 +428,6 @@ function renderIssues() {
     return;
   }
 
-  // filtros
   const filtered = base.filter(i => {
     const { status, nature, product, platform, wg } = classifyLabels(i.labels || []);
     const matchNature   = selected.nature.size   ? nature.some(n => selected.nature.has(n))       : true;
@@ -442,7 +438,6 @@ function renderIssues() {
     return matchNature && matchPlatform && matchProduct && matchWG && matchStatus;
   });
 
-  // ordenação
   const s = tableSort['finance-table'];
   const sorted = filtered.sort((a,b)=>{
     let va, vb;
@@ -459,10 +454,8 @@ function renderIssues() {
     return 0;
   });
 
-  // contadores do resumo
   let total = 0, applicable = 0, over = 0;
 
-  // render
   sorted.forEach(issue => {
     const { status, nature, product, platform, wg } = classifyLabels(issue.labels || []);
     const clsFor = (l) => (l==='Bug' ? ' badge-bug' : (l==='Under WG/DTO Evaluation' ? ' badge-ugdto' : ''));
@@ -508,7 +501,6 @@ function renderIssues() {
     tbody.appendChild(tr);
   });
 
-  const summaryEl = document.getElementById('finance-summary');
   if (summaryEl) {
     summaryEl.textContent = `${total} public open issues — SLA-applicable: ${applicable}, Over SLA: ${over}`;
   }
