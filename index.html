@@ -45,6 +45,8 @@
     <button onclick="loadAllIssues()">🔄 Refresh</button>
     <button onclick="clearAllComments()">🗑️ Clear All Comments</button>
     <button onclick="resetAllFilters()">🧹 Reset Filters</button>
+    <!-- toggle do histórico de labels -->
+    <button id="timelineToggle" title="Use label history for SLA/Working Days">Timeline: OFF</button>
     <div class="spacer"></div>
     <div id="loading">Loading…</div>
   </div>
@@ -58,7 +60,7 @@
           <li><b>Bugs and Questions</b>: 10 business days</li>
           <li><b>Waiting Participant</b>: 5 business days</li>
           <li><b>Under Evaluation</b> or <b>no tags</b>: 3 business days</li>
-          <li><b>Under WG/DTO Evaluation</b>, <b>In Progress</b>, <b>Backlog</b>, <b>Sandbox Testing</b>, <b>Waiting Deploy</b>, <b>Production Testing</b>: SLA Paused</li>
+          <li><b>Under WG/DTO Evaluation</b>, <b>In Progress</b>, <b>Backlog</b>, <b>Sandbox Testing</b>, <b>Waiting Deploy</b>, <b>Production Testing</b>: <i>SLA Paused</i></li>
         </ul>
       </div>
     </details>
@@ -159,7 +161,7 @@
         </a>
       </h2>
 
-      <!-- Summary box (agora aqui embaixo do título) -->
+      <!-- Summary box (logo abaixo do título) -->
       <div class="filters-card summary-card">
         <span class="summary-title">Summary</span>
         <div id="finance-summary"></div>
@@ -186,7 +188,7 @@
             <th>Nature</th>
             <th>Platform</th>
             <th>Product</th>
-            <th>WG</th>
+            <th>Working Group</th>
             <th>Status</th>
             <th>Comments</th>
           </tr>
