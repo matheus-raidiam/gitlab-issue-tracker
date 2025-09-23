@@ -114,10 +114,18 @@ th.sortable{cursor:pointer}
   white-space:normal;
 }
 
-/* Azul claro SUAVE para "Under WG/DTO Evaluation" (ativado via classe extra no JS) */
-.badge-status-ugdto{
-  background-color:#4da6ff;
-  color:#fff;
+/* vermelho suave p/ Bug */
+.badge-bug{
+  background: rgba(239,68,68,.12);
+  border: 1px solid rgba(239,68,68,.35);
+  color: #fca5a5;
+}
+
+/* azul suave p/ Under WG/DTO Evaluation */
+.badge-ugdto{
+  background: rgba(59,130,246,.12);
+  border: 1px solid rgba(59,130,246,.35);
+  color: #93c5fd;
 }
 
 /* Comentários */
