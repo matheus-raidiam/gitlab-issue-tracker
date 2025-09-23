@@ -273,27 +273,32 @@ function getViewMode() { return document.getElementById('viewMode').value; }
 
 /* ================= Label events (opcional) ================= */
 async function fetchLabelEvents(projectId, iid){
-  // só busca se o modo estiver ligado
   if (!USE_LABEL_EVENTS) return [];
-  // antes: https://gitlab.com/api/v4/projects/${id}/issues/${iid}/resource_label_events?per_page=100
-   const base = `/.netlify/functions/gitlab?path=/projects/${projectId}/issues/${iid}/resource_label_events&per_page=100`;
-   const res = await fetch(base); // sem headers, sem token no cliente
-  try{
-    let res;
-    if (token){
-      // tenta via header (mais seguro, não expõe no URL)
-      res = await fetch(urlBase, { headers: { 'Accept':'application/json', 'PRIVATE-TOKEN': token, 'Authorization': `Bearer ${token}` } });
-      if (res.status===401 || res.status===403){
-        // fallback via querystring
-        const urlQS = urlBase + `&private_token=${encodeURIComponent(token)}`;
-        res = await fetch(urlQS, { headers: { 'Accept':'application/json' } });
-      }
-    } else {
-      res = await fetch(urlBase, { headers: { 'Accept':'application/json' } });
+
+  // se existir a função Netlify, use proxy (mais seguro e sem CORS)
+  const proxyUrl = `/.netlify/functions/gitlab?path=` +
+                   encodeURIComponent(`/projects/${projectId}/issues/${iid}/resource_label_events`) +
+                   `&per_page=100`;
+
+  try {
+    // primeiro tenta proxy (não usa token do cliente)
+    const viaProxy = await fetch(proxyUrl, { headers: { 'Accept':'application/json' } });
+    if (viaProxy.ok) {
+      return await viaProxy.json();
     }
-    if (!res.ok) { console.warn('Label events fetch failed', projectId, iid, res.status); return []; }
+    // se proxy falhar (404/5xx), tenta direto (apenas para projetos públicos
+    // ou se você colou um PAT no navegador)
+    const directUrl = `https://gitlab.com/api/v4/projects/${projectId}/issues/${iid}/resource_label_events?per_page=100`;
+    const pat = getToken();
+    const headers = { 'Accept':'application/json' };
+    if (pat) headers['Authorization'] = `Bearer ${pat}`;
+    const res = await fetch(directUrl, { headers });
+    if (!res.ok) {
+      console.warn('Label events fetch failed', projectId, iid, res.status);
+      return [];
+    }
     return await res.json();
-  }catch(err){
+  } catch (err) {
     console.warn('Label events fetch error', projectId, iid, err);
     return [];
   }
