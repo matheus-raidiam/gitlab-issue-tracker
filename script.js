@@ -12,7 +12,7 @@ const tableSort = { 'finance-table': { key: 'iid', asc: false } };
      - Working Days pode começar na última data de “Waiting Participant”
        OU “Under WG/DTO Evaluation”, se posterior ao created_at.
 */
-const USE_LABEL_EVENTS = false;
+const USE_LABEL_EVENTS = true;
 
 /* ======== Taxonomias ======== */
 
