@@ -1,4 +1,3 @@
-/* ================= CONFIG ================= */
 // Open Finance only
 const issues = { finance: [] };
 
@@ -10,7 +9,7 @@ const tableSort = { 'finance-table': { key: 'iid', asc: false } };
        OU “Under WG/DTO Evaluation” (se posterior ao created_at).
 */
 let USE_LABEL_EVENTS = JSON.parse(localStorage.getItem('use_label_events') || 'false');
-function getToken(){ return (localStorage.getItem('gitlab_api_token')||'').trim(); }
+function getToken(){ return (localStorage.getItem('gitlab_api_token')||'').trim(); } // (não é mais necessário com proxy, mas mantive)
 function updateTimelineToggleUi(){ const b=document.getElementById('timelineToggle'); if(b){ b.textContent = `Timeline: ${USE_LABEL_EVENTS ? 'ON':'OFF'}`; } }
 
 /* ======== Taxonomias ======== */
@@ -271,35 +270,23 @@ function updateSortArrows(tableId) {
 }
 function getViewMode() { return document.getElementById('viewMode').value; }
 
-/* ================= Label events (opcional) ================= */
+/* ================= Label events (via Netlify proxy) ================= */
 async function fetchLabelEvents(projectId, iid){
   if (!USE_LABEL_EVENTS) return [];
 
-  // se existir a função Netlify, use proxy (mais seguro e sem CORS)
-  const proxyUrl = `/.netlify/functions/gitlab?path=` +
-                   encodeURIComponent(`/projects/${projectId}/issues/${iid}/resource_label_events`) +
-                   `&per_page=100`;
+  // Sempre usar o proxy da função serverless (mantém token no servidor e evita CORS)
+  const path = `/projects/${projectId}/issues/${iid}/resource_label_events`;
+  const url  = `/.netlify/functions/gitlab?path=${encodeURIComponent(path)}&per_page=100`;
 
   try {
-    // primeiro tenta proxy (não usa token do cliente)
-    const viaProxy = await fetch(proxyUrl, { headers: { 'Accept':'application/json' } });
-    if (viaProxy.ok) {
-      return await viaProxy.json();
-    }
-    // se proxy falhar (404/5xx), tenta direto (apenas para projetos públicos
-    // ou se você colou um PAT no navegador)
-    const directUrl = `https://gitlab.com/api/v4/projects/${projectId}/issues/${iid}/resource_label_events?per_page=100`;
-    const pat = getToken();
-    const headers = { 'Accept':'application/json' };
-    if (pat) headers['Authorization'] = `Bearer ${pat}`;
-    const res = await fetch(directUrl, { headers });
-    if (!res.ok) {
-      console.warn('Label events fetch failed', projectId, iid, res.status);
+    const res = await fetch(url, { headers: { 'Accept':'application/json' } });
+    if (!res.ok){
+      console.error('Label events proxy error', projectId, iid, res.status);
       return [];
     }
     return await res.json();
   } catch (err) {
-    console.warn('Label events fetch error', projectId, iid, err);
+    console.error('Label events fetch error', projectId, iid, err);
     return [];
   }
 }
@@ -358,12 +345,15 @@ async function loadProjectIssues(projectId, key) {
       list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff);
     }
 
-    // label events (opcional)
+    // label events (opcional) — busca em paralelo para não “congelar”
     if (USE_LABEL_EVENTS && mode !== 'closed7') {
-      for (const it of list) {
-        const ev = await fetchLabelEvents(projectId, it.iid);
-        it._statusTimeline = timelineFromEvents(ev);
-      }
+      console.log('timeline via proxy ON — items:', list.length);
+      await Promise.all(
+        list.map(async (it) => {
+          const ev = await fetchLabelEvents(projectId, it.iid);
+          it._statusTimeline = timelineFromEvents(ev);
+        })
+      );
     }
 
     issues[key] = list;
@@ -518,6 +508,7 @@ function renderIssues() {
     tbody.appendChild(tr);
   });
 
+  const summaryEl = document.getElementById('finance-summary');
   if (summaryEl) {
     summaryEl.textContent = `${total} public open issues — SLA-applicable: ${applicable}, Over SLA: ${over}`;
   }
@@ -567,6 +558,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tlBtn.onclick = () => {
       USE_LABEL_EVENTS = !USE_LABEL_EVENTS;
       localStorage.setItem('use_label_events', JSON.stringify(USE_LABEL_EVENTS));
+      // Mantive o prompt; com proxy ele é ignorado, mas não quebra seu fluxo
       if (USE_LABEL_EVENTS && !getToken()){
         const maybe = window.prompt('Optional: paste a GitLab Personal Access Token (starts with glpat-). Leave blank to try without a token.');
         if (maybe && maybe.trim()) localStorage.setItem('gitlab_api_token', maybe.trim());
