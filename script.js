@@ -9,8 +9,11 @@ const tableSort = { 'finance-table': { key: 'iid', asc: false } };
        OU “Under WG/DTO Evaluation” (se posterior ao created_at).
 */
 let USE_LABEL_EVENTS = JSON.parse(localStorage.getItem('use_label_events') || 'false');
-function getToken(){ return (localStorage.getItem('gitlab_api_token')||'').trim(); } // (não é mais necessário com proxy, mas mantive)
-function updateTimelineToggleUi(){ const b=document.getElementById('timelineToggle'); if(b){ b.textContent = `Timeline: ${USE_LABEL_EVENTS ? 'ON':'OFF'}`; } }
+function getToken(){ return (localStorage.getItem('gitlab_api_token')||'').trim(); }
+function updateTimelineToggleUi(){
+  const b=document.getElementById('timelineToggle');
+  if(b){ b.textContent = `Timeline: ${USE_LABEL_EVENTS ? 'ON':'OFF'}`; }
+}
 
 /* ======== Taxonomias ======== */
 
@@ -270,25 +273,59 @@ function updateSortArrows(tableId) {
 }
 function getViewMode() { return document.getElementById('viewMode').value; }
 
-/* ================= Label events (via Netlify proxy) ================= */
+/* ================= Aux: detectar JSON de verdade ================= */
+async function readJsonSafe(res){
+  const ct = (res.headers.get('content-type')||'').toLowerCase();
+  if (!ct.includes('application/json')){
+    const txt = await res.text();
+    console.warn('Response is not JSON:', res.status, txt.slice(0,200));
+    return null;
+  }
+  try{ return await res.json(); }catch(e){ console.warn('JSON parse error', e); return null; }
+}
+
+/* ================= Label events (proxy + fallback) ================= */
 async function fetchLabelEvents(projectId, iid){
   if (!USE_LABEL_EVENTS) return [];
 
-  // Sempre usar o proxy da função serverless (mantém token no servidor e evita CORS)
-  const path = `/projects/${projectId}/issues/${iid}/resource_label_events`;
-  const url  = `/.netlify/functions/gitlab?path=${encodeURIComponent(path)}&per_page=100`;
+  // 1) tenta proxy Netlify (sem token no cliente)
+  const proxyUrl = `/.netlify/functions/gitlab?path=` +
+                   encodeURIComponent(`/projects/${projectId}/issues/${iid}/resource_label_events`) +
+                   `&per_page=100`;
 
   try {
-    const res = await fetch(url, { headers: { 'Accept':'application/json' } });
-    if (!res.ok){
-      console.error('Label events proxy error', projectId, iid, res.status);
-      return [];
+    const viaProxy = await fetch(proxyUrl, { headers: { 'Accept':'application/json' }, cache:'no-store' });
+    if (viaProxy.ok) {
+      const data = await readJsonSafe(viaProxy);
+      if (Array.isArray(data)) {
+        console.debug('[timeline] proxy ok', { iid, events: data.length });
+        return data;
+      }
+      // se não for array/JSON, cai no fallback abaixo
+    } else {
+      console.warn('[timeline] proxy not ok', iid, viaProxy.status);
     }
-    return await res.json();
   } catch (err) {
-    console.error('Label events fetch error', projectId, iid, err);
-    return [];
+    console.warn('[timeline] proxy error', iid, err);
   }
+
+  // 2) fallback direto no GitLab (pode exigir PAT)
+  const directUrl = `https://gitlab.com/api/v4/projects/${projectId}/issues/${iid}/resource_label_events?per_page=100`;
+  const pat = getToken();
+  const headers = { 'Accept':'application/json' };
+  if (pat) headers['Authorization'] = `Bearer ${pat}`;
+  try {
+    const res = await fetch(directUrl, { headers, cache:'no-store' });
+    if (!res.ok) { console.warn('[timeline] direct fetch failed', iid, res.status); return []; }
+    const data = await readJsonSafe(res);
+    if (Array.isArray(data)) {
+      console.debug('[timeline] direct ok', { iid, events: data.length });
+      return data;
+    }
+  } catch (err) {
+    console.warn('[timeline] direct error', iid, err);
+  }
+  return [];
 }
 
 function timelineFromEvents(evts) {
@@ -335,7 +372,7 @@ async function loadProjectIssues(projectId, key) {
   }
 
   try {
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' }, cache:'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
@@ -345,15 +382,12 @@ async function loadProjectIssues(projectId, key) {
       list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff);
     }
 
-    // label events (opcional) — busca em paralelo para não “congelar”
+    // label events (opcional)
     if (USE_LABEL_EVENTS && mode !== 'closed7') {
-      console.log('timeline via proxy ON — items:', list.length);
-      await Promise.all(
-        list.map(async (it) => {
-          const ev = await fetchLabelEvents(projectId, it.iid);
-          it._statusTimeline = timelineFromEvents(ev);
-        })
-      );
+      for (const it of list) {
+        const ev = await fetchLabelEvents(projectId, it.iid);
+        it._statusTimeline = timelineFromEvents(ev);
+      }
     }
 
     issues[key] = list;
@@ -381,13 +415,19 @@ function renderIssues() {
 
   const now = new Date();
   const decorate = (list) => list.map(i => {
+    // start para Working Days:
     let start = new Date(i.created_at);
+    let startAdjustNote = '';
 
+    // se histórico estiver ligado, usar a última data de "Waiting Participant" OU "Under WG/DTO Evaluation" (se posterior)
     if (USE_LABEL_EVENTS && Array.isArray(i._statusTimeline) && i._statusTimeline.length) {
       const lastWait = [...i._statusTimeline].reverse().find(e =>
         e.label === 'Waiting Participant' || e.label === 'Under WG/DTO Evaluation'
       );
-      if (lastWait && lastWait.when > start) start = new Date(lastWait.when);
+      if (lastWait && lastWait.when > start) {
+        start = new Date(lastWait.when);
+        startAdjustNote = `Working Days started at ${lastWait.when.toLocaleDateString()} due to ${lastWait.label}`;
+      }
     }
 
     const endDate = (mode === 'closed7' && i.closed_at) ? new Date(i.closed_at) : now;
@@ -400,18 +440,20 @@ function renderIssues() {
       ? { text:'—', rank:-1, class:'nosla' }
       : slaLabelAndRank(base);
 
+    // tooltip do SLA (linha do tempo)
     let tip = '';
     if (USE_LABEL_EVENTS && Array.isArray(i._statusTimeline) && i._statusTimeline.length) {
-      tip = i._statusTimeline.map(e =>
+      const timelineText = i._statusTimeline.map(e =>
         `${e.when.toLocaleDateString()} — ${e.label}`
       ).join('\n');
+      tip = startAdjustNote ? (startAdjustNote + '\n' + timelineText) : timelineText;
     }
 
-    return { ...base, slaText: text, slaRank: rank, slaClass: klass, slaTip: tip };
+    return { ...base, slaText: text, slaRank: rank, slaClass: klass, slaTip: tip, adjusted: !!startAdjustNote };
   });
 
   const base = decorate(issues.finance);
-  const summaryEl = document.getElementById('finance-summary'); // <— única declaração
+  const summaryEl = document.getElementById('finance-summary');
 
   if (base.length === 0) {
     const msg = (mode === 'closed7')
@@ -428,6 +470,7 @@ function renderIssues() {
     return;
   }
 
+  // filtros
   const filtered = base.filter(i => {
     const { status, nature, product, platform, wg } = classifyLabels(i.labels || []);
     const matchNature   = selected.nature.size   ? nature.some(n => selected.nature.has(n))       : true;
@@ -438,6 +481,7 @@ function renderIssues() {
     return matchNature && matchPlatform && matchProduct && matchWG && matchStatus;
   });
 
+  // ordenação
   const s = tableSort['finance-table'];
   const sorted = filtered.sort((a,b)=>{
     let va, vb;
@@ -454,8 +498,10 @@ function renderIssues() {
     return 0;
   });
 
+  // contadores do resumo
   let total = 0, applicable = 0, over = 0;
 
+  // render
   sorted.forEach(issue => {
     const { status, nature, product, platform, wg } = classifyLabels(issue.labels || []);
     const clsFor = (l) => (l==='Bug' ? ' badge-bug' : (l==='Under WG/DTO Evaluation' ? ' badge-ugdto' : ''));
@@ -473,7 +519,9 @@ function renderIssues() {
     const key = `comment-${issue.projectId}-${issue.iid}`;
     const saved = localStorage.getItem(key) || '';
 
-    const slaCell = `<span class="${issue.slaClass}" ${issue.slaTip ? `title="${escapeHtml(issue.slaTip)}"` : ''}>${issue.slaText}</span>`;
+    const hasTip = !!issue.slaTip;
+    const adjustedMark = issue.adjusted ? ' • 🕒' : '';
+    const slaCell = `<span class="${issue.slaClass}" ${hasTip ? `title="${escapeHtml(issue.slaTip)}"` : ''}>${issue.slaText}${adjustedMark}</span>`;
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -501,6 +549,7 @@ function renderIssues() {
     tbody.appendChild(tr);
   });
 
+  const summaryEl = document.getElementById('finance-summary');
   if (summaryEl) {
     summaryEl.textContent = `${total} public open issues — SLA-applicable: ${applicable}, Over SLA: ${over}`;
   }
@@ -550,7 +599,6 @@ document.addEventListener('DOMContentLoaded', () => {
     tlBtn.onclick = () => {
       USE_LABEL_EVENTS = !USE_LABEL_EVENTS;
       localStorage.setItem('use_label_events', JSON.stringify(USE_LABEL_EVENTS));
-      // Mantive o prompt; com proxy ele é ignorado, mas não quebra seu fluxo
       if (USE_LABEL_EVENTS && !getToken()){
         const maybe = window.prompt('Optional: paste a GitLab Personal Access Token (starts with glpat-). Leave blank to try without a token.');
         if (maybe && maybe.trim()) localStorage.setItem('gitlab_api_token', maybe.trim());
