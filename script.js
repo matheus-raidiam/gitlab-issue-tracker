@@ -116,22 +116,15 @@ function workingDaysBetween(startDate, endDate) {
 
 /* ================= SLA ================= */
 /* Regras:
-   - Bug, Questions: 10 dias úteis
-   - Waiting Participant: 5 dias úteis
-   - Under Evaluation ou sem tags (Nature): 3 dias úteis
    - Pausam SEMPRE: Under WG/DTO Evaluation, In Progress, Backlog, Sandbox Testing, Waiting Deploy, Production Testing
+   - Waiting Participant: 5 dias úteis
+   - Bug, Questions: 10 dias úteis
+   - Under Evaluation ou sem tags (Nature): 3 dias úteis
 */
 function getSLAFor(labels) {
   const { status, nature } = classifyLabels(labels || []);
-  const hasBug = nature.includes('Bug');
-  const hasQuestions = nature.includes('Questions');
-  const underEval = status.includes('Under Evaluation');
-  const noNature = nature.length === 0;
 
-  if (hasBug || hasQuestions) return { type: 'timed', days: 10, reason: hasBug ? 'Bug' : 'Questions' };
-  if (status.includes('Waiting Participant')) return { type: 'timed', days: 5, reason: 'Waiting Participant' };
-  if (underEval || noNature) return { type: 'timed', days: 3, reason: underEval ? 'Under Evaluation' : 'No Nature' };
-
+  // 1) Pausa sempre (sobrepõe Bug/Questions)
   const paused = (
     status.includes('Under WG/DTO Evaluation') ||
     status.includes('In Progress') ||
@@ -142,6 +135,18 @@ function getSLAFor(labels) {
   );
   if (paused) return { type: 'paused' };
 
+  // 2) Timed
+  if (status.includes('Waiting Participant')) return { type: 'timed', days: 5, reason: 'Waiting Participant' };
+
+  const hasBug = nature.includes('Bug');
+  const hasQuestions = nature.includes('Questions');
+  if (hasBug || hasQuestions) return { type: 'timed', days: 10, reason: hasBug ? 'Bug' : 'Questions' };
+
+  const underEval = status.includes('Under Evaluation');
+  const noNature = nature.length === 0;
+  if (underEval || noNature) return { type: 'timed', days: 3, reason: underEval ? 'Under Evaluation' : 'No Nature' };
+
+  // 3) Sem SLA
   return { type: 'none' };
 }
 
@@ -328,14 +333,16 @@ async function loadProjectIssues(projectId, key) {
   const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(now.getDate() - 7);
   const since = sevenDaysAgo.toISOString();
 
-  let url = `https://gitlab.com/api/v4/projects/${projectId}/issues`;
-  if (mode === 'closed7')
-    url += `?state=closed&per_page=100&order_by=created_at&sort=asc&updated_after=${since}`;
-  else
-    url += `?state=opened&per_page=100&order_by=created_at&sort=asc`;
+  // URL enxuta e confiável
+  let url = `https://gitlab.com/api/v4/projects/${projectId}/issues?per_page=100`;
+  if (mode === 'closed7') {
+    url += `&state=closed&updated_after=${encodeURIComponent(since)}`;
+  } else {
+    url += `&state=opened`;
+  }
 
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
@@ -355,7 +362,7 @@ async function loadProjectIssues(projectId, key) {
 
     issues[key] = list;
   } catch (err) {
-    console.error('Failed to load issues', { projectId, err });
+    console.error('Failed to load issues', { projectId, url, err });
     issues[key] = [];
   }
 }
@@ -411,7 +418,6 @@ function renderIssues() {
   });
 
   const base = decorate(issues.finance);
-
   const summaryEl = document.getElementById('finance-summary');
 
   if (base.length === 0) {
@@ -468,7 +474,6 @@ function renderIssues() {
       ? arr.map(l=>`<span class="badge${clsFor(l)}">${escapeHtml(l)}</span>`).join(' ')
       : '<span style="opacity:.5;">—</span>';
 
-    const hasSLAType = issue.sla.type && issue.sla.type !== 'none';
     const rowIsPaused = issue.sla.type === 'paused';
     const isOver = (issue.sla.type === 'timed') && (issue.daysOpen > issue.sla.days);
 
@@ -507,7 +512,6 @@ function renderIssues() {
     tbody.appendChild(tr);
   });
 
-  const summaryEl = document.getElementById('finance-summary');
   if (summaryEl) {
     summaryEl.textContent = `${total} public open issues — SLA-applicable: ${applicable}, Over SLA: ${over}`;
   }
