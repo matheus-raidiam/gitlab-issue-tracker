@@ -9,7 +9,9 @@ const tableSort = { 'finance-table': { key: 'iid', asc: false } };
    ON: tooltip no SLA + Working Days começa na última “Waiting Participant”
        OU “Under WG/DTO Evaluation” (se posterior ao created_at).
 */
-const USE_LABEL_EVENTS = true;
+let USE_LABEL_EVENTS = JSON.parse(localStorage.getItem('use_label_events') || 'false');
+function getToken(){ return (localStorage.getItem('gitlab_api_token')||'').trim(); }
+function updateTimelineToggleUi(){ const b=document.getElementById('timelineToggle'); if(b){ b.textContent = `Timeline: ${USE_LABEL_EVENTS ? 'ON':'OFF'}`; } }
 
 /* ======== Taxonomias ======== */
 
@@ -265,13 +267,30 @@ function updateSortArrows(tableId) {
 function getViewMode() { return document.getElementById('viewMode').value; }
 
 /* ================= Label events (opcional) ================= */
-async function fetchLabelEvents(projectId, iid) {
-  try {
-    const url = `https://gitlab.com/api/v4/projects/${projectId}/issues/${iid}/resource_label_events?per_page=100`;
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    return await res.json(); // [{action,label:{name}, created_at}, ...]
-  } catch { return []; }
+async function fetchLabelEvents(projectId, iid){
+  // só busca se o modo estiver ligado
+  if (!USE_LABEL_EVENTS) return [];
+  const urlBase = `https://gitlab.com/api/v4/projects/${projectId}/issues/${iid}/resource_label_events?per_page=100`;
+  const token = getToken();
+  try{
+    let res;
+    if (token){
+      // tenta via header (mais seguro, não expõe no URL)
+      res = await fetch(urlBase, { headers: { 'Accept':'application/json', 'PRIVATE-TOKEN': token, 'Authorization': `Bearer ${token}` } });
+      if (res.status===401 || res.status===403){
+        // fallback via querystring
+        const urlQS = urlBase + `&private_token=${encodeURIComponent(token)}`;
+        res = await fetch(urlQS, { headers: { 'Accept':'application/json' } });
+      }
+    } else {
+      res = await fetch(urlBase, { headers: { 'Accept':'application/json' } });
+    }
+    if (!res.ok) { console.warn('Label events fetch failed', projectId, iid, res.status); return []; }
+    return await res.json();
+  }catch(err){
+    console.warn('Label events fetch error', projectId, iid, err);
+    return [];
+  }
 }
 
 function timelineFromEvents(evts) {
@@ -326,12 +345,12 @@ async function loadProjectIssues(projectId, key) {
       list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff);
     }
 
-    // label events (opcional): em paralelo (mais rápido)
+    // label events (opcional)
     if (USE_LABEL_EVENTS && mode !== 'closed7') {
-      await Promise.all(list.map(async (it) => {
+      for (const it of list) {
         const ev = await fetchLabelEvents(projectId, it.iid);
         it._statusTimeline = timelineFromEvents(ev);
-      }));
+      }
     }
 
     issues[key] = list;
@@ -350,13 +369,6 @@ function renderEmptyRow(tbody, colspan, message) {
 }
 
 function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
-
-/* classes extras p/ badges com cor especial */
-function extraBadgeClass(lbl){
-  if (lbl === 'Bug') return ' badge-bug';
-  if (lbl === 'Under WG/DTO Evaluation') return ' badge-ugdto';
-  return '';
-}
 
 function renderIssues() {
   const mode = getViewMode();
@@ -451,10 +463,12 @@ function renderIssues() {
   // render
   sorted.forEach(issue => {
     const { status, nature, product, platform, wg } = classifyLabels(issue.labels || []);
+    const clsFor = (l) => (l==='Bug' ? ' badge-bug' : (l==='Under WG/DTO Evaluation' ? ' badge-ugdto' : ''));
     const badge = arr => arr.length
-      ? arr.map(l=>`<span class="badge${extraBadgeClass(l)}">${escapeHtml(l)}</span>`).join(' ')
+      ? arr.map(l=>`<span class="badge${clsFor(l)}">${escapeHtml(l)}</span>`).join(' ')
       : '<span style="opacity:.5;">—</span>';
 
+    const hasSLAType = issue.sla.type && issue.sla.type !== 'none';
     const rowIsPaused = issue.sla.type === 'paused';
     const isOver = (issue.sla.type === 'timed') && (issue.daysOpen > issue.sla.days);
 
@@ -493,6 +507,7 @@ function renderIssues() {
     tbody.appendChild(tr);
   });
 
+  const summaryEl = document.getElementById('finance-summary');
   if (summaryEl) {
     summaryEl.textContent = `${total} public open issues — SLA-applicable: ${applicable}, Over SLA: ${over}`;
   }
@@ -510,7 +525,7 @@ function openEditor(key, meta, currentVal){
   if (!modal || !title || !ta) return;
 
   editorKey = key;
-  title.innerHTML = `<a href="${meta.url}" target="_blank" style="color:var(--accent)">#${meta.iid}</a> — ${escapeHtml(meta.text)}`;
+  title.innerHTML = `<a href="${meta.url}" target="_blank" style="color:var(--accent)">#${meta.iid}</a> — ${meta.text}`;
   ta.value = currentVal || '';
   modal.style.display = 'block';
 }
@@ -536,18 +551,36 @@ function saveEditor(){
 
 /* ================= INIT ================= */
 document.addEventListener('DOMContentLoaded', () => {
+  // timeline toggle button
+  const tlBtn = document.getElementById('timelineToggle');
+  if (tlBtn){
+    tlBtn.onclick = () => {
+      USE_LABEL_EVENTS = !USE_LABEL_EVENTS;
+      localStorage.setItem('use_label_events', JSON.stringify(USE_LABEL_EVENTS));
+      if (USE_LABEL_EVENTS && !getToken()){
+        const maybe = window.prompt('Optional: paste a GitLab Personal Access Token (starts with glpat-). Leave blank to try without a token.');
+        if (maybe && maybe.trim()) localStorage.setItem('gitlab_api_token', maybe.trim());
+      }
+      updateTimelineToggleUi();
+      loadAllIssues();
+    };
+    // estado inicial
+    updateTimelineToggleUi();
+  }
+
   // liga botões do modal
-  const btnSave  = document.getElementById('noteEditorSave');
-  const btnClose = document.getElementById('noteEditorClose');
-  if (btnSave)  btnSave.onclick  = saveEditor;
-  if (btnClose) btnClose.onclick = closeEditor;
+  const saveBtn  = document.getElementById('noteEditorSave');
+  const closeBtn = document.getElementById('noteEditorClose');
+  if (saveBtn)  saveBtn.onclick  = saveEditor;
+  if (closeBtn) closeBtn.onclick = closeEditor;
+  // fechar clicando fora
   const modal = document.getElementById('noteModal');
   if (modal) modal.addEventListener('click', (e) => { if (e.target.id === 'noteModal') closeEditor(); });
 
-  // delegação do "Open editor" (funciona mesmo em linhas renderizadas depois)
-  const tbl = document.getElementById('finance-table');
-  if (tbl) {
-    tbl.addEventListener('click', (e)=>{
+  // event delegation para "Open editor"
+  const table = document.getElementById('finance-table');
+  if (table){
+    table.addEventListener('click', (e)=>{
       const btn = e.target.closest('.btn-open-editor');
       if (!btn) return;
       const key   = btn.dataset.key;
