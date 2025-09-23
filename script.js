@@ -549,7 +549,6 @@ function renderIssues() {
     tbody.appendChild(tr);
   });
 
-  const summaryEl = document.getElementById('finance-summary');
   if (summaryEl) {
     summaryEl.textContent = `${total} public open issues — SLA-applicable: ${applicable}, Over SLA: ${over}`;
   }
