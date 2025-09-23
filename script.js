@@ -5,22 +5,20 @@ const issues = { finance: [] };
 /* Ordenação padrão: ID desc (mais recente primeiro) */
 const tableSort = { 'finance-table': { key: 'iid', asc: false } };
 
-/* Simples toggle para histórico de labels (datas) via API de eventos.
-   Mantém OFF por padrão para não multiplicar chamadas. Ligue se quiser.
-   Quando ligado:
-     - Mostra tooltip no SLA com a linha do tempo de status + datas
-     - Working Days pode começar na última data de “Waiting Participant”
-       OU “Under WG/DTO Evaluation”, se posterior ao created_at.
+/* Histórico de labels (datas) via API de eventos.
+   ON: tooltip no SLA + Working Days começa na última “Waiting Participant”
+       OU “Under WG/DTO Evaluation” (se posterior ao created_at).
 */
 const USE_LABEL_EVENTS = true;
 
 /* ======== Taxonomias ======== */
 
-/* Status (novos) */
+/* Status */
 const STATUS_LABELS = new Set([
   'Under Evaluation',
   'Waiting Participant',
   'Under WG/DTO Evaluation',
+  'Evaluated by WG/DTO',
   'Backlog',
   'In Progress',
   'Sandbox Testing',
@@ -66,6 +64,7 @@ function canonLabel(l) {
   if (/^under\s*evaluation$/i.test(s)) return 'Under Evaluation';
   if (/^waiting\s*participant$/i.test(s)) return 'Waiting Participant';
   if (/^under\s*wg\/?dto\s*evaluation$/i.test(s)) return 'Under WG/DTO Evaluation';
+  if (/^evaluated\s*by\s*wg\/?dto$/i.test(s)) return 'Evaluated by WG/DTO';
   if (/^backlog$/i.test(s)) return 'Backlog';
   if (/^in\s*progress$/i.test(s)) return 'In Progress';
   if (/^sandbox\s*testing$/i.test(s)) return 'Sandbox Testing';
@@ -271,15 +270,15 @@ async function fetchLabelEvents(projectId, iid) {
     const url = `https://gitlab.com/api/v4/projects/${projectId}/issues/${iid}/resource_label_events?per_page=100`;
     const res = await fetch(url);
     if (!res.ok) return [];
-    return await res.json(); // [{label:{name}, created_at}, ...]
+    return await res.json(); // [{action,label:{name}, created_at}, ...]
   } catch { return []; }
 }
 
 function timelineFromEvents(evts) {
-  // Só eventos de STATUS que nos interessam
+  // considerar apenas ADIÇÕES de labels de STATUS
   const out = evts
-    .map(e => ({ when:new Date(e.created_at), raw:e.label?.name || '' }))
-    .map(e => ({ when:e.when, label: canonLabel(e.raw) }))
+    .filter(e => e && e.action === 'add' && e.label && e.label.name)
+    .map(e => ({ when:new Date(e.created_at), label: canonLabel(e.label.name) }))
     .filter(e => STATUS_LABELS.has(e.label))
     .sort((a,b)=> a.when - b.when);
   return out; // ascendente
@@ -327,12 +326,12 @@ async function loadProjectIssues(projectId, key) {
       list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff);
     }
 
-    // label events (opcional)
+    // label events (opcional): em paralelo (mais rápido)
     if (USE_LABEL_EVENTS && mode !== 'closed7') {
-      for (const it of list) {
+      await Promise.all(list.map(async (it) => {
         const ev = await fetchLabelEvents(projectId, it.iid);
         it._statusTimeline = timelineFromEvents(ev);
-      }
+      }));
     }
 
     issues[key] = list;
@@ -351,6 +350,13 @@ function renderEmptyRow(tbody, colspan, message) {
 }
 
 function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
+
+/* classes extras p/ badges com cor especial */
+function extraBadgeClass(lbl){
+  if (lbl === 'Bug') return ' badge-bug';
+  if (lbl === 'Under WG/DTO Evaluation') return ' badge-ugdto';
+  return '';
+}
 
 function renderIssues() {
   const mode = getViewMode();
@@ -445,9 +451,10 @@ function renderIssues() {
   // render
   sorted.forEach(issue => {
     const { status, nature, product, platform, wg } = classifyLabels(issue.labels || []);
-    const badge = arr => arr.length ? arr.map(l=>`<span class="badge">${escapeHtml(l)}</span>`).join(' ') : '<span style="opacity:.5;">—</span>';
+    const badge = arr => arr.length
+      ? arr.map(l=>`<span class="badge${extraBadgeClass(l)}">${escapeHtml(l)}</span>`).join(' ')
+      : '<span style="opacity:.5;">—</span>';
 
-    const hasSLAType = issue.sla.type && issue.sla.type !== 'none';
     const rowIsPaused = issue.sla.type === 'paused';
     const isOver = (issue.sla.type === 'timed') && (issue.daysOpen > issue.sla.days);
 
@@ -475,7 +482,11 @@ function renderIssues() {
       <td>
         <textarea class="comment-box" rows="2" data-key="${key}" oninput="saveComment('${key}', this.value)">${saved}</textarea>
         <div style="margin-top:6px">
-          <button onclick="openEditor('${key}', {iid:${issue.iid},text:${JSON.stringify(issue.title)},url:'${issue.web_url}'}, document.querySelector('textarea[data-key=&quot;${key}&quot;]').value)">Open editor</button>
+          <button class="btn-open-editor"
+                  data-key="${key}"
+                  data-iid="${issue.iid}"
+                  data-url="${issue.web_url}"
+                  data-title="${encodeURIComponent(issue.title)}">Open editor</button>
         </div>
       </td>
     `;
@@ -488,6 +499,7 @@ function renderIssues() {
 
   updateSortArrows('finance-table');
 }
+
 /* ====== Modal (Open editor) ====== */
 let editorKey = null;
 
@@ -498,7 +510,7 @@ function openEditor(key, meta, currentVal){
   if (!modal || !title || !ta) return;
 
   editorKey = key;
-  title.innerHTML = `<a href="${meta.url}" target="_blank" style="color:var(--accent)">#${meta.iid}</a> — ${meta.text}`;
+  title.innerHTML = `<a href="${meta.url}" target="_blank" style="color:var(--accent)">#${meta.iid}</a> — ${escapeHtml(meta.text)}`;
   ta.value = currentVal || '';
   modal.style.display = 'block';
 }
@@ -522,25 +534,31 @@ function saveEditor(){
   closeEditor();
 }
 
-// plug do modal (idêntico ao que seu HTML expõe)
-document.addEventListener('DOMContentLoaded', () => {
-  const saveBtn  = document.getElementById('noteEditorSave');
-  const closeBtn = document.getElementById('noteEditorClose');
-  if (saveBtn)  saveBtn.onclick  = saveEditor;
-  if (closeBtn) closeBtn.onclick = closeEditor;
-  // fechar clicando fora
-  const modal = document.getElementById('noteModal');
-  if (modal) modal.addEventListener('click', (e) => { if (e.target.id === 'noteModal') closeEditor(); });
-});
 /* ================= INIT ================= */
 document.addEventListener('DOMContentLoaded', () => {
-  // liga botões do modal (se existir no HTML)
-  const m = document.getElementById('noteModal');
-  if (m) {
-    const btnSave = document.getElementById('noteEditorSave');
-    const btnClose = document.getElementById('noteEditorClose');
-    if (btnSave) btnSave.onclick = saveEditor;
-    if (btnClose) btnClose.onclick = closeEditor;
+  // liga botões do modal
+  const btnSave  = document.getElementById('noteEditorSave');
+  const btnClose = document.getElementById('noteEditorClose');
+  if (btnSave)  btnSave.onclick  = saveEditor;
+  if (btnClose) btnClose.onclick = closeEditor;
+  const modal = document.getElementById('noteModal');
+  if (modal) modal.addEventListener('click', (e) => { if (e.target.id === 'noteModal') closeEditor(); });
+
+  // delegação do "Open editor" (funciona mesmo em linhas renderizadas depois)
+  const tbl = document.getElementById('finance-table');
+  if (tbl) {
+    tbl.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.btn-open-editor');
+      if (!btn) return;
+      const key   = btn.dataset.key;
+      const iid   = btn.dataset.iid;
+      const url   = btn.dataset.url;
+      const title = decodeURIComponent(btn.dataset.title || '');
+      const ta    = document.querySelector(`textarea.comment-box[data-key="${key}"]`);
+      const val   = ta ? ta.value : '';
+      openEditor(key, {iid, url, text:title}, val);
+    });
   }
+
   loadAllIssues();
 });
