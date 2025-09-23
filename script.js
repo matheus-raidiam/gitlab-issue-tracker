@@ -4,15 +4,11 @@ const issues = { finance: [] };
 /* Ordenação padrão: ID desc (mais recente primeiro) */
 const tableSort = { 'finance-table': { key: 'iid', asc: false } };
 
-/* Histórico de labels (datas) via API de eventos.
-   ON: tooltip no SLA + Working Days começa na última “Waiting Participant”
-       OU “Under WG/DTO Evaluation” (se posterior ao created_at).
-*/
+/* Label history (datas via API de eventos) — armazenado no navegador */
 let USE_LABEL_EVENTS = JSON.parse(localStorage.getItem('use_label_events') || 'false');
-function getToken(){ return (localStorage.getItem('gitlab_api_token')||'').trim(); }
-function updateTimelineToggleUi(){
-  const b=document.getElementById('timelineToggle');
-  if(b){ b.textContent = `Timeline: ${USE_LABEL_EVENTS ? 'ON':'OFF'}`; }
+function updateLabelHistoryToggleUi(){
+  const b = document.getElementById('timelineToggle');
+  if (b) b.textContent = `Label history: ${USE_LABEL_EVENTS ? 'ON' : 'OFF'}`;
 }
 
 /* ======== Taxonomias ======== */
@@ -29,6 +25,9 @@ const STATUS_LABELS = new Set([
   'Waiting Deploy',
   'Production Testing',
 ]);
+
+/* Labels “de espera” que ajustam o início do Working Days */
+const WAIT_LABELS = new Set(['Waiting Participant','Under WG/DTO Evaluation']);
 
 /* Nature */
 const NATURE_LABELS = new Set([
@@ -156,7 +155,6 @@ function slaLabelAndRank(issue) {
   const rule = issue.sla;
   if (rule.type === 'paused') return { text: 'SLA Paused', class: 'paused',    rank: 2 };
   if (rule.type === 'none')   return { text: 'No SLA',     class: 'nosla',     rank: 0 };
-  // timed
   const over = issue.daysOpen > rule.days;
   if (over) return { text: 'Over SLA', class: 'over-sla',  rank: 3 };
   return     { text: 'Within SLA', class: 'within-sla',    rank: 1 };
@@ -273,69 +271,47 @@ function updateSortArrows(tableId) {
 }
 function getViewMode() { return document.getElementById('viewMode').value; }
 
-/* ================= Aux: detectar JSON de verdade ================= */
-async function readJsonSafe(res){
-  const ct = (res.headers.get('content-type')||'').toLowerCase();
-  if (!ct.includes('application/json')){
-    const txt = await res.text();
-    console.warn('Response is not JSON:', res.status, txt.slice(0,200));
-    return null;
-  }
-  try{ return await res.json(); }catch(e){ console.warn('JSON parse error', e); return null; }
-}
-
-/* ================= Label events (proxy + fallback) ================= */
+/* ================= Label events via Netlify (sem token no cliente) ================= */
 async function fetchLabelEvents(projectId, iid){
   if (!USE_LABEL_EVENTS) return [];
-
-  // 1) tenta proxy Netlify (sem token no cliente)
   const proxyUrl = `/.netlify/functions/gitlab?path=` +
                    encodeURIComponent(`/projects/${projectId}/issues/${iid}/resource_label_events`) +
                    `&per_page=100`;
-
   try {
-    const viaProxy = await fetch(proxyUrl, { headers: { 'Accept':'application/json' }, cache:'no-store' });
-    if (viaProxy.ok) {
-      const data = await readJsonSafe(viaProxy);
-      if (Array.isArray(data)) {
-        console.debug('[timeline] proxy ok', { iid, events: data.length });
-        return data;
-      }
-      // se não for array/JSON, cai no fallback abaixo
-    } else {
-      console.warn('[timeline] proxy not ok', iid, viaProxy.status);
-    }
+    const viaProxy = await fetch(proxyUrl, { headers: { 'Accept':'application/json' } });
+    if (!viaProxy.ok) { console.warn('Proxy label events failed', iid, viaProxy.status); return []; }
+    return await viaProxy.json();
   } catch (err) {
-    console.warn('[timeline] proxy error', iid, err);
+    console.warn('Label events fetch error', projectId, iid, err);
+    return [];
   }
-
-  // 2) fallback direto no GitLab (pode exigir PAT)
-  const directUrl = `https://gitlab.com/api/v4/projects/${projectId}/issues/${iid}/resource_label_events?per_page=100`;
-  const pat = getToken();
-  const headers = { 'Accept':'application/json' };
-  if (pat) headers['Authorization'] = `Bearer ${pat}`;
-  try {
-    const res = await fetch(directUrl, { headers, cache:'no-store' });
-    if (!res.ok) { console.warn('[timeline] direct fetch failed', iid, res.status); return []; }
-    const data = await readJsonSafe(res);
-    if (Array.isArray(data)) {
-      console.debug('[timeline] direct ok', { iid, events: data.length });
-      return data;
-    }
-  } catch (err) {
-    console.warn('[timeline] direct error', iid, err);
-  }
-  return [];
 }
 
-function timelineFromEvents(evts) {
-  // considerar apenas ADIÇÕES de labels de STATUS
-  const out = evts
-    .filter(e => e && e.action === 'add' && e.label && e.label.name)
-    .map(e => ({ when:new Date(e.created_at), label: canonLabel(e.label.name) }))
-    .filter(e => STATUS_LABELS.has(e.label))
-    .sort((a,b)=> a.when - b.when);
-  return out; // ascendente
+function parseLabelEvents(evts){
+  // Mantém inclusões (add) para tooltip e também remoções para override
+  const adds = [];
+  const removes = [];
+  (evts || []).forEach(e => {
+    if (!e || !e.label || !e.label.name || !e.created_at) return;
+    const label = canonLabel(e.label.name);
+    if (!STATUS_LABELS.has(label)) return;
+    const when = new Date(e.created_at);
+    if (e.action === 'add')    adds.push({ when, label, action:'add' });
+    if (e.action === 'remove') removes.push({ when, label, action:'remove' });
+  });
+  adds.sort((a,b)=>a.when-b.when);
+  removes.sort((a,b)=>a.when-b.when);
+
+  // Override de início: última REMOÇÃO de uma wait-label; se não houver, última CRIAÇÃO
+  const lastRemove = [...removes].reverse().find(e => WAIT_LABELS.has(e.label));
+  let startOverride = null;
+  if (lastRemove) startOverride = lastRemove;
+  else {
+    const lastAdd = [...adds].reverse().find(e => WAIT_LABELS.has(e.label));
+    if (lastAdd) startOverride = lastAdd;
+  }
+
+  return { adds, startOverride };
 }
 
 /* ================= DATA ================= */
@@ -372,7 +348,7 @@ async function loadProjectIssues(projectId, key) {
   }
 
   try {
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' }, cache:'no-store' });
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
@@ -386,7 +362,9 @@ async function loadProjectIssues(projectId, key) {
     if (USE_LABEL_EVENTS && mode !== 'closed7') {
       for (const it of list) {
         const ev = await fetchLabelEvents(projectId, it.iid);
-        it._statusTimeline = timelineFromEvents(ev);
+        const parsed = parseLabelEvents(ev);
+        it._labelAdds = parsed.adds;                 // inclusões para tooltip
+        it._startOverride = parsed.startOverride;    // {when,label,action} ou null
       }
     }
 
@@ -417,16 +395,14 @@ function renderIssues() {
   const decorate = (list) => list.map(i => {
     // start para Working Days:
     let start = new Date(i.created_at);
-    let startAdjustNote = '';
+    let overrideInfo = null;
 
-    // se histórico estiver ligado, usar a última data de "Waiting Participant" OU "Under WG/DTO Evaluation" (se posterior)
-    if (USE_LABEL_EVENTS && Array.isArray(i._statusTimeline) && i._statusTimeline.length) {
-      const lastWait = [...i._statusTimeline].reverse().find(e =>
-        e.label === 'Waiting Participant' || e.label === 'Under WG/DTO Evaluation'
-      );
-      if (lastWait && lastWait.when > start) {
-        start = new Date(lastWait.when);
-        startAdjustNote = `Working Days started at ${lastWait.when.toLocaleDateString()} due to ${lastWait.label}`;
+    // Se histórico estiver ON, usar a última REMOÇÃO de wait labels; se não houver, usar a última CRIAÇÃO
+    if (USE_LABEL_EVENTS && Array.isArray(i._labelAdds)) {
+      const ov = i._startOverride;
+      if (ov && ov.when > start) {
+        start = new Date(ov.when);
+        overrideInfo = ov; // {when,label,action}
       }
     }
 
@@ -434,34 +410,42 @@ function renderIssues() {
     const daysOpen = workingDaysBetween(start, endDate);
 
     const sla = (mode === 'closed7') ? { type:'none', days:null } : getSLAFor(i.labels || []);
-    const base = { ...i, daysOpen, dateCol: (mode === 'closed7' && i.closed_at) ? i.closed_at : i.created_at, sla };
+    const base = { ...i, daysOpen, dateCol: (mode === 'closed7' && i.closed_at) ? i.closed_at : i.created_at, sla, _overrideInfo: overrideInfo };
 
     const { text, rank, class: klass } = (mode === 'closed7')
       ? { text:'—', rank:-1, class:'nosla' }
       : slaLabelAndRank(base);
 
-    // tooltip do SLA (linha do tempo)
-    let tip = '';
-    if (USE_LABEL_EVENTS && Array.isArray(i._statusTimeline) && i._statusTimeline.length) {
-      const timelineText = i._statusTimeline.map(e =>
-        `${e.when.toLocaleDateString()} — ${e.label}`
-      ).join('\n');
-      tip = startAdjustNote ? (startAdjustNote + '\n' + timelineText) : timelineText;
+    // Tooltip do Working Days
+    let wdTip = '';
+    if (USE_LABEL_EVENTS) {
+      const lines = [];
+      if (overrideInfo) {
+        const whenTxt = overrideInfo.when.toLocaleDateString();
+        const verb = overrideInfo.action === 'remove' ? 'removal' : 'creation';
+        lines.push(`Working days started at ${whenTxt} due to ${verb} of label "${overrideInfo.label}"`);
+        lines.push(''); // linha em branco
+      }
+      if (Array.isArray(i._labelAdds) && i._labelAdds.length) {
+        lines.push('Labels — dates of inclusion:');
+        i._labelAdds.forEach(e => lines.push(`${e.when.toLocaleDateString()} — ${e.label}`));
+      }
+      wdTip = lines.join('\n');
     }
 
-    return { ...base, slaText: text, slaRank: rank, slaClass: klass, slaTip: tip, adjusted: !!startAdjustNote };
+    return { ...base, slaText: text, slaRank: rank, slaClass: klass, wdTip };
   });
 
   const base = decorate(issues.finance);
-  const summaryEl = document.getElementById('finance-summary');
 
   if (base.length === 0) {
     const msg = (mode === 'closed7')
       ? 'No issues were closed in the last 7 days.'
       : 'No open issues at the moment.';
     renderEmptyRow(tbody, 11, msg);
-    if (summaryEl) {
-      summaryEl.textContent =
+    const el = document.getElementById('finance-summary');
+    if (el) {
+      el.innerHTML =
         (mode === 'closed7')
           ? '0 issues closed in last 7 days'
           : '0 public open issues — SLA-applicable: 0, Over SLA: 0';
@@ -519,17 +503,20 @@ function renderIssues() {
     const key = `comment-${issue.projectId}-${issue.iid}`;
     const saved = localStorage.getItem(key) || '';
 
-    const hasTip = !!issue.slaTip;
-    const adjustedMark = issue.adjusted ? ' • 🕒' : '';
-    const slaCell = `<span class="${issue.slaClass}" ${hasTip ? `title="${escapeHtml(issue.slaTip)}"` : ''}>${issue.slaText}${adjustedMark}</span>`;
+    // Working Days cell (com tooltip e ícone 🕒 quando override aplicado)
+    const wdTitle = issue.wdTip ? ` title="${escapeHtml(issue.wdTip)}"` : '';
+    const hasOverride = !!issue._overrideInfo;
+    const icon = (USE_LABEL_EVENTS && hasOverride)
+      ? `<div style="font-size:12px;opacity:.85;line-height:1;margin-top:2px">🕒</div>`
+      : '';
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><a href="${issue.web_url}" target="_blank" style="color:var(--accent);">#${issue.iid}</a></td>
       <td>${escapeHtml(issue.title)}${mode === 'closed7' ? '<span class="closed-badge">Closed</span>' : ''}</td>
       <td>${new Date(issue.dateCol).toLocaleDateString()}</td>
-      <td>${issue.daysOpen}</td>
-      <td>${slaCell}</td>
+      <td><span${wdTitle}>${issue.daysOpen}</span>${icon}</td>
+      <td><span class="${issue.slaClass}">${issue.slaText}</span></td>
       <td>${badge(nature)}</td>
       <td>${badge(platform)}</td>
       <td>${badge(product)}</td>
@@ -539,18 +526,27 @@ function renderIssues() {
         <textarea class="comment-box" rows="2" data-key="${key}" oninput="saveComment('${key}', this.value)">${saved}</textarea>
         <div style="margin-top:6px">
           <button class="btn-open-editor"
+                  style="background:var(--accent);color:var(--bg);border:none;border-radius:6px;padding:2px 8px;font-weight:700;cursor:pointer"
+                  title="Open editor"
                   data-key="${key}"
                   data-iid="${issue.iid}"
                   data-url="${issue.web_url}"
-                  data-title="${encodeURIComponent(issue.title)}">Open editor</button>
+                  data-title="${encodeURIComponent(issue.title)}">…</button>
         </div>
       </td>
     `;
     tbody.appendChild(tr);
   });
 
+  const summaryEl = document.getElementById('finance-summary');
   if (summaryEl) {
-    summaryEl.textContent = `${total} public open issues — SLA-applicable: ${applicable}, Over SLA: ${over}`;
+    const legend = USE_LABEL_EVENTS
+      ? '🕒 Label history ON: working days may start at the last “Waiting Participant”/“Under WG/DTO Evaluation” creation or removal date.'
+      : '🕒 Label history OFF';
+    summaryEl.innerHTML = `
+      ${total} public open issues — SLA-applicable: ${applicable}, Over SLA: ${over}
+      <div style="opacity:.85; margin-top:4px">${legend}</div>
+    `;
   }
 
   updateSortArrows('finance-table');
@@ -592,21 +588,16 @@ function saveEditor(){
 
 /* ================= INIT ================= */
 document.addEventListener('DOMContentLoaded', () => {
-  // timeline toggle button
+  // Label history toggle button
   const tlBtn = document.getElementById('timelineToggle');
   if (tlBtn){
     tlBtn.onclick = () => {
       USE_LABEL_EVENTS = !USE_LABEL_EVENTS;
       localStorage.setItem('use_label_events', JSON.stringify(USE_LABEL_EVENTS));
-      if (USE_LABEL_EVENTS && !getToken()){
-        const maybe = window.prompt('Optional: paste a GitLab Personal Access Token (starts with glpat-). Leave blank to try without a token.');
-        if (maybe && maybe.trim()) localStorage.setItem('gitlab_api_token', maybe.trim());
-      }
-      updateTimelineToggleUi();
-      loadAllIssues();
+      updateLabelHistoryToggleUi();
+      loadAllIssues(); // OFF: 0 chamadas; ON: usa Netlify Function
     };
-    // estado inicial
-    updateTimelineToggleUi();
+    updateLabelHistoryToggleUi();
   }
 
   // liga botões do modal
