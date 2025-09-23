@@ -5,32 +5,51 @@ const issues = { finance: [] };
 /* Ordenação padrão: ID desc (mais recente primeiro) */
 const tableSort = { 'finance-table': { key: 'iid', asc: false } };
 
-/* Conjuntos de labels por grupo */
+/* Simples toggle para histórico de labels (datas) via API de eventos.
+   Mantém OFF por padrão para não multiplicar chamadas. Ligue se quiser.
+   Quando ligado:
+     - Mostra tooltip no SLA com a linha do tempo de status + datas
+     - Working Days pode começar na última data de “Waiting Participant”
+       OU “Under WG/DTO Evaluation”, se posterior ao created_at.
+*/
+const USE_LABEL_EVENTS = false;
+
+/* ======== Taxonomias ======== */
+
+/* Status (novos) */
 const STATUS_LABELS = new Set([
   'Under Evaluation',
   'Waiting Participant',
   'Under WG/DTO Evaluation',
-  'Evaluated by WG/DTO',
-  'In Pipeline',
+  'Backlog',
+  'In Progress',
   'Sandbox Testing',
   'Waiting Deploy',
   'Production Testing',
 ]);
 
+/* Nature */
 const NATURE_LABELS = new Set([
   'Questions', 'Bug', 'Change Request', 'Test Improvement', 'Breaking Change',
 ]);
 
+/* Platform */
 const PLATFORM_LABELS = new Set(['FVP','Mock Bank','Mock TPP','Conformance Suite']);
+
+/* Working Group */
+const WG_LABELS = new Set([
+  'GT Serviços',
+  'GT Portabilidade de crédito',
+  'Squad Sandbox',
+  'Squad JSR',
+]);
 
 /* Filtros ativos */
 const selected = {
-  nature: new Set(), phase: new Set(), platform: new Set(), product: new Set(), status: new Set()
+  nature: new Set(), platform: new Set(), product: new Set(), wg: new Set(), status: new Set()
 };
 
 /* ================= NORMALIZAÇÃO DE LABELS ================= */
-const PHASE_RE = /^(?:phase)\s*(1|2|3|4a|4b)$/i;
-
 function baseLabel(l) { return String(l || '').split('::')[0].trim(); }
 
 function canonLabel(l) {
@@ -43,12 +62,12 @@ function canonLabel(l) {
   if (/^test\s*improvement$/i.test(s)) return 'Test Improvement';
   if (/^breaking\s*change$/i.test(s)) return 'Breaking Change';
 
-  // Status (todas as variações mapeadas)
+  // Status (variações mapeadas)
   if (/^under\s*evaluation$/i.test(s)) return 'Under Evaluation';
   if (/^waiting\s*participant$/i.test(s)) return 'Waiting Participant';
   if (/^under\s*wg\/?dto\s*evaluation$/i.test(s)) return 'Under WG/DTO Evaluation';
-  if (/^evaluated\s*by\s*wg\/?dto$/i.test(s)) return 'Evaluated by WG/DTO';
-  if (/^in\s*pipeline$/i.test(s)) return 'In Pipeline';
+  if (/^backlog$/i.test(s)) return 'Backlog';
+  if (/^in\s*progress$/i.test(s)) return 'In Progress';
   if (/^sandbox\s*testing$/i.test(s)) return 'Sandbox Testing';
   if (/^waiting\s*deploy$/i.test(s)) return 'Waiting Deploy';
   if (/^production\s*testing$/i.test(s)) return 'Production Testing';
@@ -59,25 +78,27 @@ function canonLabel(l) {
   if (/^mock\s*tpp$/i.test(s)) return 'Mock TPP';
   if (/^conformance\s*suite$/i.test(s)) return 'Conformance Suite';
 
-  // Phase
-  const pm = s.match(PHASE_RE);
-  if (pm) return `Phase ${pm[1].toLowerCase()}`.replace(/\b\w/g, c => c.toUpperCase());
+  // Working Group
+  if (/^gt\s*serv(i|í)ços$/i.test(s)) return 'GT Serviços';
+  if (/^gt\s*portabilidade\s*de\s*cr(e|é)dito$/i.test(s)) return 'GT Portabilidade de crédito';
+  if (/^squad\s*sandbox$/i.test(s)) return 'Squad Sandbox';
+  if (/^squad\s*jsr$/i.test(s)) return 'Squad JSR';
 
   // Fallback (vira Product)
   return s;
 }
 
 function classifyLabels(labels = []) {
-  const status = [], nature = [], product = [], phase = [], platform = [];
+  const status = [], nature = [], product = [], platform = [], wg = [];
   labels.forEach(raw => {
     const canon = canonLabel(raw);
     if (STATUS_LABELS.has(canon))   { status.push(canon);   return; }
     if (NATURE_LABELS.has(canon))   { nature.push(canon);   return; }
     if (PLATFORM_LABELS.has(canon)) { platform.push(canon); return; }
-    if (/^Phase\s*(1|2|3|4a|4b)$/i.test(canon)) { phase.push(canon); return; }
+    if (WG_LABELS.has(canon))       { wg.push(canon);       return; }
     product.push(canon);
   });
-  return { status, nature, product, phase, platform };
+  return { status, nature, product, platform, wg };
 }
 
 /* ================= DIAS ÚTEIS ================= */
@@ -93,7 +114,12 @@ function workingDaysBetween(startDate, endDate) {
 }
 
 /* ================= SLA ================= */
-// Regra: Bug sempre 10 dias úteis (bypass pausa)
+/* Regras:
+   - Bug, Questions: 10 dias úteis
+   - Waiting Participant: 5 dias úteis
+   - Under Evaluation ou sem tags (Nature): 3 dias úteis
+   - Pausam SEMPRE: Under WG/DTO Evaluation, In Progress, Backlog, Sandbox Testing, Waiting Deploy, Production Testing
+*/
 function getSLAFor(labels) {
   const { status, nature } = classifyLabels(labels || []);
   const hasBug = nature.includes('Bug');
@@ -101,39 +127,31 @@ function getSLAFor(labels) {
   const underEval = status.includes('Under Evaluation');
   const noNature = nature.length === 0;
 
-  if (hasBug) return { days: 10, reason: 'Bug' };
-  if (underEval || noNature) return { days: 3, reason: underEval ? 'Under Evaluation' : 'No Nature' };
-  if (hasQuestions) return { days: 10, reason: 'Questions' };
-  return { days: null, reason: 'No SLA' };
+  if (hasBug || hasQuestions) return { type: 'timed', days: 10, reason: hasBug ? 'Bug' : 'Questions' };
+  if (status.includes('Waiting Participant')) return { type: 'timed', days: 5, reason: 'Waiting Participant' };
+  if (underEval || noNature) return { type: 'timed', days: 3, reason: underEval ? 'Under Evaluation' : 'No Nature' };
+
+  const paused = (
+    status.includes('Under WG/DTO Evaluation') ||
+    status.includes('In Progress') ||
+    status.includes('Backlog') ||
+    status.includes('Sandbox Testing') ||
+    status.includes('Waiting Deploy') ||
+    status.includes('Production Testing')
+  );
+  if (paused) return { type: 'paused' };
+
+  return { type: 'none' };
 }
 
 function slaLabelAndRank(issue) {
-  const labels = issue.labels || [];
-  const { status, nature } = classifyLabels(labels);
-  const isBug = nature.includes('Bug');
-
-  // NOVO: "Production Testing" pausa SEMPRE, até se for Bug
-  const hasProdTesting = status.includes('Production Testing');
-
-  // Os demais status de pausa só pausam se NÃO for Bug
-  const otherPause =
-    status.includes('Under WG/DTO Evaluation') ||
-    status.includes('Waiting Participant')     ||
-    status.includes('In Pipeline')             ||
-    status.includes('Sandbox Testing')         ||
-    status.includes('Waiting Deploy');
-
-  const paused = hasProdTesting || (!isBug && otherPause);
-
-  if (paused) return { text: 'SLA Paused', class: 'paused', rank: 2 };
-
-  const slaDays = issue.sla.days;
-  const hasSLA = Number.isInteger(slaDays);
-  const over = hasSLA ? issue.daysOpen > slaDays : false;
-
-  if (!hasSLA) return { text: 'No SLA', class: 'nosla', rank: 0 };
-  if (over)     return { text: 'Over SLA', class: 'over-sla', rank: 3 };
-  return { text: 'Within SLA', class: 'within-sla', rank: 1 };
+  const rule = issue.sla;
+  if (rule.type === 'paused') return { text: 'SLA Paused', class: 'paused',    rank: 2 };
+  if (rule.type === 'none')   return { text: 'No SLA',     class: 'nosla',     rank: 0 };
+  // timed
+  const over = issue.daysOpen > rule.days;
+  if (over) return { text: 'Over SLA', class: 'over-sla',  rank: 3 };
+  return     { text: 'Within SLA', class: 'within-sla',    rank: 1 };
 }
 
 /* ================= NOTAS ================= */
@@ -148,16 +166,16 @@ function clearAllComments() {
 
 /* ================= FILTROS (UI) ================= */
 function renderFilterMenus() {
-  const natureSet = new Set(), phaseSet = new Set(), platformSet = new Set(),
-        productSet = new Set(), statusSet = new Set();
+  const natureSet = new Set(), platformSet = new Set(),
+        productSet = new Set(), statusSet = new Set(), wgSet = new Set();
 
   issues.finance.forEach(i => {
-    const { status, nature, product, phase, platform } = classifyLabels(i.labels || []);
+    const { status, nature, product, platform, wg } = classifyLabels(i.labels || []);
     status.forEach(l => statusSet.add(l));
     nature.forEach(l => natureSet.add(l));
     product.forEach(l => productSet.add(l));
-    phase.forEach(l => phaseSet.add(l));
     platform.forEach(l => platformSet.add(l));
+    wg.forEach(l => wgSet.add(l));
   });
 
   const fill = (containerId, values, cat) => {
@@ -180,20 +198,20 @@ function renderFilterMenus() {
   };
 
   fill('menu-nature',   natureSet,   'nature');
-  fill('menu-phase',    phaseSet,    'phase');
   fill('menu-platform', platformSet, 'platform');
   fill('menu-product',  productSet,  'product');
   fill('menu-status',   statusSet,   'status');
+  fill('menu-wg',       wgSet,       'wg');
 
   updateCounts(); renderChips();
 }
 
 function updateCounts() {
   document.getElementById('count-nature').textContent   = selected.nature.size;
-  document.getElementById('count-phase').textContent    = selected.phase.size;
   document.getElementById('count-platform').textContent = selected.platform.size;
   document.getElementById('count-product').textContent  = selected.product.size;
   document.getElementById('count-status').textContent   = selected.status.size;
+  const wg = document.getElementById('count-wg'); if (wg) wg.textContent = selected.wg.size;
 }
 
 function clearCategory(cat) {
@@ -204,7 +222,7 @@ function clearCategory(cat) {
 function renderChips() {
   const chips = document.getElementById('chips');
   chips.innerHTML = '';
-  ['nature','phase','platform','product','status'].forEach(cat => {
+  ['nature','platform','product','wg','status'].forEach(cat => {
     selected[cat].forEach(tag => {
       const el = document.createElement('span');
       el.className = 'chip';
@@ -247,30 +265,24 @@ function updateSortArrows(tableId) {
 }
 function getViewMode() { return document.getElementById('viewMode').value; }
 
-/* ================= MODAL (editor grande) ================= */
-let editorKey = null;
-const modalEl = () => document.getElementById('noteModal');
-const editorTitleEl = () => document.getElementById('noteEditorTitle');
-const editorTextEl = () => document.getElementById('noteEditorTextarea');
-
-function openEditor(key, title, currentVal){
-  const m = modalEl();
-  if (!m) return; // se não existir modal, ignora
-  editorKey = key;
-  if (editorTitleEl()) {
-    editorTitleEl().innerHTML = `<a href="${title.url}" target="_blank" style="color:var(--accent)">#${title.iid}</a> — ${title.text}`;
-  }
-  if (editorTextEl()) editorTextEl().value = currentVal || '';
-  m.style.display = 'block';
+/* ================= Label events (opcional) ================= */
+async function fetchLabelEvents(projectId, iid) {
+  try {
+    const url = `https://gitlab.com/api/v4/projects/${projectId}/issues/${iid}/resource_label_events?per_page=100`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    return await res.json(); // [{label:{name}, created_at}, ...]
+  } catch { return []; }
 }
-function closeEditor(){ const m = modalEl(); if (m) m.style.display = 'none'; editorKey = null; }
-function saveEditor(){
-  if (!editorKey) return;
-  const val = editorTextEl() ? editorTextEl().value : '';
-  localStorage.setItem(editorKey, val);
-  const small = document.querySelector(`textarea.comment-box[data-key="${editorKey}"]`);
-  if (small) small.value = val;
-  closeEditor();
+
+function timelineFromEvents(evts) {
+  // Só eventos de STATUS que nos interessam
+  const out = evts
+    .map(e => ({ when:new Date(e.created_at), raw:e.label?.name || '' }))
+    .map(e => ({ when:e.when, label: canonLabel(e.raw) }))
+    .filter(e => STATUS_LABELS.has(e.label))
+    .sort((a,b)=> a.when - b.when);
+  return out; // ascendente
 }
 
 /* ================= DATA ================= */
@@ -314,6 +326,15 @@ async function loadProjectIssues(projectId, key) {
       const cutoff = new Date(since);
       list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff);
     }
+
+    // label events (opcional)
+    if (USE_LABEL_EVENTS && mode !== 'closed7') {
+      for (const it of list) {
+        const ev = await fetchLabelEvents(projectId, it.iid);
+        it._statusTimeline = timelineFromEvents(ev);
+      }
+    }
+
     issues[key] = list;
   } catch (err) {
     console.error('Failed to load issues', { projectId, err });
@@ -339,19 +360,36 @@ function renderIssues() {
 
   const now = new Date();
   const decorate = (list) => list.map(i => {
-    const created = new Date(i.created_at);
-    const endDate = (mode === 'closed7' && i.closed_at) ? new Date(i.closed_at) : now;
-    const daysOpen = workingDaysBetween(created, endDate);
+    // start para Working Days:
+    let start = new Date(i.created_at);
 
-    const sla = (mode === 'closed7') ? { days:null } : getSLAFor(i.labels || []);
+    // se histórico estiver ligado, usar a última data de "Waiting Participant" OU "Under WG/DTO Evaluation" (se posterior)
+    if (USE_LABEL_EVENTS && Array.isArray(i._statusTimeline) && i._statusTimeline.length) {
+      const lastWait = [...i._statusTimeline].reverse().find(e =>
+        e.label === 'Waiting Participant' || e.label === 'Under WG/DTO Evaluation'
+      );
+      if (lastWait && lastWait.when > start) start = new Date(lastWait.when);
+    }
+
+    const endDate = (mode === 'closed7' && i.closed_at) ? new Date(i.closed_at) : now;
+    const daysOpen = workingDaysBetween(start, endDate);
+
+    const sla = (mode === 'closed7') ? { type:'none', days:null } : getSLAFor(i.labels || []);
     const base = { ...i, daysOpen, dateCol: (mode === 'closed7' && i.closed_at) ? i.closed_at : i.created_at, sla };
 
-    let text='—', rank=-1, klass='nosla';
-    if (mode !== 'closed7') {
-      const r = slaLabelAndRank(base);
-      text = r.text; rank = r.rank; klass = r.class;
+    const { text, rank, class: klass } = (mode === 'closed7')
+      ? { text:'—', rank:-1, class:'nosla' }
+      : slaLabelAndRank(base);
+
+    // tooltip do SLA (linha do tempo)
+    let tip = '';
+    if (USE_LABEL_EVENTS && Array.isArray(i._statusTimeline) && i._statusTimeline.length) {
+      tip = i._statusTimeline.map(e =>
+        `${e.when.toLocaleDateString()} — ${e.label}`
+      ).join('\n');
     }
-    return { ...base, slaText: text, slaRank: rank, slaClass: klass };
+
+    return { ...base, slaText: text, slaRank: rank, slaClass: klass, slaTip: tip };
   });
 
   const base = decorate(issues.finance);
@@ -373,20 +411,22 @@ function renderIssues() {
     return;
   }
 
+  // filtros
   const filtered = base.filter(i => {
-    const { status, nature, product, phase, platform } = classifyLabels(i.labels || []);
+    const { status, nature, product, platform, wg } = classifyLabels(i.labels || []);
     const matchNature   = selected.nature.size   ? nature.some(n => selected.nature.has(n))       : true;
-    const matchPhase    = selected.phase.size    ? phase.some(p => selected.phase.has(p))          : true;
     const matchPlatform = selected.platform.size ? platform.some(p => selected.platform.has(p))    : true;
     const matchProduct  = selected.product.size  ? product.some(p => selected.product.has(p))      : true;
+    const matchWG       = selected.wg.size       ? wg.some(w => selected.wg.has(w))                : true;
     const matchStatus   = selected.status.size   ? status.some(s => selected.status.has(s))        : true;
-    return matchNature && matchPhase && matchPlatform && matchProduct && matchStatus;
+    return matchNature && matchPlatform && matchProduct && matchWG && matchStatus;
   });
 
-  const sort = tableSort['finance-table'];
-  const sorted = filtered.sort((a, b) => {
+  // ordenação
+  const s = tableSort['finance-table'];
+  const sorted = filtered.sort((a,b)=>{
     let va, vb;
-    switch (sort.key) {
+    switch (s.key) {
       case 'iid':      va = Number(a.iid); vb = Number(b.iid); break;
       case 'daysOpen': va = Number(a.daysOpen); vb = Number(b.daysOpen); break;
       case 'dateCol':  va = new Date(a.dateCol).getTime(); vb = new Date(b.dateCol).getTime(); break;
@@ -394,101 +434,56 @@ function renderIssues() {
       case 'title':
       default:         va = (a.title || '').toLowerCase(); vb = (b.title || '').toLowerCase();
     }
-    if (va < vb) return sort.asc ? -1 : 1;
-    if (va > vb) return sort.asc ? 1 : -1;
+    if (va < vb) return s.asc ? -1 : 1;
+    if (va > vb) return s.asc ? 1 : -1;
     return 0;
   });
 
-  if (sorted.length === 0) {
-    renderEmptyRow(tbody, 11, 'No issues match the selected filters. Try clearing filters or switching the view.');
-    if (summaryEl) {
-      summaryEl.textContent =
-        (mode === 'closed7')
-          ? '0 issues closed in last 7 days'
-          : '0 public open issues — SLA-applicable: 0, Over SLA: 0';
-    }
-    updateSortArrows('finance-table');
-    return;
-  }
+  // contadores do resumo
+  let total = 0, applicable = 0, over = 0;
 
-  const counters = { total: 0, slaApplicable: 0, over: 0 };
-
+  // render
   sorted.forEach(issue => {
-    const modeNow = getViewMode();
-    const dateShown = (modeNow === 'closed7' && issue.closed_at)
-      ? new Date(issue.closed_at)
-      : new Date(issue.created_at);
+    const { status, nature, product, platform, wg } = classifyLabels(issue.labels || []);
+    const badge = arr => arr.length ? arr.map(l=>`<span class="badge">${escapeHtml(l)}</span>`).join(' ') : '<span style="opacity:.5;">—</span>';
 
-    const slaDays = issue.sla.days;
-    const hasSLA = (modeNow !== 'closed7') && Number.isInteger(slaDays);
-    const over = hasSLA ? (issue.daysOpen > slaDays) : false;
+    const hasSLAType = issue.sla.type && issue.sla.type !== 'none';
+    const rowIsPaused = issue.sla.type === 'paused';
+    const isOver = (issue.sla.type === 'timed') && (issue.daysOpen > issue.sla.days);
+
+    total++;
+    if (!rowIsPaused) applicable++;
+    if (isOver) over++;
 
     const key = `comment-${issue.projectId}-${issue.iid}`;
     const saved = localStorage.getItem(key) || '';
 
-    const { status, nature, product, phase, platform } = classifyLabels(issue.labels || []);
-
-    // badges (mantém seu tema; adiciona classes extras quando necessário)
-    const badges = (arr) => arr.length
-      ? arr.map(l => {
-          const extra =
-            (l === 'Bug') ? ' badge-bug' :
-            (l === 'Under WG/DTO Evaluation') ? ' badge-status-ugdto' : '';
-          return `<span class="badge${extra}">${l}</span>`;
-        }).join(' ')
-      : '<span style="opacity:.5;">—</span>';
-
-    const statusCell = (modeNow === 'closed7')
-      ? '—'
-      : `<span class="${issue.slaClass}">${issue.slaText}</span>`;
+    const slaCell = `<span class="${issue.slaClass}" ${issue.slaTip ? `title="${escapeHtml(issue.slaTip)}"` : ''}>${issue.slaText}</span>`;
 
     const tr = document.createElement('tr');
-    tr.className = (modeNow === 'closed7') ? 'closed-issue' : '';
     tr.innerHTML = `
       <td><a href="${issue.web_url}" target="_blank" style="color:var(--accent);">#${issue.iid}</a></td>
-      <td>${issue.title}${modeNow === 'closed7' ? '<span class="closed-badge">Closed</span>' : ''}</td>
-      <td>${dateShown.toLocaleDateString()}</td>
-      <td style="text-align:center">${issue.daysOpen}</td>
-      <td>${statusCell}</td>
-      <td>${badges(nature)}</td>
-      <td>${badges(phase)}</td>
-      <td>${badges(platform)}</td>
-      <td>${badges(product)}</td>
-      <td>${badges(status)}</td>
+      <td>${escapeHtml(issue.title)}${mode === 'closed7' ? '<span class="closed-badge">Closed</span>' : ''}</td>
+      <td>${new Date(issue.dateCol).toLocaleDateString()}</td>
+      <td>${issue.daysOpen}</td>
+      <td>${slaCell}</td>
+      <td>${badge(nature)}</td>
+      <td>${badge(platform)}</td>
+      <td>${badge(product)}</td>
+      <td>${badge(wg)}</td>
+      <td>${badge(status)}</td>
       <td>
-        <div>
-          <textarea class="comment-box" data-key="${key}">${saved}</textarea>
-          <button class="open-editor" data-key="${key}" data-iid="${issue.iid}" data-url="${issue.web_url}" data-title="${escapeHtml(issue.title)}" style="margin-top:6px">Open editor</button>
+        <textarea class="comment-box" rows="2" data-key="${key}" oninput="saveComment('${key}', this.value)">${saved}</textarea>
+        <div style="margin-top:6px">
+          <button onclick="openEditor('${key}', {iid:${issue.iid},text:${JSON.stringify(issue.title)},url:'${issue.web_url}'}, document.querySelector('textarea[data-key=&quot;${key}&quot;]').value)">Open editor</button>
         </div>
       </td>
     `;
     tbody.appendChild(tr);
-
-    // sync do textarea pequeno
-    const small = tr.querySelector(`textarea.comment-box[data-key="${key}"]`);
-    small.addEventListener('input', e=> localStorage.setItem(key, e.target.value));
-
-    // abrir editor grande
-    const btn = tr.querySelector(`button.open-editor[data-key="${key}"]`);
-    btn.onclick = () => openEditor(
-      key,
-      { iid: btn.dataset.iid, text: btn.dataset.title, url: btn.dataset.url },
-      localStorage.getItem(key) || ''
-    );
-
-   counters.total++;
-if (mode !== 'closed7') {
-  const cls = issue.slaClass; // 'within-sla' | 'over-sla' | 'paused' | 'nosla'
-  if (cls !== 'paused') counters.slaApplicable++; // tudo que NÃO é "SLA Paused"
-  if (cls === 'over-sla') counters.over++;
-}
   });
 
   if (summaryEl) {
-    summaryEl.textContent =
-      (mode === 'closed7')
-        ? `${counters.total} issues closed in last 7 days`
-        : `${counters.total} public open issues — SLA-applicable: ${counters.slaApplicable}, Over SLA: ${counters.over}`;
+    summaryEl.textContent = `${total} public open issues — SLA-applicable: ${applicable}, Over SLA: ${over}`;
   }
 
   updateSortArrows('finance-table');
@@ -496,14 +491,13 @@ if (mode !== 'closed7') {
 
 /* ================= INIT ================= */
 document.addEventListener('DOMContentLoaded', () => {
-  // modal (opcional — só conecta handlers se existir)
+  // liga botões do modal (se existir no HTML)
   const m = document.getElementById('noteModal');
   if (m) {
-    const closeBtn = document.getElementById('noteEditorClose');
-    const saveBtn  = document.getElementById('noteEditorSave');
-    if (closeBtn) closeBtn.onclick = closeEditor;
-    if (saveBtn)  saveBtn.onclick  = saveEditor;
-    m.addEventListener('click', (e)=> { if (e.target.id === 'noteModal') closeEditor(); });
+    const btnSave = document.getElementById('noteEditorSave');
+    const btnClose = document.getElementById('noteEditorClose');
+    if (btnSave) btnSave.onclick = saveEditor;
+    if (btnClose) btnClose.onclick = closeEditor;
   }
   loadAllIssues();
 });
