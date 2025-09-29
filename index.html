@@ -5,23 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Open Finance Brasil - GitLab Issues SLA Dashboard</title>
 <link rel="stylesheet" href="styles.css">
-<style>
-  /* badge Bug (vermelho suave) */
-  .badge-bug{
-    background: rgba(239,68,68,.12);
-    border: 1px solid rgba(239,68,68,.35);
-    color: #fca5a5;
-  }
-  /* summary card com o mesmo look dos filtros */
-  .summary-card.filters-card{ padding:12px; margin-top:10px; }
-  .summary-title{ font-weight:600; display:block; margin-bottom:6px; }
-  /* comentários maiores por padrão */
-  textarea.comment-box{
-    width: 100%;
-    min-height: 40px;
-    resize: vertical;
-  }
-</style>
 </head>
 <body>
   <header>
@@ -45,8 +28,7 @@
     <button onclick="loadAllIssues()">🔄 Refresh</button>
     <button onclick="clearAllComments()">🗑️ Clear All Comments</button>
     <button onclick="resetAllFilters()">🧹 Reset Filters</button>
-    <!-- toggle do histórico de labels -->
-    <button id="timelineToggle" title="Use label history for Working Days/SLA">Label history: OFF</button>
+    <button id="timelineToggle" title="Toggle label history">Label history: OFF</button>
     <div class="spacer"></div>
     <div id="loading">Loading…</div>
   </div>
@@ -57,95 +39,97 @@
       <summary style="cursor:pointer"><strong>SLA rules</strong></summary>
       <div style="margin-top:8px;opacity:.9">
         <ul style="margin:0 0 8px 16px">
-          <li><b>Bugs and Questions</b>: 10 business days</li>
+          <li><b>Bug</b> & <b>Questions</b>: 10 business days</li>
           <li><b>Waiting Participant</b>: 5 business days</li>
           <li><b>Under Evaluation</b> or <b>no tags</b>: 3 business days</li>
           <li><b>Under WG/DTO Evaluation</b>, <b>In Progress</b>, <b>Backlog</b>, <b>Sandbox Testing</b>, <b>Waiting Deploy</b>, <b>Production Testing</b>: <i>SLA Paused</i></li>
-          <li><b>Change Request</b>, <b>Breaking Change</b>, <b>Test Improvement</b>: <i>No SLA</i></li>
+          <li><b>Change Request</b>, <b>Breaking Change</b>, <b>Test Improvement</b>: <b>No SLA</b></li>
         </ul>
+        <div style="font-size:12px;opacity:.85;margin-top:6px">
+          🕒 <b>Label history ON</b>: working days may start at the last <i>reopened</i> date or the last
+          <i>Deprioritized</i> <u>removal</u> (for Bugs), and subtract paused intervals.
+        </div>
       </div>
     </details>
   </div>
 
-  <!-- Filtros (agora com details externo para recolher) -->
-  <div class="filters-wrapper">
-    <details open>
-      <summary class="filters-summary">Filters</summary>
-      <div class="filters-card">
-        <div class="filters-row">
-          <!-- Nature -->
-          <div class="filter" id="filterNature">
-            <details>
-              <summary>
-                <span class="title">Nature</span>
-                <span class="count-badge" id="count-nature">0</span>
-              </summary>
-              <div class="menu" id="menu-nature">
-                <div class="clear" onclick="clearCategory('nature')">Clear Nature</div>
-              </div>
-            </details>
-          </div>
-
-          <!-- Working Group -->
-          <div class="filter" id="filterWG">
-            <details>
-              <summary>
-                <span class="title">Working Group (WG)</span>
-                <span class="count-badge" id="count-wg">0</span>
-              </summary>
-              <div class="menu" id="menu-wg">
-                <div class="clear" onclick="clearCategory('wg')">Clear Working Group</div>
-              </div>
-            </details>
-          </div>
-
-          <!-- Platform -->
-          <div class="filter" id="filterPlatform">
-            <details>
-              <summary>
-                <span class="title">Platform</span>
-                <span class="count-badge" id="count-platform">0</span>
-              </summary>
-              <div class="menu" id="menu-platform">
-                <div class="clear" onclick="clearCategory('platform')">Clear Platform</div>
-              </div>
-            </details>
-          </div>
-
-          <!-- Product -->
-          <div class="filter" id="filterProduct">
-            <details>
-              <summary>
-                <span class="title">Product</span>
-                <span class="count-badge" id="count-product">0</span>
-              </summary>
-              <div class="menu" id="menu-product">
-                <div class="clear" onclick="clearCategory('product')">Clear Product</div>
-              </div>
-            </details>
-          </div>
-
-          <!-- Status -->
-          <div class="filter" id="filterStatus">
-            <details>
-              <summary>
-                <span class="title">Status</span>
-                <span class="count-badge" id="count-status">0</span>
-              </summary>
-              <div class="menu" id="menu-status">
-                <div class="clear" onclick="clearCategory('status')">Clear Status</div>
-              </div>
-            </details>
-          </div>
+  <!-- Filters (collapsible) -->
+  <div class="filters-card">
+    <details>
+      <summary style="cursor:pointer"><strong>Filters</strong></summary>
+      <div class="filters-row" style="margin-top:8px">
+        <!-- Nature -->
+        <div class="filter" id="filterNature">
+          <details>
+            <summary>
+              <span class="title">Nature</span>
+              <span class="count-badge" id="count-nature">0</span>
+            </summary>
+            <div class="menu" id="menu-nature">
+              <div class="clear" onclick="clearCategory('nature')">Clear Nature</div>
+            </div>
+          </details>
         </div>
 
-        <!-- Active filter chips -->
-        <div class="chips" id="chips"></div>
+        <!-- Working Group -->
+        <div class="filter" id="filterWG">
+          <details>
+            <summary>
+              <span class="title">Working Group</span>
+              <span class="count-badge" id="count-wg">0</span>
+            </summary>
+            <div class="menu" id="menu-wg">
+              <div class="clear" onclick="clearCategory('wg')">Clear Working Group</div>
+            </div>
+          </details>
+        </div>
+
+        <!-- Platform -->
+        <div class="filter" id="filterPlatform">
+          <details>
+            <summary>
+              <span class="title">Platform</span>
+              <span class="count-badge" id="count-platform">0</span>
+            </summary>
+            <div class="menu" id="menu-platform">
+              <div class="clear" onclick="clearCategory('platform')">Clear Platform</div>
+            </div>
+          </details>
+        </div>
+
+        <!-- Product -->
+        <div class="filter" id="filterProduct">
+          <details>
+            <summary>
+              <span class="title">Product</span>
+              <span class="count-badge" id="count-product">0</span>
+            </summary>
+            <div class="menu" id="menu-product">
+              <div class="clear" onclick="clearCategory('product')">Clear Product</div>
+            </div>
+          </details>
+        </div>
+
+        <!-- Status -->
+        <div class="filter" id="filterStatus">
+          <details>
+            <summary>
+              <span class="title">Status</span>
+              <span class="count-badge" id="count-status">0</span>
+            </summary>
+            <div class="menu" id="menu-status">
+              <div class="clear" onclick="clearCategory('status')">Clear Status</div>
+            </div>
+          </details>
+        </div>
       </div>
+
+      <!-- Active filter chips -->
+      <div class="chips" id="chips"></div>
     </details>
   </div>
 
-  <!-- NOTE MODAL (leve e centralizado) -->
+  <!-- MODAL: note editor (já existia) -->
   <div id="noteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;">
     <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(900px,92vw);max-height:80vh;overflow:auto;background:var(--panel,#111827);border:1px solid #1f2937;border-radius:12px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.4)">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
@@ -159,6 +143,17 @@
     </div>
   </div>
 
+  <!-- MODAL: label history (novo) -->
+  <div id="historyModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;">
+    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(820px,92vw);max-height:80vh;overflow:auto;background:var(--panel,#111827);border:1px solid #1f2937;border-radius:12px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.4)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+        <div id="historyTitle" style="font-weight:600"></div>
+        <button id="historyClose">Close</button>
+      </div>
+      <div id="historyBody" style="white-space:pre-wrap;line-height:1.35"></div>
+    </div>
+  </div>
+
   <div class="grid">
     <section>
       <h2>
@@ -167,35 +162,24 @@
         </a>
       </h2>
 
-      <!-- Summary box (logo abaixo do título) -->
+      <!-- Summary -->
       <div class="filters-card summary-card">
         <span class="summary-title">Summary</span>
         <div id="finance-summary"></div>
-        <div id="summary-legend" class="summary-legend"></div>
       </div>
 
       <table id="finance-table">
         <thead>
           <tr>
-            <th class="sortable" data-key="iid"       onclick="changeSort('finance-table','iid')">
-              <span class="sort-label">ID <span class="sort-arrow" data-for="iid"></span></span>
-            </th>
-            <th class="sortable" data-key="title"     onclick="changeSort('finance-table','title')">
-              <span class="sort-label">Title <span class="sort-arrow" data-for="title"></span></span>
-            </th>
-            <th class="sortable" data-key="dateCol"   onclick="changeSort('finance-table','dateCol')">
-              <span class="sort-label"><span id="finance-date-label">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span>
-            </th>
-            <th class="sortable" data-key="daysOpen"  onclick="changeSort('finance-table','daysOpen')">
-              <span class="sort-label">Working Days <span class="sort-arrow" data-for="daysOpen"></span></span>
-            </th>
-            <th class="sortable" data-key="slaRank"   onclick="changeSort('finance-table','slaRank')">
-              <span class="sort-label">SLA Status <span class="sort-arrow" data-for="slaRank"></span></span>
-            </th>
+            <th class="sortable" data-key="iid"       onclick="changeSort('finance-table','iid')"><span class="sort-label">ID <span class="sort-arrow" data-for="iid"></span></span></th>
+            <th class="sortable" data-key="title"     onclick="changeSort('finance-table','title')"><span class="sort-label">Title <span class="sort-arrow" data-for="title"></span></span></th>
+            <th class="sortable" data-key="dateCol"   onclick="changeSort('finance-table','dateCol')"><span class="sort-label"><span id="finance-date-label">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span></th>
+            <th class="sortable" data-key="daysOpen"  onclick="changeSort('finance-table','daysOpen')"><span class="sort-label">Working Days <span class="sort-arrow" data-for="daysOpen"></span></span></th>
+            <th class="sortable" data-key="slaRank"   onclick="changeSort('finance-table','slaRank')"><span class="sort-label">SLA Status <span class="sort-arrow" data-for="slaRank"></span></span></th>
             <th>Nature</th>
             <th>Platform</th>
             <th>Product</th>
-            <th>WG</th>
+            <th>Working Group</th>
             <th>Status</th>
             <th>Comments</th>
           </tr>
