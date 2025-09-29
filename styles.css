@@ -25,10 +25,10 @@ header img{height:40px; background:#fff; border-radius:6px; padding:2px;}
 h1{color:var(--accent); font-size:28px; margin:0;}
 h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
 
-/* Plain intro paragraph (outside squares) */
+/* Intro */
 .page-intro{margin:10px 0 16px; line-height:1.4;}
 
-/* Toolbar (square card) */
+/* Toolbar */
 .toolbar{
   display:flex; gap:12px; align-items:center; flex-wrap:wrap;
   background:var(--card); border:1px solid var(--dropdown-border);
@@ -41,15 +41,10 @@ h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
 .toolbar .spacer{flex:1}
 #loading{display:none; color:var(--accent); font-weight:700}
 
-/* Filters (square card) */
+/* Filters/SLA rules card */
 .filters-card{
   background:var(--card); border:1px solid var(--dropdown-border);
   border-radius:10px; padding:10px 12px; margin-bottom:8px;
-}
-/* wrapper collapsible (filtros recolhíveis) */
-.filters-wrapper details > summary.filters-summary{
-  cursor:pointer; user-select:none; font-weight:700; color:var(--accent);
-  margin: 6px 0 6px;
 }
 .filters-row{display:flex; gap:12px; flex-wrap:wrap}
 .filter{position:relative; min-width:240px; flex:1 1 280px}
@@ -77,7 +72,7 @@ h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
   color:var(--accent); text-decoration:underline;
 }
 
-/* Filter chips */
+/* Chips */
 .chips{display:flex; flex-wrap:wrap; gap:6px; padding:6px 0 2px}
 .chip{
   display:inline-flex; align-items:center; gap:8px; padding:4px 10px; border-radius:999px;
@@ -85,7 +80,7 @@ h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
 }
 .chip .x{cursor:pointer; opacity:.85}
 
-/* Tables */
+/* Table */
 table{
   width:100%; border-collapse:separate; border-spacing:0; background:var(--card);
   border-radius:8px; overflow:hidden
@@ -101,10 +96,10 @@ th.sortable{cursor:pointer}
 .sort-arrow{font-size:12px; color:var(--accent); opacity:.9}
 .over-sla{color:var(--error); font-weight:700}
 .within-sla{color:var(--accent)}
-.nosla{color:#cbd5d1}   /* cinza claro */
-.paused{color:#f0d98c; font-weight:normal} /* SLA Paused color */
+.nosla{color:#c0c8c7}        /* cinza claro */
+.paused{color:#f0d98c; font-weight:normal}
 
-/* Unified tag badge style (for Nature, Product, Status, WG, Platform) */
+/* Badge */
 .badge{
   display:inline-block;
   background-color:#055b4e;
@@ -118,77 +113,71 @@ th.sortable{cursor:pointer}
   overflow-wrap:normal;
   white-space:normal;
 }
-
-/* vermelho suave p/ Bug */
 .badge-bug{
   background: rgba(239,68,68,.12);
   border: 1px solid rgba(239,68,68,.35);
   color: #fca5a5;
 }
-
-/* azul suave p/ Under WG/DTO Evaluation */
 .badge-ugdto{
   background: rgba(59,130,246,.12);
   border: 1px solid rgba(59,130,246,.35);
   color: #93c5fd;
 }
 
-/* Comentários */
+/* Comments */
 .comment-box{
   width:100%; font-size:12px; background:#092e34; color:#fff;
   border:1px solid #066f5f; border-radius:4px; min-height:20px;
   resize:vertical;
 }
 
+/* Summary */
 .summary{font-size:14px; margin:8px 0 12px; opacity:.9}
-.summary-legend{font-size:12px; opacity:.8; margin-top:4px;}
+.summary-card.filters-card{ padding:12px; margin-top:10px; }
+.summary-title{ font-weight:600; display:block; margin-bottom:6px; }
 .closed-issue td{opacity:.9}
-.closed-badge{
-  display:inline-block; padding:2px 6px; border-radius:4px; background:#244447;
-  color:var(--muted); font-size:11px; margin-left:8px
-}
+.closed-badge{display:inline-block; padding:2px 6px; border-radius:4px; background:#244447; color:var(--muted); font-size:11px; margin-left:8px}
 .grid{display:grid; grid-template-columns:1fr; gap:28px}
 
-/* Empty-state row (when no results) */
+/* Empty */
 .empty-state td.empty-cell{
-  padding:18px;
-  text-align:center;
-  color:var(--muted);
-  background:var(--card-2);
-  font-style:italic;
+  padding:18px; text-align:center; color:var(--muted);
+  background:var(--card-2); font-style:italic;
 }
 
 /* Footer */
 footer{margin-top:16px; font-size:12px; color:var(--muted)}
 
-/* ======== AJUSTES DE LAYOUT DA TABELA (larguras estáveis) ======== */
+/* Table layout widths */
 #finance-table{table-layout:fixed; width:100%;}
 #finance-table th, #finance-table td{
   word-break:normal;
   overflow-wrap:normal;
 }
+#finance-table th:nth-child(1),  #finance-table td:nth-child(1)  { width:7%;  }
+#finance-table th:nth-child(2),  #finance-table td:nth-child(2)  { width:20%; }
+#finance-table th:nth-child(3),  #finance-table td:nth-child(3)  { width:9%;  }
+#finance-table th:nth-child(4),  #finance-table td:nth-child(4)  { width:7%;  text-align:left;}
+#finance-table th:nth-child(5),  #finance-table td:nth-child(5)  { width:8%;  }
+#finance-table th:nth-child(6),  #finance-table td:nth-child(6)  { width:8%;  }
+#finance-table th:nth-child(7),  #finance-table td:nth-child(7)  { width:7%;  }
+#finance-table th:nth-child(8),  #finance-table td:nth-child(8)  { width:7%;  }
+#finance-table th:nth-child(9),  #finance-table td:nth-child(9)  { width:8%;  }
+#finance-table th:nth-child(10), #finance-table td:nth-child(10) { width:7%;  }
+#finance-table th:nth-child(11), #finance-table td:nth-child(11) { width:12%; }
 
-/* Larguras por coluna (1..11) — somam ~100% */
-#finance-table th:nth-child(1),  #finance-table td:nth-child(1)  { width:7%;  } /* ID */
-#finance-table th:nth-child(2),  #finance-table td:nth-child(2)  { width:20%; } /* Title */
-#finance-table th:nth-child(3),  #finance-table td:nth-child(3)  { width:9%;  } /* Created At */
-#finance-table th:nth-child(4),  #finance-table td:nth-child(4)  { width:7%;  text-align:center;} /* Working Days */
-#finance-table th:nth-child(5),  #finance-table td:nth-child(5)  { width:8%;  } /* SLA Status */
-#finance-table th:nth-child(6),  #finance-table td:nth-child(6)  { width:8%;  } /* Nature */
-#finance-table th:nth-child(7),  #finance-table td:nth-child(7)  { width:7%;  } /* Platform */
-#finance-table th:nth-child(8),  #finance-table td:nth-child(8)  { width:8%;  } /* Product */
-#finance-table th:nth-child(9),  #finance-table td:nth-child(9)  { width:7%;  } /* WG */
-#finance-table th:nth-child(10), #finance-table td:nth-child(10) { width:8%;  } /* Status */
-#finance-table th:nth-child(11), #finance-table td:nth-child(11) { width:12%; } /* Comments */
-
-/* ID: não quebrar o link (#1234) */
+/* ID nowrap */
 #finance-table td:nth-child(1) a{display:inline-block; white-space:nowrap; min-width:56px;}
-/* Working Days: pode quebrar entre palavras e não ultrapassar */
-#finance-table th:nth-child(4) {
-  white-space: normal;
-  word-break: keep-all;
-  overflow-wrap: normal;
+
+/* Working Days header wrapping */
+#finance-table th:nth-child(4){
+  white-space:normal; word-break:keep-all; overflow-wrap:normal;
 }
 
-/* indicador do ajuste por histórico (abaixo dos days) */
-.wd-clock{display:block; font-size:12px; margin-top:2px; opacity:.85;}
+/* Mini botão de histórico */
+.btn-hist{
+  margin-left:6px; padding:2px 6px; border:1px solid var(--accent);
+  background:transparent; color:var(--accent);
+  border-radius:6px; font-size:12px; line-height:1; cursor:pointer;
+}
+.btn-hist:disabled{opacity:.4; cursor:default; border-color:#3b5f56; color:#3b5f56}
