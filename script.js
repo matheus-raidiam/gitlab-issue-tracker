@@ -1,10 +1,8 @@
-// Open Finance only
+/* ================= CONFIG ================= */
 const issues = { finance: [] };
-
-/* Ordenação padrão: ID desc (mais recente primeiro) */
 const tableSort = { 'finance-table': { key: 'iid', asc: false } };
 
-/* Label history toggle (salvo no navegador) */
+/* Label history toggle (100% via Netlify proxy; sem PAT) */
 let USE_LABEL_EVENTS = JSON.parse(localStorage.getItem('use_label_events') || 'false');
 function updateTimelineToggleUi(){
   const b=document.getElementById('timelineToggle');
@@ -22,36 +20,31 @@ const STATUS_LABELS = new Set([
   'Sandbox Testing',
   'Waiting Deploy',
   'Production Testing',
-]);
-
-const PAUSE_STATUS = new Set([
-  'Under WG/DTO Evaluation',
-  'In Progress',
-  'Backlog',
-  'Sandbox Testing',
-  'Waiting Deploy',
-  'Production Testing',
+  'Deprioritized',
 ]);
 
 const NATURE_LABELS = new Set([
   'Questions', 'Bug', 'Change Request', 'Test Improvement', 'Breaking Change',
 ]);
 
-const NO_SLA_NATURE = new Set(['Change Request','Test Improvement','Breaking Change']);
-
 const PLATFORM_LABELS = new Set(['FVP','Mock Bank','Mock TPP','Conformance Suite']);
 
-const WG_LABELS = new Set(['GT Serviços','GT Portabilidade de crédito','Squad Sandbox','Squad JSR']);
+const WG_LABELS = new Set([
+  'GT Serviços',
+  'GT Portabilidade de crédito',
+  'Squad Sandbox',
+  'Squad JSR',
+]);
 
 /* Filtros ativos */
 const selected = {
   nature: new Set(), platform: new Set(), product: new Set(), wg: new Set(), status: new Set()
 };
 
-/* ================= NORMALIZAÇÃO DE LABELS ================= */
-function baseLabel(l) { return String(l || '').split('::')[0].trim(); }
+/* ================= NORMALIZAÇÃO ================= */
+function baseLabel(l){ return String(l||'').split('::')[0].trim(); }
 
-function canonLabel(l) {
+function canonLabel(l){
   const s = baseLabel(l);
 
   // Nature
@@ -61,16 +54,17 @@ function canonLabel(l) {
   if (/^test\s*improvement$/i.test(s)) return 'Test Improvement';
   if (/^breaking\s*change$/i.test(s)) return 'Breaking Change';
 
-  // Status (variações mapeadas)
+  // Status
   if (/^under\s*evaluation$/i.test(s)) return 'Under Evaluation';
   if (/^waiting\s*participant$/i.test(s)) return 'Waiting Participant';
   if (/^under\s*wg\/?dto\s*evaluation$/i.test(s)) return 'Under WG/DTO Evaluation';
   if (/^evaluated\s*by\s*wg\/?dto$/i.test(s)) return 'Evaluated by WG/DTO';
   if (/^backlog$/i.test(s)) return 'Backlog';
   if (/^in\s*progress$/i.test(s)) return 'In Progress';
-  if (/^sandbox\s*testing$/i.test(s)) return 'Sandbox Testing';
+  if (/^sandbox\s*testing/i.test(s)) return 'Sandbox Testing';
   if (/^waiting\s*deploy$/i.test(s)) return 'Waiting Deploy';
-  if (/^production\s*testing$/i.test(s)) return 'Production Testing';
+  if (/^production\s*testing/i.test(s)) return 'Production Testing';
+  if (/^depri(or)?it?i?zed$/i.test(s) || /^deprioritized$/i.test(s)) return 'Deprioritized';
 
   // Platform
   if (/^fvp$/i.test(s)) return 'FVP';
@@ -84,7 +78,6 @@ function canonLabel(l) {
   if (/^squad\s*sandbox$/i.test(s)) return 'Squad Sandbox';
   if (/^squad\s*jsr$/i.test(s)) return 'Squad JSR';
 
-  // Fallback (vira Product)
   return s;
 }
 
@@ -101,7 +94,7 @@ function classifyLabels(labels = []) {
   return { status, nature, product, platform, wg };
 }
 
-/* ================= DIAS ÚTEIS ================= */
+/* ================= DATA UTILS ================= */
 function workingDaysBetween(startDate, endDate) {
   let count = 0;
   const cur = new Date(startDate);
@@ -113,59 +106,63 @@ function workingDaysBetween(startDate, endDate) {
   return count;
 }
 
-/* soma dias úteis em intervalos [a,b] */
-function workingDaysInIntervals(intervals) {
-  return intervals.reduce((acc, [a,b]) => {
-    if (!a || !b) return acc;
-    const start = new Date(a);
-    const end   = new Date(b);
-    if (end < start) return acc;
-    return acc + workingDaysBetween(start, end);
-  }, 0);
+/* Soma dias úteis de múltiplos intervalos */
+function workingDaysInIntervals(intervals){
+  let total = 0;
+  intervals.forEach(({start,end})=>{
+    if (end <= start) return;
+    total += workingDaysBetween(start, end);
+  });
+  return total;
 }
 
 /* ================= SLA ================= */
-/* Regras:
-   - NO SLA se Nature ∈ {Change Request, Test Improvement, Breaking Change}
-   - Pausam SEMPRE: Under WG/DTO Evaluation, In Progress, Backlog, Sandbox Testing, Waiting Deploy, Production Testing
-   - Waiting Participant: 5 dias úteis
-   - Bug / Questions: 10 dias úteis
-   - Under Evaluation ou sem Nature: 3 dias úteis
-*/
+/* Nova regra: No SLA para Change Request / Breaking Change / Test Improvement */
 function getSLAFor(labels) {
   const { status, nature } = classifyLabels(labels || []);
 
-  if (nature.some(n => NO_SLA_NATURE.has(n))) {
-    return { type: 'none' };
+  // No SLA
+  if (nature.includes('Change Request') || nature.includes('Breaking Change') || nature.includes('Test Improvement')) {
+    return { type:'nosla' };
   }
 
-  const paused = status.some(s => PAUSE_STATUS.has(s));
+  // Paused (sempre)
+  const paused = (
+    status.includes('Under WG/DTO Evaluation') ||
+    status.includes('In Progress') ||
+    status.includes('Backlog') ||
+    status.includes('Sandbox Testing') ||
+    status.includes('Waiting Deploy') ||
+    status.includes('Production Testing')
+  );
   if (paused) return { type: 'paused' };
 
+  // Timed
   if (status.includes('Waiting Participant')) return { type: 'timed', days: 5, reason: 'Waiting Participant' };
 
-  if (nature.includes('Bug') || nature.includes('Questions')) {
-    return { type: 'timed', days: 10, reason: nature.includes('Bug') ? 'Bug' : 'Questions' };
-  }
+  const hasBug = nature.includes('Bug');
+  const hasQuestions = nature.includes('Questions');
+  if (hasBug || hasQuestions) return { type: 'timed', days: 10, reason: hasBug ? 'Bug' : 'Questions' };
 
-  if (status.includes('Under Evaluation') || nature.length === 0) {
-    return { type: 'timed', days: 3, reason: status.includes('Under Evaluation') ? 'Under Evaluation' : 'No Nature' };
-  }
+  const underEval = status.includes('Under Evaluation');
+  const noNature = nature.length === 0;
+  if (underEval || noNature) return { type: 'timed', days: 3, reason: underEval ? 'Under Evaluation' : 'No Nature' };
 
   return { type: 'none' };
 }
 
 function slaLabelAndRank(issue) {
   const rule = issue.sla;
-  if (rule.type === 'paused') return { text: 'SLA Paused', class: 'paused',    rank: 2 };
-  if (rule.type === 'none')   return { text: 'No SLA',     class: 'nosla',     rank: 0 };
+  if (rule.type === 'paused') return { text: 'SLA Paused', class: 'paused', rank: 2 };
+  if (rule.type === 'nosla')  return { text: 'No SLA',     class: 'nosla',  rank: 0 };
+  if (rule.type === 'none')   return { text: 'No SLA',     class: 'nosla',  rank: 0 }; // mantém “No SLA” para casos raros
   // timed
-  const over = issue.effDays > rule.days;
-  if (over) return { text: 'Over SLA', class: 'over-sla',  rank: 3 };
-  return     { text: 'Within SLA', class: 'within-sla',    rank: 1 };
+  const over = issue.daysOpen > (rule.days || 0);
+  if (over) return { text: 'Over SLA', class: 'over-sla', rank: 3 };
+  return     { text: 'Within SLA', class: 'within-sla',   rank: 1 };
 }
 
-/* ================= NOTAS ================= */
+/* ================= COMMENTS ================= */
 function saveComment(key, value) { localStorage.setItem(key, value); }
 function clearAllComments() {
   if (!confirm('Are you sure you want to clear ALL comments? This cannot be undone.')) return;
@@ -175,7 +172,7 @@ function clearAllComments() {
   });
 }
 
-/* ================= FILTROS (UI) ================= */
+/* ================= FILTERS ================= */
 function renderFilterMenus() {
   const natureSet = new Set(), platformSet = new Set(),
         productSet = new Set(), statusSet = new Set(), wgSet = new Set();
@@ -191,6 +188,7 @@ function renderFilterMenus() {
 
   const fill = (containerId, values, cat) => {
     const container = document.getElementById(containerId);
+    if (!container) return;
     container.querySelectorAll('.row').forEach(r => r.remove());
     [...values].sort().forEach(tag => {
       const row = document.createElement('div');
@@ -216,22 +214,16 @@ function renderFilterMenus() {
 
   updateCounts(); renderChips();
 }
-
 function updateCounts() {
-  document.getElementById('count-nature').textContent   = selected.nature.size;
-  document.getElementById('count-platform').textContent = selected.platform.size;
-  document.getElementById('count-product').textContent  = selected.product.size;
-  document.getElementById('count-status').textContent   = selected.status.size;
-  const wg = document.getElementById('count-wg'); if (wg) wg.textContent = selected.wg.size;
+  const nn = document.getElementById('count-nature');   if (nn) nn.textContent   = selected.nature.size;
+  const np = document.getElementById('count-platform'); if (np) np.textContent   = selected.platform.size;
+  const nr = document.getElementById('count-product');  if (nr) nr.textContent   = selected.product.size;
+  const ns = document.getElementById('count-status');   if (ns) ns.textContent   = selected.status.size;
+  const wg = document.getElementById('count-wg');       if (wg) wg.textContent   = selected.wg.size;
 }
-
-function clearCategory(cat) {
-  selected[cat].clear();
-  renderFilterMenus(); renderIssues();
-}
-
+function clearCategory(cat) { selected[cat].clear(); renderFilterMenus(); renderIssues(); }
 function renderChips() {
-  const chips = document.getElementById('chips');
+  const chips = document.getElementById('chips'); if (!chips) return;
   chips.innerHTML = '';
   ['nature','platform','product','wg','status'].forEach(cat => {
     selected[cat].forEach(tag => {
@@ -239,21 +231,17 @@ function renderChips() {
       el.className = 'chip';
       el.innerHTML = `${cat}: ${tag} <span class="x" title="Remove">✕</span>`;
       el.querySelector('.x').onclick = () => {
-        selected[cat].delete(tag);
-        renderFilterMenus(); renderIssues();
+        selected[cat].delete(tag); renderFilterMenus(); renderIssues();
       };
       chips.appendChild(el);
     });
   });
 }
-
 function resetAllFilters() {
   Object.values(selected).forEach(s => s.clear());
   document.querySelectorAll('.filter details[open]').forEach(d => { d.open = false; });
   renderFilterMenus(); renderIssues();
 }
-
-/* Fecha details ao clicar fora */
 document.addEventListener('click', (e) => {
   const insideFilter = e.target.closest('.filter');
   if (!insideFilter) {
@@ -276,64 +264,93 @@ function updateSortArrows(tableId) {
 }
 function getViewMode() { return document.getElementById('viewMode').value; }
 
-/* ================= Label events via Netlify (sem PAT no cliente) ================= */
+/* ================= GITLAB AUX (via Netlify) ================= */
+async function proxyGetJSON(path){
+  const url = `/.netlify/functions/gitlab?path=${encodeURIComponent(path)}&per_page=100`;
+  const res = await fetch(url, { headers: { 'Accept':'application/json' } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+/* Label events */
 async function fetchLabelEvents(projectId, iid){
   if (!USE_LABEL_EVENTS) return [];
-  const proxyUrl = `/.netlify/functions/gitlab?path=` +
-                   encodeURIComponent(`/projects/${projectId}/issues/${iid}/resource_label_events`) +
-                   `&per_page=100`;
   try {
-    const r = await fetch(proxyUrl, { headers: { 'Accept':'application/json' } });
-    if (!r.ok) { console.warn('Label events fetch failed', projectId, iid, r.status); return []; }
-    return await r.json();
-  } catch (err) {
+    return await proxyGetJSON(`/projects/${projectId}/issues/${iid}/resource_label_events`);
+  } catch (err){
     console.warn('Label events fetch error', projectId, iid, err);
     return [];
   }
 }
 
-/* timeline completa (add/remove) apenas para STATUS */
-function statusTimeline(evts){
-  const rows = [];
-  for (const e of evts || []){
-    if (!e || !e.label || !e.label.name) continue;
-    const label = canonLabel(e.label.name);
-    if (!STATUS_LABELS.has(label)) continue;
-    if (e.action !== 'add' && e.action !== 'remove') continue;
-    rows.push({ when:new Date(e.created_at), label, action:e.action });
+/* State events (para reopened) */
+async function fetchStateEvents(projectId, iid){
+  if (!USE_LABEL_EVENTS) return [];
+  try {
+    return await proxyGetJSON(`/projects/${projectId}/issues/${iid}/resource_state_events`);
+  } catch (err){
+    console.warn('State events fetch error', projectId, iid, err);
+    return [];
   }
-  rows.sort((a,b)=> a.when - b.when);
-  return rows;
 }
 
-/* constroi intervalos pausados [start,end] por label do conjunto PAUSE_STATUS */
-function pausedIntervalsFromTimeline(timeline, currentLabels){
-  const openByLabel = new Map(); // label -> startDate
-  const intervals   = [];        // [start,end]
+function timelineFromLabelEvents(evts){
+  return evts
+    .filter(e => e && e.label && e.label.name && (e.action === 'add' || e.action === 'remove'))
+    .map(e => ({ when:new Date(e.created_at), label: canonLabel(e.label.name), action:e.action }))
+    .sort((a,b)=> a.when - b.when);
+}
 
-  for (const ev of timeline){
-    if (!PAUSE_STATUS.has(ev.label)) continue;
+function lastReopenDateFromStateEvents(evts){
+  if (!Array.isArray(evts)) return null;
+  // considera 'reopened' explicitamente; alguns retornam 'opened' após closed
+  const candidates = evts
+    .filter(e => /reopened|opened/i.test(e.state))
+    .map(e => new Date(e.created_at))
+    .sort((a,b)=> b - a);
+  return candidates[0] || null;
+}
+
+/* Constrói intervalos pausados: add abre, remove fecha */
+const PAUSE_LABELS = new Set([
+  'Under WG/DTO Evaluation',
+  'In Progress',
+  'Backlog',
+  'Sandbox Testing',
+  'Waiting Deploy',
+  'Production Testing',
+]);
+
+function pausedIntervals(timeline, windowStart, windowEnd){
+  const intervals = [];
+  const openMap = new Map(); // label -> startDate
+  timeline.forEach(ev=>{
+    if (!PAUSE_LABELS.has(ev.label)) return;
     if (ev.action === 'add'){
-      openByLabel.set(ev.label, ev.when);
+      openMap.set(ev.label, ev.when);
     } else if (ev.action === 'remove'){
-      const st = openByLabel.get(ev.label);
-      if (st){ intervals.push([st, ev.when]); openByLabel.delete(ev.label); }
+      const st = openMap.get(ev.label);
+      if (st){
+        const s = new Date(Math.max(st.getTime(), windowStart.getTime()));
+        const e = new Date(Math.min(ev.when.getTime(), windowEnd.getTime()));
+        if (e > s) intervals.push({start:s, end:e, label:ev.label});
+        openMap.delete(ev.label);
+      }
     }
-  }
-  // labels pausadas ainda ativas (sem remove): fecha em "agora"
-  const now = new Date();
-  for (const lbl of openByLabel.keys()){
-    if (currentLabels.includes(lbl)){
-      intervals.push([openByLabel.get(lbl), now]);
-    }
-  }
+  });
+  // Labels ainda abertas até o fim da janela
+  openMap.forEach((st, label)=>{
+    const s = new Date(Math.max(st.getTime(), windowStart.getTime()));
+    const e = new Date(windowEnd);
+    if (e > s) intervals.push({start:s, end:e, label});
+  });
   return intervals;
 }
 
 /* ================= DATA ================= */
-function setLoading(on) { const el = document.getElementById('loading'); if (el) el.style.display = on ? 'block' : 'none'; }
+function setLoading(on){ const el=document.getElementById('loading'); if (el) el.style.display = on ? 'block':'none'; }
 
-async function loadAllIssues() {
+async function loadAllIssues(){
   setLoading(true);
   issues.finance = [];
 
@@ -349,53 +366,52 @@ async function loadAllIssues() {
   setLoading(false);
 }
 
-async function loadProjectIssues(projectId, key) {
+async function loadProjectIssues(projectId, key){
   const mode = getViewMode();
   const now = new Date();
   const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(now.getDate() - 7);
   const since = sevenDaysAgo.toISOString();
 
-  let url = `https://gitlab.com/api/v4/projects/${projectId}/issues?per_page=100`;
-  if (mode === 'closed7') url += `&state=closed&updated_after=${encodeURIComponent(since)}`;
-  else                    url += `&state=opened`;
+  let url = `/projects/${projectId}/issues?per_page=100`;
+  url += (mode === 'closed7') ? `&state=closed&updated_after=${encodeURIComponent(since)}` : `&state=opened`;
 
-  try {
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-
+  try{
+    const data = await proxyGetJSON(url);
     let list = data.map(issue => ({ ...issue, projectId }));
     if (mode === 'closed7') {
       const cutoff = new Date(since);
       list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff);
     }
 
-    // label events (opcional) -> para Working Days "líquidos"
-    if (USE_LABEL_EVENTS && mode !== 'closed7') {
-      for (const it of list) {
-        const ev = await fetchLabelEvents(projectId, it.iid);
-        it._statusTimeline = statusTimeline(ev);
+    if (USE_LABEL_EVENTS && mode !== 'closed7'){
+      // carrega timelines
+      for (const it of list){
+        const [lev, sev] = await Promise.all([
+          fetchLabelEvents(projectId, it.iid),
+          fetchStateEvents(projectId, it.iid),
+        ]);
+        it._labelTimeline = timelineFromLabelEvents(lev);
+        it._lastReopen = lastReopenDateFromStateEvents(sev);
       }
     }
 
     issues[key] = list;
-  } catch (err) {
+  }catch(err){
     console.error('Failed to load issues', { projectId, url, err });
     issues[key] = [];
   }
 }
 
 /* ================= RENDER ================= */
-function renderEmptyRow(tbody, colspan, message) {
+function renderEmptyRow(tbody, colspan, message){
   const tr = document.createElement('tr');
   tr.className = 'empty-state';
   tr.innerHTML = `<td class="empty-cell" colspan="${colspan}">${message}</td>`;
   tbody.appendChild(tr);
 }
-
 function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
 
-function renderIssues() {
+function renderIssues(){
   const mode = getViewMode();
   const tbody = document.querySelector('#finance-table tbody');
   if (!tbody) return;
@@ -404,72 +420,74 @@ function renderIssues() {
   const now = new Date();
 
   const decorate = (list) => list.map(i => {
-    const created = new Date(i.created_at);
     const endDate = (mode === 'closed7' && i.closed_at) ? new Date(i.closed_at) : now;
 
-    // dias brutos (created -> end)
-    const grossDays = workingDaysBetween(created, endDate);
+    // SLA tipo
+    const sla = (mode === 'closed7') ? { type:'nosla' } : getSLAFor(i.labels || []);
 
-    // dias pausados (somente se history ON)
-    let pausedDays = 0;
-    let wdTip = '';
-    if (USE_LABEL_EVENTS && Array.isArray(i._statusTimeline) && i._statusTimeline.length) {
-      const currentStatus = classifyLabels(i.labels || []).status;
-      const intervals = pausedIntervalsFromTimeline(i._statusTimeline, currentStatus);
-      pausedDays = workingDaysInIntervals(intervals);
+    // start base
+    let start = new Date(i.created_at);
 
-      // tooltip do working days com contexto
-      const lines = [];
-      lines.push('Label history ON — Working days = total − paused');
-      if (intervals.length){
-        for (const [a,b] of intervals){
-          lines.push(`${new Date(a).toLocaleDateString()} → ${new Date(b).toLocaleDateString()} : SLA Paused`);
-        }
-      } else {
-        lines.push('No paused intervals found.');
-      }
-      wdTip = lines.join('\n');
+    // (A) Reopened mais recente
+    if (USE_LABEL_EVENTS && i._lastReopen && i._lastReopen > start){
+      start = new Date(i._lastReopen);
     }
 
-    // dias efetivos (líquidos)
-    const effDays = Math.max(0, grossDays - pausedDays);
+    // (B) Para Bug, se houver REMOÇÃO de Deprioritized mais recente que start, usa essa data
+    if (USE_LABEL_EVENTS && Array.isArray(i._labelTimeline)){
+      const labels = classifyLabels(i.labels||[]);
+      if (labels.nature.includes('Bug')){
+        const lastDeprRemoved = [...i._labelTimeline].reverse()
+          .find(ev => ev.label === 'Deprioritized' && ev.action === 'remove');
+        if (lastDeprRemoved && lastDeprRemoved.when > start){
+          start = new Date(lastDeprRemoved.when);
+        }
+      }
+    }
 
-    // SLA rule para esta issue
-    const sla = (mode === 'closed7') ? { type:'none', days:null } : getSLAFor(i.labels || []);
+    // Dias úteis "brutos"
+    let rawDays = workingDaysBetween(start, endDate);
+
+    // Subtrai pausas (label history ON)
+    let pausedDays = 0;
+    let pauseIntervals = [];
+    if (USE_LABEL_EVENTS && Array.isArray(i._labelTimeline) && i._labelTimeline.length){
+      pauseIntervals = pausedIntervals(i._labelTimeline, start, endDate);
+      pausedDays = workingDaysInIntervals(pauseIntervals);
+    }
+
+    // dias líquidos
+    const netDays = Math.max(0, rawDays - pausedDays);
+
+    // aplicar "No SLA" => Working Days deve exibir "—"
+    const daysOpen = (sla.type === 'nosla') ? null : netDays;
+
     const base = {
       ...i,
-      grossDays,
-      pausedDays,
-      effDays,
+      daysOpen,
       dateCol: (mode === 'closed7' && i.closed_at) ? i.closed_at : i.created_at,
-      sla
+      sla,
+      _history: { start, endDate, rawDays, pausedDays, pauseIntervals }
     };
 
     const { text, rank, class: klass } = (mode === 'closed7')
       ? { text:'—', rank:-1, class:'nosla' }
-      : slaLabelAndRank(base);
+      : slaLabelAndRank({ ...base, daysOpen: (daysOpen ?? 0) });
 
-    return { ...base, slaText: text, slaRank: rank, slaClass: klass, wdTip };
+    return { ...base, slaText: text, slaRank: rank, slaClass: klass };
   });
 
   const base = decorate(issues.finance);
   const summaryEl = document.getElementById('finance-summary');
-  const legendEl  = document.getElementById('summary-legend');
 
-  if (base.length === 0) {
-    const msg = (mode === 'closed7')
-      ? 'No issues were closed in the last 7 days.'
-      : 'No open issues at the moment.';
+  if (base.length === 0){
+    const msg = (mode === 'closed7') ? 'No issues were closed in the last 7 days.' : 'No open issues at the moment.';
     renderEmptyRow(tbody, 11, msg);
-    if (summaryEl) {
-      summaryEl.textContent =
-        (mode === 'closed7')
-          ? '0 issues closed in last 7 days'
-          : '0 public open issues — SLA-applicable: 0, Over SLA: 0, No SLA: 0';
+    if (summaryEl){
+      summaryEl.textContent = (mode === 'closed7')
+        ? '0 issues closed in last 7 days'
+        : '0 public open issues — SLA-applicable: 0, Over SLA: 0, No SLA: 0';
     }
-    if (legendEl) legendEl.textContent = USE_LABEL_EVENTS
-      ? '🕒 Label history ON: working days exclude paused statuses.'
-      : '';
     updateSortArrows('finance-table');
     return;
   }
@@ -485,16 +503,13 @@ function renderIssues() {
     return matchNature && matchPlatform && matchProduct && matchWG && matchStatus;
   });
 
-  // ordenação
+  // sorting
   const s = tableSort['finance-table'];
   const sorted = filtered.sort((a,b)=>{
     let va, vb;
     switch (s.key) {
       case 'iid':      va = Number(a.iid); vb = Number(b.iid); break;
-      case 'daysOpen': // compat: usar effDays para ordenação por “Working Days”
-        va = Number(a.effDays ?? a.grossDays);
-        vb = Number(b.effDays ?? b.grossDays);
-        break;
+      case 'daysOpen': va = Number(a.daysOpen ?? -1); vb = Number(b.daysOpen ?? -1); break;
       case 'dateCol':  va = new Date(a.dateCol).getTime(); vb = new Date(b.dateCol).getTime(); break;
       case 'slaRank':  va = Number(a.slaRank); vb = Number(b.slaRank); break;
       case 'title':
@@ -505,30 +520,38 @@ function renderIssues() {
     return 0;
   });
 
-  // contadores do resumo
-  let total = 0, applicable = 0, over = 0, nosla = 0, paused = 0;
+  // counters
+  let total = 0, applicable = 0, over = 0, noslaCount = 0;
 
-  // render
-  sorted.forEach(issue => {
+  // render rows
+  sorted.forEach(issue=>{
     const { status, nature, product, platform, wg } = classifyLabels(issue.labels || []);
     const clsFor = (l) => (l==='Bug' ? ' badge-bug' : (l==='Under WG/DTO Evaluation' ? ' badge-ugdto' : ''));
     const badge = arr => arr.length
       ? arr.map(l=>`<span class="badge${clsFor(l)}">${escapeHtml(l)}</span>`).join(' ')
       : '<span style="opacity:.5;">—</span>';
 
+    const rowIsPaused = issue.sla.type === 'paused';
+    const isNoSLA     = issue.sla.type === 'nosla';
+    const isOver      = (issue.sla.type === 'timed') && (Number(issue.daysOpen) > (issue.sla.days||0));
+
     total++;
-    if (issue.sla.type === 'paused') paused++;
-    if (issue.sla.type === 'none')   nosla++;
-    const isTimed = issue.sla.type === 'timed';
-    const isOver  = isTimed && (issue.effDays > issue.sla.days);
-    if (isTimed) applicable++;
-    if (isOver)  over++;
+    if (isNoSLA) noslaCount++;
+    if (issue.sla.type === 'timed') {
+      applicable++;
+      if (isOver) over++;
+    }
 
     const key = `comment-${issue.projectId}-${issue.iid}`;
     const saved = localStorage.getItem(key) || '';
 
-    const wdNumber = USE_LABEL_EVENTS ? (issue.effDays ?? issue.grossDays) : issue.grossDays;
-    const wdClock  = USE_LABEL_EVENTS ? `<span class="wd-clock" title="${escapeHtml(issue.wdTip || 'Label history ON — Working days = total − paused')}">🕒</span>` : '';
+    // Working days cell: número + botão 🕒 (sem tooltip). Para No SLA, apenas —
+    let wdCell = '—';
+    if (!isNoSLA){
+      const n = Number(issue.daysOpen ?? 0);
+      const canShowBtn = USE_LABEL_EVENTS && Array.isArray(issue._labelTimeline) && issue._labelTimeline.length>0;
+      wdCell = `${n}${canShowBtn ? ` <button class="btn-hist" data-iid="${issue.iid}">🕒</button>` : ''}`;
+    }
 
     const slaCell = `<span class="${issue.slaClass}">${issue.slaText}</span>`;
 
@@ -537,7 +560,7 @@ function renderIssues() {
       <td><a href="${issue.web_url}" target="_blank" style="color:var(--accent);">#${issue.iid}</a></td>
       <td>${escapeHtml(issue.title)}${mode === 'closed7' ? '<span class="closed-badge">Closed</span>' : ''}</td>
       <td>${new Date(issue.dateCol).toLocaleDateString()}</td>
-      <td title="${escapeHtml(issue.wdTip || '')}">${wdNumber}${wdClock}</td>
+      <td>${wdCell}</td>
       <td>${slaCell}</td>
       <td>${badge(nature)}</td>
       <td>${badge(platform)}</td>
@@ -555,22 +578,23 @@ function renderIssues() {
         </div>
       </td>
     `;
+    // guarda objeto completo para abrir history
+    tr.dataset.issue = JSON.stringify({
+      iid: issue.iid, web_url: issue.web_url, title: issue.title,
+      _history: issue._history, _labelTimeline: issue._labelTimeline
+    });
+
     tbody.appendChild(tr);
   });
 
-  if (summaryEl) {
-    summaryEl.textContent = `${total} public open issues — SLA-applicable: ${applicable}, Over SLA: ${over}, No SLA: ${nosla}`;
-  }
-  if (legendEl) {
-    legendEl.textContent = USE_LABEL_EVENTS
-      ? '🕒 Label history ON: working days exclude paused statuses.'
-      : '';
+  if (summaryEl){
+    summaryEl.textContent = `${total} public open issues — SLA-applicable: ${applicable}, Over SLA: ${over}, No SLA: ${noslaCount}`;
   }
 
   updateSortArrows('finance-table');
 }
 
-/* ====== Modal (Open editor) ====== */
+/* ================= MODALS ================= */
 let editorKey = null;
 
 function openEditor(key, meta, currentVal){
@@ -578,35 +602,75 @@ function openEditor(key, meta, currentVal){
   const title = document.getElementById('noteEditorTitle');
   const ta    = document.getElementById('noteEditorTextarea');
   if (!modal || !title || !ta) return;
-
   editorKey = key;
   title.innerHTML = `<a href="${meta.url}" target="_blank" style="color:var(--accent)">#${meta.iid}</a> — ${meta.text}`;
   ta.value = currentVal || '';
   modal.style.display = 'block';
 }
-
 function closeEditor(){
   const modal = document.getElementById('noteModal');
   if (modal) modal.style.display = 'none';
   editorKey = null;
 }
-
 function saveEditor(){
   if (!editorKey) return;
   const ta = document.getElementById('noteEditorTextarea');
   const val = ta ? ta.value : '';
   localStorage.setItem(editorKey, val);
-
-  // reflete na caixinha da tabela
   const small = document.querySelector(`textarea.comment-box[data-key="${editorKey}"]`);
   if (small) small.value = val;
-
   closeEditor();
+}
+
+/* History modal */
+function openHistoryModal(meta){
+  const modal = document.getElementById('historyModal');
+  const title = document.getElementById('historyTitle');
+  const body  = document.getElementById('historyBody');
+  if (!modal || !title || !body) return;
+
+  title.innerHTML = `<a href="${meta.web_url}" target="_blank" style="color:var(--accent)">#${meta.iid}</a> — ${escapeHtml(meta.title)}`;
+
+  const h = meta._history || {};
+  const tl = Array.isArray(meta._labelTimeline) ? meta._labelTimeline : [];
+
+  let txt = '';
+  if (h.start){
+    txt += `Start considered: ${new Date(h.start).toLocaleString()}\n`;
+  }
+  if (h.endDate){
+    txt += `End considered:   ${new Date(h.endDate).toLocaleString()}\n`;
+  }
+  if (typeof h.rawDays === 'number'){
+    txt += `Raw working days: ${h.rawDays}\n`;
+  }
+  if (typeof h.pausedDays === 'number'){
+    txt += `Paused working days (sum): ${h.pausedDays}\n`;
+  }
+  if (Array.isArray(h.pauseIntervals) && h.pauseIntervals.length){
+    txt += `\nPaused intervals:\n`;
+    h.pauseIntervals.forEach(iv=>{
+      txt += ` - ${iv.label}: ${iv.start.toLocaleString()} → ${iv.end.toLocaleString()} (≈ ${workingDaysBetween(iv.start, iv.end)} wd)\n`;
+    });
+  }
+  if (tl.length){
+    txt += `\nLabel events (status only):\n`;
+    tl.filter(e => STATUS_LABELS.has(e.label)).forEach(e=>{
+      txt += ` - ${e.when.toLocaleString()} — ${e.action.toUpperCase()} ${e.label}\n`;
+    });
+  }
+
+  body.textContent = txt || 'No history available.';
+  modal.style.display = 'block';
+}
+function closeHistoryModal(){
+  const modal = document.getElementById('historyModal');
+  if (modal) modal.style.display = 'none';
 }
 
 /* ================= INIT ================= */
 document.addEventListener('DOMContentLoaded', () => {
-  // label history toggle (sem PAT no cliente)
+  // toggle label history
   const tlBtn = document.getElementById('timelineToggle');
   if (tlBtn){
     tlBtn.onclick = () => {
@@ -618,28 +682,42 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTimelineToggleUi();
   }
 
-  // liga botões do modal
+  // note editor modal
   const saveBtn  = document.getElementById('noteEditorSave');
   const closeBtn = document.getElementById('noteEditorClose');
   if (saveBtn)  saveBtn.onclick  = saveEditor;
   if (closeBtn) closeBtn.onclick = closeEditor;
-  // fechar clicando fora
-  const modal = document.getElementById('noteModal');
-  if (modal) modal.addEventListener('click', (e) => { if (e.target.id === 'noteModal') closeEditor(); });
+  const modalNote = document.getElementById('noteModal');
+  if (modalNote) modalNote.addEventListener('click',(e)=>{ if(e.target.id==='noteModal') closeEditor(); });
 
-  // event delegation para "Open editor"
+  // history modal
+  const hClose = document.getElementById('historyClose');
+  if (hClose) hClose.onclick = closeHistoryModal;
+  const modalHist = document.getElementById('historyModal');
+  if (modalHist) modalHist.addEventListener('click',(e)=>{ if(e.target.id==='historyModal') closeHistoryModal(); });
+
+  // delegation: open editor & history
   const table = document.getElementById('finance-table');
   if (table){
     table.addEventListener('click', (e)=>{
       const btn = e.target.closest('.btn-open-editor');
-      if (!btn) return;
-      const key   = btn.dataset.key;
-      const iid   = btn.dataset.iid;
-      const url   = btn.dataset.url;
-      const title = decodeURIComponent(btn.dataset.title || '');
-      const ta    = document.querySelector(`textarea.comment-box[data-key="${key}"]`);
-      const val   = ta ? ta.value : '';
-      openEditor(key, {iid, url, text:title}, val);
+      if (btn){
+        const key   = btn.dataset.key;
+        const iid   = btn.dataset.iid;
+        const url   = btn.dataset.url;
+        const title = decodeURIComponent(btn.dataset.title || '');
+        const ta    = document.querySelector(`textarea.comment-box[data-key="${key}"]`);
+        const val   = ta ? ta.value : '';
+        openEditor(key, {iid, url, text:title}, val);
+        return;
+      }
+      const histBtn = e.target.closest('.btn-hist');
+      if (histBtn){
+        const row = e.target.closest('tr');
+        if (!row || !row.dataset.issue) return;
+        openHistoryModal(JSON.parse(row.dataset.issue));
+        return;
+      }
     });
   }
 
