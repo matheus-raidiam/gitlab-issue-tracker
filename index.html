@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Open Finance Brasil - GitLab Issues SLA Dashboard</title>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles-2.css">
 <style>
   /* badge Bug (vermelho suave) */
   .badge-bug{
@@ -46,7 +46,7 @@
     <button onclick="clearAllComments()">🗑️ Clear All Comments</button>
     <button onclick="resetAllFilters()">🧹 Reset Filters</button>
     <!-- toggle do histórico de labels -->
-    <button id="timelineToggle" title="Use label history for SLA/Working Days">Timeline: OFF</button>
+    <button id="timelineToggle" title="Use label history for Working Days/SLA">Label history: OFF</button>
     <div class="spacer"></div>
     <div id="loading">Loading…</div>
   </div>
@@ -61,82 +61,88 @@
           <li><b>Waiting Participant</b>: 5 business days</li>
           <li><b>Under Evaluation</b> or <b>no tags</b>: 3 business days</li>
           <li><b>Under WG/DTO Evaluation</b>, <b>In Progress</b>, <b>Backlog</b>, <b>Sandbox Testing</b>, <b>Waiting Deploy</b>, <b>Production Testing</b>: <i>SLA Paused</i></li>
+          <li><b>Change Request</b>, <b>Breaking Change</b>, <b>Test Improvement</b>: <i>No SLA</i></li>
         </ul>
       </div>
     </details>
   </div>
 
-  <!-- Filters -->
-  <div class="filters-card">
-    <div class="filters-row">
-      <!-- Nature -->
-      <div class="filter" id="filterNature">
-        <details>
-          <summary>
-            <span class="title">Nature</span>
-            <span class="count-badge" id="count-nature">0</span>
-          </summary>
-          <div class="menu" id="menu-nature">
-            <div class="clear" onclick="clearCategory('nature')">Clear Nature</div>
+  <!-- Filtros (agora com details externo para recolher) -->
+  <div class="filters-wrapper">
+    <details open>
+      <summary class="filters-summary">Filters</summary>
+      <div class="filters-card">
+        <div class="filters-row">
+          <!-- Nature -->
+          <div class="filter" id="filterNature">
+            <details>
+              <summary>
+                <span class="title">Nature</span>
+                <span class="count-badge" id="count-nature">0</span>
+              </summary>
+              <div class="menu" id="menu-nature">
+                <div class="clear" onclick="clearCategory('nature')">Clear Nature</div>
+              </div>
+            </details>
           </div>
-        </details>
-      </div>
 
-      <!-- Working Group -->
-      <div class="filter" id="filterWG">
-        <details>
-          <summary>
-            <span class="title">Working Group (WG)</span>
-            <span class="count-badge" id="count-wg">0</span>
-          </summary>
-          <div class="menu" id="menu-wg">
-            <div class="clear" onclick="clearCategory('wg')">Clear Working Group</div>
+          <!-- Working Group -->
+          <div class="filter" id="filterWG">
+            <details>
+              <summary>
+                <span class="title">Working Group (WG)</span>
+                <span class="count-badge" id="count-wg">0</span>
+              </summary>
+              <div class="menu" id="menu-wg">
+                <div class="clear" onclick="clearCategory('wg')">Clear Working Group</div>
+              </div>
+            </details>
           </div>
-        </details>
-      </div>
 
-      <!-- Platform -->
-      <div class="filter" id="filterPlatform">
-        <details>
-          <summary>
-            <span class="title">Platform</span>
-            <span class="count-badge" id="count-platform">0</span>
-          </summary>
-          <div class="menu" id="menu-platform">
-            <div class="clear" onclick="clearCategory('platform')">Clear Platform</div>
+          <!-- Platform -->
+          <div class="filter" id="filterPlatform">
+            <details>
+              <summary>
+                <span class="title">Platform</span>
+                <span class="count-badge" id="count-platform">0</span>
+              </summary>
+              <div class="menu" id="menu-platform">
+                <div class="clear" onclick="clearCategory('platform')">Clear Platform</div>
+              </div>
+            </details>
           </div>
-        </details>
-      </div>
 
-      <!-- Product -->
-      <div class="filter" id="filterProduct">
-        <details>
-          <summary>
-            <span class="title">Product</span>
-            <span class="count-badge" id="count-product">0</span>
-          </summary>
-          <div class="menu" id="menu-product">
-            <div class="clear" onclick="clearCategory('product')">Clear Product</div>
+          <!-- Product -->
+          <div class="filter" id="filterProduct">
+            <details>
+              <summary>
+                <span class="title">Product</span>
+                <span class="count-badge" id="count-product">0</span>
+              </summary>
+              <div class="menu" id="menu-product">
+                <div class="clear" onclick="clearCategory('product')">Clear Product</div>
+              </div>
+            </details>
           </div>
-        </details>
-      </div>
 
-      <!-- Status -->
-      <div class="filter" id="filterStatus">
-        <details>
-          <summary>
-            <span class="title">Status</span>
-            <span class="count-badge" id="count-status">0</span>
-          </summary>
-          <div class="menu" id="menu-status">
-            <div class="clear" onclick="clearCategory('status')">Clear Status</div>
+          <!-- Status -->
+          <div class="filter" id="filterStatus">
+            <details>
+              <summary>
+                <span class="title">Status</span>
+                <span class="count-badge" id="count-status">0</span>
+              </summary>
+              <div class="menu" id="menu-status">
+                <div class="clear" onclick="clearCategory('status')">Clear Status</div>
+              </div>
+            </details>
           </div>
-        </details>
-      </div>
-    </div>
+        </div>
 
-    <!-- Active filter chips -->
-    <div class="chips" id="chips"></div>
+        <!-- Active filter chips -->
+        <div class="chips" id="chips"></div>
+      </div>
+    </details>
   </div>
 
   <!-- NOTE MODAL (leve e centralizado) -->
@@ -165,6 +171,7 @@
       <div class="filters-card summary-card">
         <span class="summary-title">Summary</span>
         <div id="finance-summary"></div>
+        <div id="summary-legend" class="summary-legend"></div>
       </div>
 
       <table id="finance-table">
@@ -202,6 +209,6 @@
     <p>© Raidiam 2025</p>
   </footer>
 
-  <script src="script.js"></script>
+  <script src="script-2.js"></script>
 </body>
 </html>
