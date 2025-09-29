@@ -46,6 +46,11 @@ h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
   background:var(--card); border:1px solid var(--dropdown-border);
   border-radius:10px; padding:10px 12px; margin-bottom:8px;
 }
+/* wrapper collapsible (filtros recolhíveis) */
+.filters-wrapper details > summary.filters-summary{
+  cursor:pointer; user-select:none; font-weight:700; color:var(--accent);
+  margin: 6px 0 6px;
+}
 .filters-row{display:flex; gap:12px; flex-wrap:wrap}
 .filter{position:relative; min-width:240px; flex:1 1 280px}
 .filter details{
@@ -87,7 +92,7 @@ table{
 }
 thead th{
   background:var(--header); color:var(--accent); text-align:left; padding:12px; user-select:none;
-  white-space:nowrap; /* NÃO quebra palavra no meio (ex.: Working Days) */
+  white-space:nowrap;
 }
 tbody td{padding:12px; vertical-align:top}
 tbody tr:nth-child(even) td{background:var(--card-2)}
@@ -96,10 +101,10 @@ th.sortable{cursor:pointer}
 .sort-arrow{font-size:12px; color:var(--accent); opacity:.9}
 .over-sla{color:var(--error); font-weight:700}
 .within-sla{color:var(--accent)}
-.nosla{color:var(--muted)}
+.nosla{color:#cbd5d1}   /* cinza claro */
 .paused{color:#f0d98c; font-weight:normal} /* SLA Paused color */
 
-/* Unified tag badge style */
+/* Unified tag badge style (for Nature, Product, Status, WG, Platform) */
 .badge{
   display:inline-block;
   background-color:#055b4e;
@@ -113,12 +118,14 @@ th.sortable{cursor:pointer}
   overflow-wrap:normal;
   white-space:normal;
 }
+
 /* vermelho suave p/ Bug */
 .badge-bug{
   background: rgba(239,68,68,.12);
   border: 1px solid rgba(239,68,68,.35);
   color: #fca5a5;
 }
+
 /* azul suave p/ Under WG/DTO Evaluation */
 .badge-ugdto{
   background: rgba(59,130,246,.12);
@@ -134,6 +141,7 @@ th.sortable{cursor:pointer}
 }
 
 .summary{font-size:14px; margin:8px 0 12px; opacity:.9}
+.summary-legend{font-size:12px; opacity:.8; margin-top:4px;}
 .closed-issue td{opacity:.9}
 .closed-badge{
   display:inline-block; padding:2px 6px; border-radius:4px; background:#244447;
@@ -141,7 +149,7 @@ th.sortable{cursor:pointer}
 }
 .grid{display:grid; grid-template-columns:1fr; gap:28px}
 
-/* Empty-state row */
+/* Empty-state row (when no results) */
 .empty-state td.empty-cell{
   padding:18px;
   text-align:center;
@@ -160,24 +168,27 @@ footer{margin-top:16px; font-size:12px; color:var(--muted)}
   overflow-wrap:normal;
 }
 
-/* Larguras por coluna (1..11) */
+/* Larguras por coluna (1..11) — somam ~100% */
 #finance-table th:nth-child(1),  #finance-table td:nth-child(1)  { width:7%;  } /* ID */
 #finance-table th:nth-child(2),  #finance-table td:nth-child(2)  { width:20%; } /* Title */
 #finance-table th:nth-child(3),  #finance-table td:nth-child(3)  { width:9%;  } /* Created At */
 #finance-table th:nth-child(4),  #finance-table td:nth-child(4)  { width:7%;  text-align:center;} /* Working Days */
 #finance-table th:nth-child(5),  #finance-table td:nth-child(5)  { width:8%;  } /* SLA Status */
 #finance-table th:nth-child(6),  #finance-table td:nth-child(6)  { width:8%;  } /* Nature */
-#finance-table th:nth-child(7),  #finance-table td:nth-child(7)  { width:7%;  } /* Platform (usa largura da antiga Phase) */
-#finance-table th:nth-child(8),  #finance-table td:nth-child(8)  { width:7%;  } /* Product */
-#finance-table th:nth-child(9),  #finance-table td:nth-child(9)  { width:8%;  } /* Working Group */
-#finance-table th:nth-child(10), #finance-table td:nth-child(10) { width:7%;  } /* Status */
+#finance-table th:nth-child(7),  #finance-table td:nth-child(7)  { width:7%;  } /* Platform */
+#finance-table th:nth-child(8),  #finance-table td:nth-child(8)  { width:8%;  } /* Product */
+#finance-table th:nth-child(9),  #finance-table td:nth-child(9)  { width:7%;  } /* WG */
+#finance-table th:nth-child(10), #finance-table td:nth-child(10) { width:8%;  } /* Status */
 #finance-table th:nth-child(11), #finance-table td:nth-child(11) { width:12%; } /* Comments */
 
-/* ID não quebra (#1234) */
+/* ID: não quebrar o link (#1234) */
 #finance-table td:nth-child(1) a{display:inline-block; white-space:nowrap; min-width:56px;}
-/* Working Days cabe em 2 linhas, sem quebrar no meio */
+/* Working Days: pode quebrar entre palavras e não ultrapassar */
 #finance-table th:nth-child(4) {
   white-space: normal;
   word-break: keep-all;
   overflow-wrap: normal;
 }
+
+/* indicador do ajuste por histórico (abaixo dos days) */
+.wd-clock{display:block; font-size:12px; margin-top:2px; opacity:.85;}
