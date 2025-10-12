@@ -28,36 +28,32 @@
     <button onclick="loadAllIssues()">🔄 Refresh</button>
     <button onclick="clearAllComments()">🗑️ Clear All Comments</button>
     <button onclick="resetAllFilters()">🧹 Reset Filters</button>
-    <button id="timelineToggle" title="Toggle label history">Label history: OFF</button>
+    <button id="labelHistoryToggle" title="Toggle label history (Netlify proxy)">Label history: OFF</button>
     <div class="spacer"></div>
     <div id="loading">Loading…</div>
   </div>
 
-  <!-- SLA rules (collapsible) -->
+  <!-- SLA rules -->
   <div class="filters-card" style="margin-top:10px">
     <details>
       <summary style="cursor:pointer"><strong>SLA rules</strong></summary>
       <div style="margin-top:8px;opacity:.9">
         <ul style="margin:0 0 8px 16px">
-          <li><b>Bug</b> & <b>Questions</b>: 10 business days</li>
-          <li><b>Waiting Participant</b>: 5 business days</li>
+          <li><b>Bug &amp; Questions</b>: 10 business days</li>
+          <li><b>Waiting Participant</b>: 5 business days to receive an update</li>
           <li><b>Under Evaluation</b> or <b>no tags</b>: 3 business days</li>
-          <li><b>Under WG/DTO Evaluation</b>, <b>In Progress</b>, <b>Backlog</b>, <b>Sandbox Testing</b>, <b>Waiting Deploy</b>, <b>Production Testing</b>: <i>SLA Paused</i></li>
-          <li><b>Change Request</b>, <b>Breaking Change</b>, <b>Test Improvement</b>: <b>No SLA</b></li>
+          <li><b>Under WG/DTO Evaluation</b>, <b>Backlog</b>, <b>Sandbox Testing</b>, <b>Waiting Deploy</b>: SLA Paused</li>
+          <li><b>Production Testing</b>, <b>Change Request</b>, <b>Breaking Change</b>, <b>Test Improvement</b>: No SLA</li>
         </ul>
-        <div style="font-size:12px;opacity:.85;margin-top:6px">
-          🕒 <b>Label history ON</b>: working days may start at the last <i>reopened</i> date or the last
-          <i>Deprioritized</i> <u>removal</u> (for Bugs), and subtract paused intervals.
-        </div>
       </div>
     </details>
   </div>
 
-  <!-- Filters (collapsible) -->
+  <!-- Filters (recolhível) -->
   <div class="filters-card">
-    <details>
-      <summary style="cursor:pointer"><strong>Filters</strong></summary>
-      <div class="filters-row" style="margin-top:8px">
+    <details id="filtersCollapse">
+      <summary><strong>Filters</strong></summary>
+      <div class="filters-row">
         <!-- Nature -->
         <div class="filter" id="filterNature">
           <details>
@@ -129,31 +125,6 @@
     </details>
   </div>
 
-  <!-- MODAL: note editor (já existia) -->
-  <div id="noteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;">
-    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(900px,92vw);max-height:80vh;overflow:auto;background:var(--panel,#111827);border:1px solid #1f2937;border-radius:12px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.4)">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-        <div id="noteEditorTitle" style="font-weight:600"></div>
-        <div style="display:flex;gap:8px">
-          <button id="noteEditorSave">Save</button>
-          <button id="noteEditorClose">Close</button>
-        </div>
-      </div>
-      <textarea id="noteEditorTextarea" rows="14" style="width:100%;margin-top:12px"></textarea>
-    </div>
-  </div>
-
-  <!-- MODAL: label history (novo) -->
-  <div id="historyModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;">
-    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(820px,92vw);max-height:80vh;overflow:auto;background:var(--panel,#111827);border:1px solid #1f2937;border-radius:12px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.4)">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
-        <div id="historyTitle" style="font-weight:600"></div>
-        <button id="historyClose">Close</button>
-      </div>
-      <div id="historyBody" style="white-space:pre-wrap;line-height:1.35"></div>
-    </div>
-  </div>
-
   <div class="grid">
     <section>
       <h2>
@@ -162,20 +133,32 @@
         </a>
       </h2>
 
-      <!-- Summary -->
+      <!-- Summary (recolhível) -->
       <div class="filters-card summary-card">
-        <span class="summary-title">Summary</span>
-        <div id="finance-summary"></div>
+        <details id="summaryCollapse">
+          <summary><strong>Summary</strong></summary>
+          <div id="finance-summary" class="summary"></div>
+        </details>
       </div>
 
       <table id="finance-table">
         <thead>
           <tr>
-            <th class="sortable" data-key="iid"       onclick="changeSort('finance-table','iid')"><span class="sort-label">ID <span class="sort-arrow" data-for="iid"></span></span></th>
-            <th class="sortable" data-key="title"     onclick="changeSort('finance-table','title')"><span class="sort-label">Title <span class="sort-arrow" data-for="title"></span></span></th>
-            <th class="sortable" data-key="dateCol"   onclick="changeSort('finance-table','dateCol')"><span class="sort-label"><span id="finance-date-label">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span></th>
-            <th class="sortable" data-key="daysOpen"  onclick="changeSort('finance-table','daysOpen')"><span class="sort-label">Working Days <span class="sort-arrow" data-for="daysOpen"></span></span></th>
-            <th class="sortable" data-key="slaRank"   onclick="changeSort('finance-table','slaRank')"><span class="sort-label">SLA Status <span class="sort-arrow" data-for="slaRank"></span></span></th>
+            <th class="sortable" data-key="iid"       onclick="changeSort('finance-table','iid')">
+              <span class="sort-label">ID <span class="sort-arrow" data-for="iid"></span></span>
+            </th>
+            <th class="sortable" data-key="title"     onclick="changeSort('finance-table','title')">
+              <span class="sort-label">Title <span class="sort-arrow" data-for="title"></span></span>
+            </th>
+            <th class="sortable" data-key="dateCol"   onclick="changeSort('finance-table','dateCol')">
+              <span class="sort-label"><span id="finance-date-label">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span>
+            </th>
+            <th class="sortable" data-key="daysOpen"  onclick="changeSort('finance-table','daysOpen')">
+              <span class="sort-label">Working Days <span class="sort-arrow" data-for="daysOpen"></span></span>
+            </th>
+            <th class="sortable" data-key="slaRank"   onclick="changeSort('finance-table','slaRank')">
+              <span class="sort-label">SLA Status <span class="sort-arrow" data-for="slaRank"></span></span>
+            </th>
             <th>Nature</th>
             <th>Platform</th>
             <th>Product</th>
@@ -192,6 +175,19 @@
   <footer>
     <p>© Raidiam 2025</p>
   </footer>
+
+  <!-- Modal (Label History / Working Days breakdown) -->
+  <div id="noteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;">
+    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(900px,92vw);max-height:80vh;overflow:auto;background:var(--card);border:1px solid var(--dropdown-border);border-radius:12px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.4)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div id="noteEditorTitle" style="font-weight:600"></div>
+        <div style="display:flex;gap:8px">
+          <button id="noteEditorClose">Close</button>
+        </div>
+      </div>
+      <div id="labelHistoryBody" style="white-space:pre-wrap;margin-top:12px"></div>
+    </div>
+  </div>
 
   <script src="script.js"></script>
 </body>
