@@ -1,12 +1,15 @@
 /* ================= CONFIG ================= */
+// Open Finance only
 const issues = { finance: [] };
+
+/* Ordenação padrão: ID desc (mais recente primeiro) */
 const tableSort = { 'finance-table': { key: 'iid', asc: false } };
 
-/* Label history toggle (100% via Netlify proxy; sem PAT) */
+/* Label history ON/OFF (Netlify proxy only) */
 let USE_LABEL_EVENTS = JSON.parse(localStorage.getItem('use_label_events') || 'false');
-function updateTimelineToggleUi(){
-  const b=document.getElementById('timelineToggle');
-  if(b){ b.textContent = `Label history: ${USE_LABEL_EVENTS ? 'ON':'OFF'}`; }
+function updateLabelHistoryToggle(){
+  const b = document.getElementById('labelHistoryToggle');
+  if (b) b.textContent = `Label history: ${USE_LABEL_EVENTS ? 'ON':'OFF'}`;
 }
 
 /* ======== Taxonomias ======== */
@@ -20,7 +23,6 @@ const STATUS_LABELS = new Set([
   'Sandbox Testing',
   'Waiting Deploy',
   'Production Testing',
-  'Deprioritized',
 ]);
 
 const NATURE_LABELS = new Set([
@@ -36,15 +38,28 @@ const WG_LABELS = new Set([
   'Squad JSR',
 ]);
 
+/* Nos SLA (override) */
+const NO_SLA_NATURES = new Set(['Change Request','Test Improvement','Breaking Change']);
+const NO_SLA_STATUSES = new Set(['Production Testing']);
+
+/* Pausam SLA (atualizado: inclui Waiting Participant; remove In Progress) */
+const PAUSED_STATUSES = new Set([
+  'Under WG/DTO Evaluation',
+  'Backlog',
+  'Sandbox Testing',
+  'Waiting Deploy',
+  'Waiting Participant',
+]);
+
 /* Filtros ativos */
 const selected = {
   nature: new Set(), platform: new Set(), product: new Set(), wg: new Set(), status: new Set()
 };
 
-/* ================= NORMALIZAÇÃO ================= */
-function baseLabel(l){ return String(l||'').split('::')[0].trim(); }
+/* ================= NORMALIZAÇÃO DE LABELS ================= */
+function baseLabel(l) { return String(l || '').split('::')[0].trim(); }
 
-function canonLabel(l){
+function canonLabel(l) {
   const s = baseLabel(l);
 
   // Nature
@@ -64,7 +79,6 @@ function canonLabel(l){
   if (/^sandbox\s*testing/i.test(s)) return 'Sandbox Testing';
   if (/^waiting\s*deploy$/i.test(s)) return 'Waiting Deploy';
   if (/^production\s*testing/i.test(s)) return 'Production Testing';
-  if (/^depri(or)?it?i?zed$/i.test(s) || /^deprioritized$/i.test(s)) return 'Deprioritized';
 
   // Platform
   if (/^fvp$/i.test(s)) return 'FVP';
@@ -78,6 +92,7 @@ function canonLabel(l){
   if (/^squad\s*sandbox$/i.test(s)) return 'Squad Sandbox';
   if (/^squad\s*jsr$/i.test(s)) return 'Squad JSR';
 
+  // Fallback → Product
   return s;
 }
 
@@ -94,7 +109,7 @@ function classifyLabels(labels = []) {
   return { status, nature, product, platform, wg };
 }
 
-/* ================= DATA UTILS ================= */
+/* ================= DIAS ÚTEIS ================= */
 function workingDaysBetween(startDate, endDate) {
   let count = 0;
   const cur = new Date(startDate);
@@ -106,63 +121,50 @@ function workingDaysBetween(startDate, endDate) {
   return count;
 }
 
-/* Soma dias úteis de múltiplos intervalos */
-function workingDaysInIntervals(intervals){
-  let total = 0;
-  intervals.forEach(({start,end})=>{
-    if (end <= start) return;
-    total += workingDaysBetween(start, end);
-  });
-  return total;
-}
-
 /* ================= SLA ================= */
-/* Nova regra: No SLA para Change Request / Breaking Change / Test Improvement */
+/* Regras:
+   - No SLA: Production Testing, Change Request, Breaking Change, Test Improvement
+   - Pausam: Under WG/DTO Evaluation, Backlog, Sandbox Testing, Waiting Deploy, Waiting Participant
+   - Timed: Bug/Questions (10d), Under Evaluation ou sem Nature (3d)
+*/
 function getSLAFor(labels) {
   const { status, nature } = classifyLabels(labels || []);
 
-  // No SLA
-  if (nature.includes('Change Request') || nature.includes('Breaking Change') || nature.includes('Test Improvement')) {
-    return { type:'nosla' };
+  // No SLA override
+  if (status.some(s => NO_SLA_STATUSES.has(s)) || nature.some(n => NO_SLA_NATURES.has(n))) {
+    return { type: 'nosla', days: null, reason: 'No SLA' };
   }
 
-  // Paused (sempre)
-  const paused = (
-    status.includes('Under WG/DTO Evaluation') ||
-    status.includes('In Progress') ||
-    status.includes('Backlog') ||
-    status.includes('Sandbox Testing') ||
-    status.includes('Waiting Deploy') ||
-    status.includes('Production Testing')
-  );
-  if (paused) return { type: 'paused' };
+  // Paused
+  if (status.some(s => PAUSED_STATUSES.has(s))) {
+    return { type: 'paused', days: null, reason: 'Paused' };
+  }
 
   // Timed
-  if (status.includes('Waiting Participant')) return { type: 'timed', days: 5, reason: 'Waiting Participant' };
-
-  const hasBug = nature.includes('Bug');
-  const hasQuestions = nature.includes('Questions');
-  if (hasBug || hasQuestions) return { type: 'timed', days: 10, reason: hasBug ? 'Bug' : 'Questions' };
-
+  if (nature.includes('Bug') || nature.includes('Questions')) {
+    return { type: 'timed', days: 10, reason: nature.includes('Bug') ? 'Bug' : 'Questions' };
+  }
   const underEval = status.includes('Under Evaluation');
   const noNature = nature.length === 0;
-  if (underEval || noNature) return { type: 'timed', days: 3, reason: underEval ? 'Under Evaluation' : 'No Nature' };
+  if (underEval || noNature) {
+    return { type: 'timed', days: 3, reason: underEval ? 'Under Evaluation' : 'No Nature' };
+  }
 
-  return { type: 'none' };
+  // Nada aplicável
+  return { type: 'none', days: null, reason: 'No SLA' };
 }
 
 function slaLabelAndRank(issue) {
   const rule = issue.sla;
-  if (rule.type === 'paused') return { text: 'SLA Paused', class: 'paused', rank: 2 };
-  if (rule.type === 'nosla')  return { text: 'No SLA',     class: 'nosla',  rank: 0 };
-  if (rule.type === 'none')   return { text: 'No SLA',     class: 'nosla',  rank: 0 }; // mantém “No SLA” para casos raros
-  // timed
-  const over = issue.daysOpen > (rule.days || 0);
-  if (over) return { text: 'Over SLA', class: 'over-sla', rank: 3 };
-  return     { text: 'Within SLA', class: 'within-sla',   rank: 1 };
+  if (rule.type === 'paused') return { text: 'SLA Paused', class: 'paused',    rank: 2 };
+  if (rule.type === 'nosla' ) return { text: 'No SLA',     class: 'nosla',     rank: 0 };
+  if (rule.type === 'none'  ) return { text: 'No SLA',     class: 'nosla',     rank: 0 };
+  const over = issue.daysOpen > rule.days;
+  if (over) return { text: 'Over SLA', class: 'over-sla',  rank: 3 };
+  return     { text: 'Within SLA', class: 'within-sla',    rank: 1 };
 }
 
-/* ================= COMMENTS ================= */
+/* ================= NOTAS ================= */
 function saveComment(key, value) { localStorage.setItem(key, value); }
 function clearAllComments() {
   if (!confirm('Are you sure you want to clear ALL comments? This cannot be undone.')) return;
@@ -172,7 +174,7 @@ function clearAllComments() {
   });
 }
 
-/* ================= FILTERS ================= */
+/* ================= FILTROS (UI) ================= */
 function renderFilterMenus() {
   const natureSet = new Set(), platformSet = new Set(),
         productSet = new Set(), statusSet = new Set(), wgSet = new Set();
@@ -188,7 +190,6 @@ function renderFilterMenus() {
 
   const fill = (containerId, values, cat) => {
     const container = document.getElementById(containerId);
-    if (!container) return;
     container.querySelectorAll('.row').forEach(r => r.remove());
     [...values].sort().forEach(tag => {
       const row = document.createElement('div');
@@ -214,16 +215,22 @@ function renderFilterMenus() {
 
   updateCounts(); renderChips();
 }
+
 function updateCounts() {
-  const nn = document.getElementById('count-nature');   if (nn) nn.textContent   = selected.nature.size;
-  const np = document.getElementById('count-platform'); if (np) np.textContent   = selected.platform.size;
-  const nr = document.getElementById('count-product');  if (nr) nr.textContent   = selected.product.size;
-  const ns = document.getElementById('count-status');   if (ns) ns.textContent   = selected.status.size;
-  const wg = document.getElementById('count-wg');       if (wg) wg.textContent   = selected.wg.size;
+  document.getElementById('count-nature').textContent   = selected.nature.size;
+  document.getElementById('count-platform').textContent = selected.platform.size;
+  document.getElementById('count-product').textContent  = selected.product.size;
+  document.getElementById('count-status').textContent   = selected.status.size;
+  const wg = document.getElementById('count-wg'); if (wg) wg.textContent = selected.wg.size;
 }
-function clearCategory(cat) { selected[cat].clear(); renderFilterMenus(); renderIssues(); }
+
+function clearCategory(cat) {
+  selected[cat].clear();
+  renderFilterMenus(); renderIssues();
+}
+
 function renderChips() {
-  const chips = document.getElementById('chips'); if (!chips) return;
+  const chips = document.getElementById('chips');
   chips.innerHTML = '';
   ['nature','platform','product','wg','status'].forEach(cat => {
     selected[cat].forEach(tag => {
@@ -231,17 +238,21 @@ function renderChips() {
       el.className = 'chip';
       el.innerHTML = `${cat}: ${tag} <span class="x" title="Remove">✕</span>`;
       el.querySelector('.x').onclick = () => {
-        selected[cat].delete(tag); renderFilterMenus(); renderIssues();
+        selected[cat].delete(tag);
+        renderFilterMenus(); renderIssues();
       };
       chips.appendChild(el);
     });
   });
 }
+
 function resetAllFilters() {
   Object.values(selected).forEach(s => s.clear());
   document.querySelectorAll('.filter details[open]').forEach(d => { d.open = false; });
   renderFilterMenus(); renderIssues();
 }
+
+/* Fecha details ao clicar fora */
 document.addEventListener('click', (e) => {
   const insideFilter = e.target.closest('.filter');
   if (!insideFilter) {
@@ -264,93 +275,30 @@ function updateSortArrows(tableId) {
 }
 function getViewMode() { return document.getElementById('viewMode').value; }
 
-/* ================= GITLAB AUX (via Netlify) ================= */
-async function proxyGetJSON(path){
-  const url = `/.netlify/functions/gitlab?path=${encodeURIComponent(path)}&per_page=100`;
-  const res = await fetch(url, { headers: { 'Accept':'application/json' } });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
-
-/* Label events */
+/* ================= Label events via Netlify proxy ================= */
 async function fetchLabelEvents(projectId, iid){
   if (!USE_LABEL_EVENTS) return [];
-  try {
-    return await proxyGetJSON(`/projects/${projectId}/issues/${iid}/resource_label_events`);
-  } catch (err){
-    console.warn('Label events fetch error', projectId, iid, err);
-    return [];
-  }
+  const url = `/.netlify/functions/gitlab?path=${encodeURIComponent(`/projects/${projectId}/issues/${iid}/resource_label_events`)}&per_page=100`;
+  try{
+    const r = await fetch(url, { headers: { 'Accept':'application/json' } });
+    if (!r.ok) return [];
+    return await r.json();
+  }catch{ return []; }
 }
 
-/* State events (para reopened) */
-async function fetchStateEvents(projectId, iid){
-  if (!USE_LABEL_EVENTS) return [];
-  try {
-    return await proxyGetJSON(`/projects/${projectId}/issues/${iid}/resource_state_events`);
-  } catch (err){
-    console.warn('State events fetch error', projectId, iid, err);
-    return [];
-  }
-}
-
-function timelineFromLabelEvents(evts){
+function timelineFromEvents(evts) {
+  // Mantém ADD e REMOVE de labels de STATUS
   return evts
-    .filter(e => e && e.label && e.label.name && (e.action === 'add' || e.action === 'remove'))
-    .map(e => ({ when:new Date(e.created_at), label: canonLabel(e.label.name), action:e.action }))
+    .filter(e => e && e.label && e.label.name)
+    .map(e => ({ when:new Date(e.created_at), label: canonLabel(e.label.name), action: e.action }))
+    .filter(e => STATUS_LABELS.has(e.label))
     .sort((a,b)=> a.when - b.when);
 }
 
-function lastReopenDateFromStateEvents(evts){
-  if (!Array.isArray(evts)) return null;
-  // considera 'reopened' explicitamente; alguns retornam 'opened' após closed
-  const candidates = evts
-    .filter(e => /reopened|opened/i.test(e.state))
-    .map(e => new Date(e.created_at))
-    .sort((a,b)=> b - a);
-  return candidates[0] || null;
-}
-
-/* Constrói intervalos pausados: add abre, remove fecha */
-const PAUSE_LABELS = new Set([
-  'Under WG/DTO Evaluation',
-  'In Progress',
-  'Backlog',
-  'Sandbox Testing',
-  'Waiting Deploy',
-  'Production Testing',
-]);
-
-function pausedIntervals(timeline, windowStart, windowEnd){
-  const intervals = [];
-  const openMap = new Map(); // label -> startDate
-  timeline.forEach(ev=>{
-    if (!PAUSE_LABELS.has(ev.label)) return;
-    if (ev.action === 'add'){
-      openMap.set(ev.label, ev.when);
-    } else if (ev.action === 'remove'){
-      const st = openMap.get(ev.label);
-      if (st){
-        const s = new Date(Math.max(st.getTime(), windowStart.getTime()));
-        const e = new Date(Math.min(ev.when.getTime(), windowEnd.getTime()));
-        if (e > s) intervals.push({start:s, end:e, label:ev.label});
-        openMap.delete(ev.label);
-      }
-    }
-  });
-  // Labels ainda abertas até o fim da janela
-  openMap.forEach((st, label)=>{
-    const s = new Date(Math.max(st.getTime(), windowStart.getTime()));
-    const e = new Date(windowEnd);
-    if (e > s) intervals.push({start:s, end:e, label});
-  });
-  return intervals;
-}
-
 /* ================= DATA ================= */
-function setLoading(on){ const el=document.getElementById('loading'); if (el) el.style.display = on ? 'block':'none'; }
+function setLoading(on) { const el = document.getElementById('loading'); if (el) el.style.display = on ? 'block' : 'none'; }
 
-async function loadAllIssues(){
+async function loadAllIssues() {
   setLoading(true);
   issues.finance = [];
 
@@ -366,127 +314,134 @@ async function loadAllIssues(){
   setLoading(false);
 }
 
-async function loadProjectIssues(projectId, key){
+async function loadProjectIssues(projectId, key) {
   const mode = getViewMode();
   const now = new Date();
   const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(now.getDate() - 7);
   const since = sevenDaysAgo.toISOString();
 
-  let url = `/projects/${projectId}/issues?per_page=100`;
+  let url = `https://gitlab.com/api/v4/projects/${projectId}/issues?per_page=100`;
   url += (mode === 'closed7') ? `&state=closed&updated_after=${encodeURIComponent(since)}` : `&state=opened`;
 
-  try{
-    const data = await proxyGetJSON(url);
+  try {
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
     let list = data.map(issue => ({ ...issue, projectId }));
     if (mode === 'closed7') {
       const cutoff = new Date(since);
       list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff);
     }
 
-    if (USE_LABEL_EVENTS && mode !== 'closed7'){
-      // carrega timelines
-      for (const it of list){
-        const [lev, sev] = await Promise.all([
-          fetchLabelEvents(projectId, it.iid),
-          fetchStateEvents(projectId, it.iid),
-        ]);
-        it._labelTimeline = timelineFromLabelEvents(lev);
-        it._lastReopen = lastReopenDateFromStateEvents(sev);
+    if (USE_LABEL_EVENTS && mode !== 'closed7') {
+      for (const it of list) {
+        const ev = await fetchLabelEvents(projectId, it.iid);
+        it._statusTimeline = timelineFromEvents(ev);
       }
     }
 
     issues[key] = list;
-  }catch(err){
+  } catch (err) {
     console.error('Failed to load issues', { projectId, url, err });
     issues[key] = [];
   }
 }
 
+/* ================= HELPERS ================= */
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
+
+/* calcula tempo líquido (subtrai intervalos de pausa) e produz texto do modal */
+function computeWorkingDaysContext(issue, now, mode){
+  const start = new Date(issue.created_at);
+  const end = (mode === 'closed7' && issue.closed_at) ? new Date(issue.closed_at) : now;
+
+  let raw = workingDaysBetween(start, end);
+  let pausedSum = 0;
+  const lines = [];
+
+  if (USE_LABEL_EVENTS && Array.isArray(issue._statusTimeline) && issue._statusTimeline.length) {
+    // constrói janelas de pausa a partir de ADD/REMOVE das labels que pausam
+    const stack = {};
+    issue._statusTimeline.forEach(ev => {
+      if (PAUSED_STATUSES.has(ev.label)) {
+        if (ev.action === 'add') {
+          stack[ev.label] = ev.when;
+        } else if (ev.action === 'remove' && stack[ev.label]) {
+          const s = stack[ev.label];
+          const e = ev.when;
+          pausedSum += workingDaysBetween(s, e);
+          lines.push(` - ${ev.label}: ${s.toISOString()} → ${e.toISOString()} (≈ ${workingDaysBetween(s,e)} wd)`);
+          delete stack[ev.label];
+        }
+      }
+    });
+    // intervalos abertos até "end"
+    Object.entries(stack).forEach(([lbl, s])=>{
+      const e = end;
+      pausedSum += workingDaysBetween(s, e);
+      lines.push(` - ${lbl}: ${s.toISOString()} → ${e.toISOString()} (≈ ${workingDaysBetween(s,e)} wd)`);
+    });
+  }
+
+  const net = Math.max(0, raw - pausedSum);
+
+  const body =
+`Start considered: ${start.toLocaleString()}
+End considered:   ${end.toLocaleString()}
+Raw working days: ${raw}
+Paused working days (sum): ${pausedSum}
+
+${lines.length ? `Paused intervals:\n${lines.join('\n')}\n` : ''}
+
+Label events (status only):
+${(issue._statusTimeline||[]).map(e=>` - ${e.when.toISOString()} — ${e.action.toUpperCase()} ${e.label}`).join('\n') || ' (no events found)'}`;
+
+  return { net, body };
+}
+
 /* ================= RENDER ================= */
-function renderEmptyRow(tbody, colspan, message){
+function renderEmptyRow(tbody, colspan, message) {
   const tr = document.createElement('tr');
   tr.className = 'empty-state';
   tr.innerHTML = `<td class="empty-cell" colspan="${colspan}">${message}</td>`;
   tbody.appendChild(tr);
 }
-function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
 
-function renderIssues(){
+function renderIssues() {
   const mode = getViewMode();
   const tbody = document.querySelector('#finance-table tbody');
+  const summaryEl = document.getElementById('finance-summary');
   if (!tbody) return;
   tbody.innerHTML = '';
 
   const now = new Date();
 
   const decorate = (list) => list.map(i => {
+    // base para cálculo de dias
     const endDate = (mode === 'closed7' && i.closed_at) ? new Date(i.closed_at) : now;
+    const daysOpenRaw = workingDaysBetween(new Date(i.created_at), endDate);
 
-    // SLA tipo
-    const sla = (mode === 'closed7') ? { type:'nosla' } : getSLAFor(i.labels || []);
-
-    // start base
-    let start = new Date(i.created_at);
-
-    // (A) Reopened mais recente
-    if (USE_LABEL_EVENTS && i._lastReopen && i._lastReopen > start){
-      start = new Date(i._lastReopen);
-    }
-
-    // (B) Para Bug, se houver REMOÇÃO de Deprioritized mais recente que start, usa essa data
-    if (USE_LABEL_EVENTS && Array.isArray(i._labelTimeline)){
-      const labels = classifyLabels(i.labels||[]);
-      if (labels.nature.includes('Bug')){
-        const lastDeprRemoved = [...i._labelTimeline].reverse()
-          .find(ev => ev.label === 'Deprioritized' && ev.action === 'remove');
-        if (lastDeprRemoved && lastDeprRemoved.when > start){
-          start = new Date(lastDeprRemoved.when);
-        }
-      }
-    }
-
-    // Dias úteis "brutos"
-    let rawDays = workingDaysBetween(start, endDate);
-
-    // Subtrai pausas (label history ON)
-    let pausedDays = 0;
-    let pauseIntervals = [];
-    if (USE_LABEL_EVENTS && Array.isArray(i._labelTimeline) && i._labelTimeline.length){
-      pauseIntervals = pausedIntervals(i._labelTimeline, start, endDate);
-      pausedDays = workingDaysInIntervals(pauseIntervals);
-    }
-
-    // dias líquidos
-    const netDays = Math.max(0, rawDays - pausedDays);
-
-    // aplicar "No SLA" => Working Days deve exibir "—"
-    const daysOpen = (sla.type === 'nosla') ? null : netDays;
-
-    const base = {
-      ...i,
-      daysOpen,
-      dateCol: (mode === 'closed7' && i.closed_at) ? i.closed_at : i.created_at,
-      sla,
-      _history: { start, endDate, rawDays, pausedDays, pauseIntervals }
-    };
+    const sla = (mode === 'closed7') ? { type:'none', days:null } : getSLAFor(i.labels || []);
+    const base = { ...i, daysOpen: daysOpenRaw, dateCol: (mode === 'closed7' && i.closed_at) ? i.closed_at : i.created_at, sla };
 
     const { text, rank, class: klass } = (mode === 'closed7')
       ? { text:'—', rank:-1, class:'nosla' }
-      : slaLabelAndRank({ ...base, daysOpen: (daysOpen ?? 0) });
+      : slaLabelAndRank(base);
 
     return { ...base, slaText: text, slaRank: rank, slaClass: klass };
   });
 
   const base = decorate(issues.finance);
-  const summaryEl = document.getElementById('finance-summary');
 
-  if (base.length === 0){
+  if (base.length === 0) {
     const msg = (mode === 'closed7') ? 'No issues were closed in the last 7 days.' : 'No open issues at the moment.';
     renderEmptyRow(tbody, 11, msg);
-    if (summaryEl){
-      summaryEl.textContent = (mode === 'closed7')
-        ? '0 issues closed in last 7 days'
-        : '0 public open issues — SLA-applicable: 0, Over SLA: 0, No SLA: 0';
+    if (summaryEl) {
+      summaryEl.textContent =
+        (mode === 'closed7')
+          ? '0 issues closed in last 7 days'
+          : '0 public open issues — SLA-applicable: 0, Over SLA: 0, No SLA: 0';
     }
     updateSortArrows('finance-table');
     return;
@@ -503,13 +458,13 @@ function renderIssues(){
     return matchNature && matchPlatform && matchProduct && matchWG && matchStatus;
   });
 
-  // sorting
+  // ordenação
   const s = tableSort['finance-table'];
   const sorted = filtered.sort((a,b)=>{
     let va, vb;
     switch (s.key) {
       case 'iid':      va = Number(a.iid); vb = Number(b.iid); break;
-      case 'daysOpen': va = Number(a.daysOpen ?? -1); vb = Number(b.daysOpen ?? -1); break;
+      case 'daysOpen': va = Number(a.daysOpen); vb = Number(b.daysOpen); break;
       case 'dateCol':  va = new Date(a.dateCol).getTime(); vb = new Date(b.dateCol).getTime(); break;
       case 'slaRank':  va = Number(a.slaRank); vb = Number(b.slaRank); break;
       case 'title':
@@ -520,37 +475,44 @@ function renderIssues(){
     return 0;
   });
 
-  // counters
+  // contadores do resumo
   let total = 0, applicable = 0, over = 0, noslaCount = 0;
 
-  // render rows
-  sorted.forEach(issue=>{
+  // render
+  sorted.forEach(issue => {
     const { status, nature, product, platform, wg } = classifyLabels(issue.labels || []);
     const clsFor = (l) => (l==='Bug' ? ' badge-bug' : (l==='Under WG/DTO Evaluation' ? ' badge-ugdto' : ''));
     const badge = arr => arr.length
       ? arr.map(l=>`<span class="badge${clsFor(l)}">${escapeHtml(l)}</span>`).join(' ')
       : '<span style="opacity:.5;">—</span>';
 
-    const rowIsPaused = issue.sla.type === 'paused';
-    const isNoSLA     = issue.sla.type === 'nosla';
-    const isOver      = (issue.sla.type === 'timed') && (Number(issue.daysOpen) > (issue.sla.days||0));
-
     total++;
-    if (isNoSLA) noslaCount++;
-    if (issue.sla.type === 'timed') {
+
+    const timed = issue.sla.type === 'timed';
+    const paused = issue.sla.type === 'paused';
+    const nosla  = (issue.sla.type === 'nosla' || issue.sla.type === 'none');
+
+    if (timed) {
       applicable++;
-      if (isOver) over++;
+      if (issue.sla.days !== null && issue.daysOpen > issue.sla.days) over++;
+    } else if (nosla) {
+      noslaCount++;
     }
 
-    const key = `comment-${issue.projectId}-${issue.iid}`;
-    const saved = localStorage.getItem(key) || '';
-
-    // Working days cell: número + botão 🕒 (sem tooltip). Para No SLA, apenas —
-    let wdCell = '—';
-    if (!isNoSLA){
-      const n = Number(issue.daysOpen ?? 0);
-      const canShowBtn = USE_LABEL_EVENTS && Array.isArray(issue._labelTimeline) && issue._labelTimeline.length>0;
-      wdCell = `${n}${canShowBtn ? ` <button class="btn-hist" data-iid="${issue.iid}">🕒</button>` : ''}`;
+    // Working Days cell: quando No SLA, mostrar apenas "—" (sem ícone/ação)
+    let wdCellHtml = '—';
+    if (!nosla) {
+      // usa tempo líquido se label history ON
+      let netDays = issue.daysOpen;
+      let historyBody = '';
+      if (USE_LABEL_EVENTS) {
+        const ctx = computeWorkingDaysContext(issue, new Date(), mode);
+        netDays = ctx.net;
+        historyBody = ctx.body;
+      }
+      // link para abrir modal
+      wdCellHtml = `<span class="wd-link" data-iid="${issue.iid}" data-url="${issue.web_url}" data-title="${encodeURIComponent(issue.title)}"> ${netDays} 🕒</span>`;
+      issue._historyBody = historyBody;
     }
 
     const slaCell = `<span class="${issue.slaClass}">${issue.slaText}</span>`;
@@ -560,7 +522,7 @@ function renderIssues(){
       <td><a href="${issue.web_url}" target="_blank" style="color:var(--accent);">#${issue.iid}</a></td>
       <td>${escapeHtml(issue.title)}${mode === 'closed7' ? '<span class="closed-badge">Closed</span>' : ''}</td>
       <td>${new Date(issue.dateCol).toLocaleDateString()}</td>
-      <td>${wdCell}</td>
+      <td>${wdCellHtml}</td>
       <td>${slaCell}</td>
       <td>${badge(nature)}</td>
       <td>${badge(platform)}</td>
@@ -568,155 +530,106 @@ function renderIssues(){
       <td>${badge(wg)}</td>
       <td>${badge(status)}</td>
       <td>
-        <textarea class="comment-box" rows="2" data-key="${key}" oninput="saveComment('${key}', this.value)">${saved}</textarea>
+        <textarea class="comment-box" rows="2" data-key="comment-${issue.projectId}-${issue.iid}" oninput="saveComment('comment-${issue.projectId}-${issue.iid}', this.value)">${localStorage.getItem(`comment-${issue.projectId}-${issue.iid}`)||''}</textarea>
         <div style="margin-top:6px">
           <button class="btn-open-editor"
-                  data-key="${key}"
+                  data-key="comment-${issue.projectId}-${issue.iid}"
                   data-iid="${issue.iid}"
                   data-url="${issue.web_url}"
                   data-title="${encodeURIComponent(issue.title)}">...</button>
         </div>
       </td>
     `;
-    // guarda objeto completo para abrir history
-    tr.dataset.issue = JSON.stringify({
-      iid: issue.iid, web_url: issue.web_url, title: issue.title,
-      _history: issue._history, _labelTimeline: issue._labelTimeline
-    });
-
     tbody.appendChild(tr);
+
+    // armazena body do histórico para o clique do relógio
+    tr.querySelectorAll('.wd-link').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        if (nosla) return; // não deveria ter link, mas por garantia
+        openHistoryModal(issue);
+      });
+    });
   });
 
-  if (summaryEl){
+  if (summaryEl) {
     summaryEl.textContent = `${total} public open issues — SLA-applicable: ${applicable}, Over SLA: ${over}, No SLA: ${noslaCount}`;
   }
 
   updateSortArrows('finance-table');
 }
 
-/* ================= MODALS ================= */
-let editorKey = null;
-
-function openEditor(key, meta, currentVal){
+/* ====== Modal (History) ====== */
+function openHistoryModal(issue){
   const modal = document.getElementById('noteModal');
   const title = document.getElementById('noteEditorTitle');
-  const ta    = document.getElementById('noteEditorTextarea');
-  if (!modal || !title || !ta) return;
-  editorKey = key;
-  title.innerHTML = `<a href="${meta.url}" target="_blank" style="color:var(--accent)">#${meta.iid}</a> — ${meta.text}`;
-  ta.value = currentVal || '';
+  const body  = document.getElementById('labelHistoryBody');
+  if (!modal || !title || !body) return;
+
+  title.innerHTML = `<a href="${issue.web_url}" target="_blank" style="color:var(--accent)">#${issue.iid}</a> — ${escapeHtml(issue.title)}`;
+  body.textContent = issue._historyBody || 'Label history unavailable.';
   modal.style.display = 'block';
 }
 function closeEditor(){
   const modal = document.getElementById('noteModal');
   if (modal) modal.style.display = 'none';
-  editorKey = null;
-}
-function saveEditor(){
-  if (!editorKey) return;
-  const ta = document.getElementById('noteEditorTextarea');
-  const val = ta ? ta.value : '';
-  localStorage.setItem(editorKey, val);
-  const small = document.querySelector(`textarea.comment-box[data-key="${editorKey}"]`);
-  if (small) small.value = val;
-  closeEditor();
-}
-
-/* History modal */
-function openHistoryModal(meta){
-  const modal = document.getElementById('historyModal');
-  const title = document.getElementById('historyTitle');
-  const body  = document.getElementById('historyBody');
-  if (!modal || !title || !body) return;
-
-  title.innerHTML = `<a href="${meta.web_url}" target="_blank" style="color:var(--accent)">#${meta.iid}</a> — ${escapeHtml(meta.title)}`;
-
-  const h = meta._history || {};
-  const tl = Array.isArray(meta._labelTimeline) ? meta._labelTimeline : [];
-
-  let txt = '';
-  if (h.start){
-    txt += `Start considered: ${new Date(h.start).toLocaleString()}\n`;
-  }
-  if (h.endDate){
-    txt += `End considered:   ${new Date(h.endDate).toLocaleString()}\n`;
-  }
-  if (typeof h.rawDays === 'number'){
-    txt += `Raw working days: ${h.rawDays}\n`;
-  }
-  if (typeof h.pausedDays === 'number'){
-    txt += `Paused working days (sum): ${h.pausedDays}\n`;
-  }
-  if (Array.isArray(h.pauseIntervals) && h.pauseIntervals.length){
-    txt += `\nPaused intervals:\n`;
-    h.pauseIntervals.forEach(iv=>{
-      txt += ` - ${iv.label}: ${iv.start.toLocaleString()} → ${iv.end.toLocaleString()} (≈ ${workingDaysBetween(iv.start, iv.end)} wd)\n`;
-    });
-  }
-  if (tl.length){
-    txt += `\nLabel events (status only):\n`;
-    tl.filter(e => STATUS_LABELS.has(e.label)).forEach(e=>{
-      txt += ` - ${e.when.toLocaleString()} — ${e.action.toUpperCase()} ${e.label}\n`;
-    });
-  }
-
-  body.textContent = txt || 'No history available.';
-  modal.style.display = 'block';
-}
-function closeHistoryModal(){
-  const modal = document.getElementById('historyModal');
-  if (modal) modal.style.display = 'none';
 }
 
 /* ================= INIT ================= */
 document.addEventListener('DOMContentLoaded', () => {
-  // toggle label history
-  const tlBtn = document.getElementById('timelineToggle');
-  if (tlBtn){
-    tlBtn.onclick = () => {
+  // label history toggle
+  const btn = document.getElementById('labelHistoryToggle');
+  if (btn){
+    btn.onclick = () => {
       USE_LABEL_EVENTS = !USE_LABEL_EVENTS;
       localStorage.setItem('use_label_events', JSON.stringify(USE_LABEL_EVENTS));
-      updateTimelineToggleUi();
+      updateLabelHistoryToggle();
       loadAllIssues();
     };
-    updateTimelineToggleUi();
+    updateLabelHistoryToggle();
   }
 
-  // note editor modal
-  const saveBtn  = document.getElementById('noteEditorSave');
+  // fechar modal
   const closeBtn = document.getElementById('noteEditorClose');
-  if (saveBtn)  saveBtn.onclick  = saveEditor;
   if (closeBtn) closeBtn.onclick = closeEditor;
-  const modalNote = document.getElementById('noteModal');
-  if (modalNote) modalNote.addEventListener('click',(e)=>{ if(e.target.id==='noteModal') closeEditor(); });
+  const modal = document.getElementById('noteModal');
+  if (modal) modal.addEventListener('click', (e) => { if (e.target.id === 'noteModal') closeEditor(); });
 
-  // history modal
-  const hClose = document.getElementById('historyClose');
-  if (hClose) hClose.onclick = closeHistoryModal;
-  const modalHist = document.getElementById('historyModal');
-  if (modalHist) modalHist.addEventListener('click',(e)=>{ if(e.target.id==='historyModal') closeHistoryModal(); });
-
-  // delegation: open editor & history
+  // event delegation para editor de comentários (botão "...")
   const table = document.getElementById('finance-table');
   if (table){
     table.addEventListener('click', (e)=>{
       const btn = e.target.closest('.btn-open-editor');
-      if (btn){
-        const key   = btn.dataset.key;
-        const iid   = btn.dataset.iid;
-        const url   = btn.dataset.url;
-        const title = decodeURIComponent(btn.dataset.title || '');
-        const ta    = document.querySelector(`textarea.comment-box[data-key="${key}"]`);
-        const val   = ta ? ta.value : '';
-        openEditor(key, {iid, url, text:title}, val);
-        return;
-      }
-      const histBtn = e.target.closest('.btn-hist');
-      if (histBtn){
-        const row = e.target.closest('tr');
-        if (!row || !row.dataset.issue) return;
-        openHistoryModal(JSON.parse(row.dataset.issue));
-        return;
+      if (!btn) return;
+      const key   = btn.dataset.key;
+      const iid   = btn.dataset.iid;
+      const url   = btn.dataset.url;
+      const title = decodeURIComponent(btn.dataset.title || '');
+      const ta    = document.querySelector(`textarea.comment-box[data-key="${key}"]`);
+      const val   = ta ? ta.value : '';
+
+      // reutiliza o modal para notas grandes (mantendo layout leve)
+      const modal = document.getElementById('noteModal');
+      const mTitle = document.getElementById('noteEditorTitle');
+      const mBody  = document.getElementById('labelHistoryBody');
+      if (!modal || !mTitle || !mBody) return;
+
+      mTitle.innerHTML = `<a href="${url}" target="_blank" style="color:var(--accent)">#${iid}</a> — ${title}`;
+      mBody.innerHTML =
+        `<textarea id="noteEditorTextarea" style="width:100%;min-height:240px">${escapeHtml(val)}</textarea>
+         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
+           <button id="saveNoteBtn">Save</button>
+         </div>`;
+      modal.style.display = 'block';
+
+      const saveBtn = document.getElementById('saveNoteBtn');
+      if (saveBtn){
+        saveBtn.onclick = ()=>{
+          const taNew = document.getElementById('noteEditorTextarea');
+          const newVal = taNew ? taNew.value : '';
+          localStorage.setItem(key, newVal);
+          if (ta) ta.value = newVal;
+          closeEditor();
+        };
       }
     });
   }
