@@ -24,7 +24,7 @@
       <option value="closed14" data-i18n="closed14">Closed (last 14 days)</option>
     </select>
 
-    <!-- Botões só ícones + title -->
+    <!-- Botões só ícones (com title traduzível) -->
     <button onclick="loadAllIssues()" title="Refresh" aria-label="Refresh" data-i18n-title="refresh">🔄</button>
     <button onclick="clearAllComments()" title="Clear All Comments" aria-label="Clear All Comments" data-i18n-title="clearAll">🗑️</button>
     <button onclick="resetAllFilters()" title="Reset Filters" aria-label="Reset Filters" data-i18n-title="resetFilters">🧹</button>
@@ -129,8 +129,9 @@
   <div class="grid">
     <section>
       <h2>
-        <a href="https://gitlab.com/raidiam-conformance/open-finance/certification/-/issues/" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:none;" data-i18n="openFinanceIssues">
-          Open Finance Issues
+        <a id="issuesSubtitle" href="https://gitlab.com/raidiam-conformance/open-finance/certification/-/issues/"
+           target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:none;">
+          Opened Issues
         </a>
       </h2>
 
