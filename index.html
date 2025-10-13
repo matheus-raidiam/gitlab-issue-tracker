@@ -19,9 +19,10 @@
   <!-- Toolbar -->
   <div class="toolbar">
     <label for="viewMode" style="font-weight:600" data-i18n="view">View:</label>
-    <select id="viewMode" onchange="loadAllIssues()">
+    <select id="viewMode" onchange="onViewModeChange()">
       <option value="open"    data-i18n="openIssues">Open issues</option>
       <option value="closed14" data-i18n="closed14">Closed (last 14 days)</option>
+          <option value="dashboard" data-i18n="dashboard">Dashboard</option>
     </select>
 
     <!-- Ações (com class icon-btn para o modo light sem background) -->
@@ -137,10 +138,8 @@
 
       <!-- Summary -->
       <div class="filters-card summary-card">
-        <details open>
-          <summary><strong class="summary-title" data-i18n="summaryTitle">Summary</strong></summary>
-          <div id="finance-summary" style="margin-top:8px"></div>
-        </details>
+        <span class="summary-title" data-i18n="summaryTitle">Summary</span>
+        <div id="finance-summary"></div>
       </div>
 
       <table id="finance-table">

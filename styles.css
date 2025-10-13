@@ -186,34 +186,22 @@ footer{margin-top:16px; font-size:12px; color:var(--muted)}
 /* “Relógio” sem sublinhado */
 .wd-link{ cursor:pointer; text-decoration:none; }
 
-/* === Adjustments requested === */
-/* 4) Center 'Created/Closed' date column (3rd) */
-#finance-table td:nth-child(3){ text-align:center; }
-
-/* 5) Center label columns (6th to 10th) */
-#finance-table td:nth-child(6),
-#finance-table td:nth-child(7),
-#finance-table td:nth-child(8),
-#finance-table td:nth-child(9),
-#finance-table td:nth-child(10){ text-align:center; }
-
-/* Inside badges, center text */
-.badge{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-}
-
-/* 6) Icon buttons use same background as label badges */
-.toolbar .icon-btn{
-  background-color:#055b4e;
-  color:#00e38c;
-}
+/* === New adjustments === */
+/* 5) Light mode: icon buttons without background (except Label History) */
 :root[data-theme="light"] .toolbar .icon-btn{
+  background: transparent !important;
+  color: var(--text) !important;
+}
+:root[data-theme="light"] #labelHistoryToggle.icon-btn{
+  background: var(--text) !important;
+  color: #fff !important;
+}
+
+/* 6) Dark mode: align icon buttons background to labels */
+:root:not([data-theme="light"]) .toolbar .icon-btn{
   background-color:#055b4e;
   color:#00e38c;
 }
 
-/* Label history ON: white font for contrast */
+/* Keep 'ON' white if applicable */
 #labelHistoryToggle.on{ color:#fff; }

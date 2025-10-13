@@ -5,12 +5,12 @@ const tableSort = { 'finance-table': { key: 'iid', asc: false } };
 let USE_LABEL_EVENTS = JSON.parse(localStorage.getItem('use_label_events') || 'false');
 function updateLabelHistoryToggle(){
   const b = document.getElementById('labelHistoryToggle');
-  if (b){ b.textContent = `Label history: ${USE_LABEL_EVENTS ? 'ON':'OFF'}`; b.classList.toggle('on', !!USE_LABEL_EVENTS); }
+  if (b) b.textContent = `Label history: ${USE_LABEL_EVENTS ? 'ON':'OFF'}`;
 }
 
 /* Theme & Language */
 function getTheme(){ return localStorage.getItem('theme') || 'dark'; }
-function setTheme(t){ document.documentElement.setAttribute('data-theme', t); localStorage.setItem('theme', t); }
+function setTheme(t){ document.documentElement.setAttribute('data-theme', t); localStorage.setItem('theme', t); updateThemeUI(); }
 function toggleTheme(){ setTheme(getTheme()==='dark' ? 'light' : 'dark'); }
 
 function getLang(){ return localStorage.getItem('lang') || 'en'; }
@@ -25,6 +25,7 @@ const I18N = {
     view: "View:",
     openIssues: "Open issues",
     closed14: "Closed (last 14 days)",
+    dashboard: "Dashboard",
     refresh: "Refresh",
     clearAll: "Clear All Comments",
     resetFilters: "Reset Filters",
@@ -81,6 +82,7 @@ const I18N = {
     view: "Ver:",
     openIssues: "Issues abertas",
     closed14: "Fechadas (últimos 14 dias)",
+    dashboard: "Dashboard",
     refresh: "Atualizar",
     clearAll: "Limpar todos os comentários",
     resetFilters: "Limpar filtros",
@@ -368,6 +370,20 @@ function updateSortArrows(tableId) {
   const arrow = table.querySelector(`.sort-arrow[data-for="${s.key}"]`);
   if (arrow) arrow.textContent = s.asc ? '▲' : '▼';
 }
+
+function onViewModeChange(){
+  const sel = document.getElementById('viewMode');
+  if (!sel) return;
+  const val = sel.value;
+  if (val === 'dashboard'){
+    // Open dashboard page (to be implemented separately)
+    window.open('dashboard.html', '_blank');
+    // Revert selection back to open issues so the table remains visible
+    sel.value = 'open';
+  }
+  updateSubtitle();
+  loadAllIssues();
+}
 function getViewMode() { return document.getElementById('viewMode').value; }
 
 /* ========== Label events via Netlify proxy ========== */
@@ -553,7 +569,7 @@ function renderIssues() {
     if (summaryEl) {
       summaryEl.textContent =
         (mode === 'closed14')
-          ? (getLang()==='pt'?'0 issues públicas fechadas.':'0 public closed issues.')
+          ? (getLang()==='pt'?'0 issues fechadas nos últimos 14 dias':'0 issues closed in last 14 days')
           : (getLang()==='pt'
               ? '0 issues públicas abertas — SLA aplicável: 0, Fora do SLA: 0, Sem SLA: 0'
               : '0 public open issues — SLA-applicable: 0, Over SLA: 0, No SLA: 0');
@@ -667,15 +683,10 @@ function renderIssues() {
   });
 
   if (summaryEl) {
-    if (getViewMode()==='closed14'){
-      summaryEl.textContent = (getLang()==='pt')
-        ? `${sorted.length} issues públicas fechadas.`
-        : `${sorted.length} public closed issues.`;
-    } else {
-      summaryEl.textContent = (getLang()==='pt'
+    summaryEl.textContent =
+      (getLang()==='pt'
         ? `${total} issues públicas abertas — SLA aplicável: ${applicable}, Fora do SLA: ${over}, Sem SLA: ${noslaCount}`
         : `${total} public open issues — SLA-applicable: ${applicable}, Over SLA: ${over}, No SLA: ${noslaCount}`);
-    }
   }
 
   updateSortArrows('finance-table');
@@ -697,8 +708,19 @@ function closeEditor(){
 }
 
 /* ========== INIT ========== */
+
+function updateThemeUI(){
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  const reset = document.getElementById('resetFiltersBtn');
+  if (reset){
+    reset.textContent = isLight ? '🧹' : '✨';
+    reset.setAttribute('title', isLight ? (getLang()==='pt'?'Limpar filtros':'Reset Filters') : (getLang()==='pt'?'Limpar filtros':'Reset Filters'));
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   setTheme(getTheme());
+  updateThemeUI();
   applyI18n();
 
   const themeBtn = document.getElementById('themeToggle');
