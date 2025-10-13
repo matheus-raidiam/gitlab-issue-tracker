@@ -10,7 +10,7 @@ function updateLabelHistoryToggle(){
 
 /* Theme & Language */
 function getTheme(){ return localStorage.getItem('theme') || 'dark'; }
-function setTheme(t){ document.documentElement.setAttribute('data-theme', t); localStorage.setItem('theme', t); updateThemeUI(); }
+function setTheme(t){ document.documentElement.setAttribute('data-theme', t); localStorage.setItem('theme', t); }
 function toggleTheme(){ setTheme(getTheme()==='dark' ? 'light' : 'dark'); }
 
 function getLang(){ return localStorage.getItem('lang') || 'en'; }
@@ -25,7 +25,6 @@ const I18N = {
     view: "View:",
     openIssues: "Open issues",
     closed14: "Closed (last 14 days)",
-    dashboard: "Dashboard",
     refresh: "Refresh",
     clearAll: "Clear All Comments",
     resetFilters: "Reset Filters",
@@ -82,7 +81,6 @@ const I18N = {
     view: "Ver:",
     openIssues: "Issues abertas",
     closed14: "Fechadas (últimos 14 dias)",
-    dashboard: "Dashboard",
     refresh: "Atualizar",
     clearAll: "Limpar todos os comentários",
     resetFilters: "Limpar filtros",
@@ -370,20 +368,6 @@ function updateSortArrows(tableId) {
   const arrow = table.querySelector(`.sort-arrow[data-for="${s.key}"]`);
   if (arrow) arrow.textContent = s.asc ? '▲' : '▼';
 }
-
-function onViewModeChange(){
-  const sel = document.getElementById('viewMode');
-  if (!sel) return;
-  const val = sel.value;
-  if (val === 'dashboard'){
-    // Open dashboard page (to be implemented separately)
-    window.open('dashboard.html', '_blank');
-    // Revert selection back to open issues so the table remains visible
-    sel.value = 'open';
-  }
-  updateSubtitle();
-  loadAllIssues();
-}
 function getViewMode() { return document.getElementById('viewMode').value; }
 
 /* ========== Label events via Netlify proxy ========== */
@@ -488,7 +472,7 @@ async function loadAllIssues() {
   updateSubtitle();
 
   const dateLbl = document.getElementById('finance-date-label');
-  if (dateLbl) dateLbl.textContent = mode === 'closed14' ? t('closedAt') || (getLang()==='pt'?'Fechada em':'Closed at') : t('createdAt');
+  if (dateLbl) dateLbl.textContent = mode === 'closed14' ? t('closedAt') || (getLang()==='pt'?'Fechado em':'Closed At') : t('createdAt');
 
   await loadProjectIssues(26426113, 'finance');
 
@@ -708,19 +692,8 @@ function closeEditor(){
 }
 
 /* ========== INIT ========== */
-
-function updateThemeUI(){
-  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-  const reset = document.getElementById('resetFiltersBtn');
-  if (reset){
-    reset.textContent = isLight ? '🧹' : '✨';
-    reset.setAttribute('title', isLight ? (getLang()==='pt'?'Limpar filtros':'Reset Filters') : (getLang()==='pt'?'Limpar filtros':'Reset Filters'));
-  }
-}
-
 document.addEventListener('DOMContentLoaded', () => {
   setTheme(getTheme());
-  updateThemeUI();
   applyI18n();
 
   const themeBtn = document.getElementById('themeToggle');

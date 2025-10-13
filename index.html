@@ -19,10 +19,9 @@
   <!-- Toolbar -->
   <div class="toolbar">
     <label for="viewMode" style="font-weight:600" data-i18n="view">View:</label>
-    <select id="viewMode" onchange="onViewModeChange()">
+    <select id="viewMode" onchange="loadAllIssues()">
       <option value="open"    data-i18n="openIssues">Open issues</option>
       <option value="closed14" data-i18n="closed14">Closed (last 14 days)</option>
-          <option value="dashboard" data-i18n="dashboard">Dashboard</option>
     </select>
 
     <!-- Ações (com class icon-btn para o modo light sem background) -->
