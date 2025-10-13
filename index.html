@@ -3,19 +3,17 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Open Finance Brasil - GitLab Issues SLA Dashboard</title>
+  <title>Open Finance Brasil - GitLab Issues</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header>
     <img src="Raidiam_icon.png" alt="Raidiam Logo"/>
-    <h1 data-i18n="title">Open Finance Brazil - GitLab Issues SLA Dashboard</h1>
+    <h1 data-i18n="title">Open Finance Brasil - GitLab Issues</h1>
   </header>
 
   <p class="page-intro" data-i18n="intro">
-    This dashboard pulls issues from the Open Finance GitLab project and gives a quick view of SLA risk, activity, and context.
-    It calculates working days and applies SLAs based on tags (Nature, Platform, Product, Working Group, and Status).
-    Use filters, sorting, and local notes to triage faster.
+    This dashboard pulls issues from the Open Finance GitLab project and gives a quick view of SLA risk, activity, and context. Use filters, sorting, and local notes to faster triage.
   </p>
 
   <!-- Toolbar -->
@@ -23,17 +21,18 @@
     <label for="viewMode" style="font-weight:600" data-i18n="view">View:</label>
     <select id="viewMode" onchange="loadAllIssues()">
       <option value="open" data-i18n="openIssues">Open issues</option>
-      <option value="closed7" data-i18n="closed7">Closed (last 7 days)</option>
+      <option value="closed14" data-i18n="closed14">Closed (last 14 days)</option>
     </select>
 
-    <button onclick="loadAllIssues()" data-i18n="refresh">🔄 Refresh</button>
-    <button onclick="clearAllComments()" data-i18n="clearAll">🗑️ Clear All Comments</button>
-    <button onclick="resetAllFilters()" data-i18n="resetFilters">🧹 Reset Filters</button>
+    <!-- Botões só ícones + title -->
+    <button onclick="loadAllIssues()" title="Refresh" aria-label="Refresh" data-i18n-title="refresh">🔄</button>
+    <button onclick="clearAllComments()" title="Clear All Comments" aria-label="Clear All Comments" data-i18n-title="clearAll">🗑️</button>
+    <button onclick="resetAllFilters()" title="Reset Filters" aria-label="Reset Filters" data-i18n-title="resetFilters">🧹</button>
 
     <div class="spacer"></div>
     <button id="labelHistoryToggle" title="Toggle label history">Label history: OFF</button>
-    <button id="themeToggle" title="Toggle theme">🌗 Theme</button>
-    <button id="langToggle" title="Toggle language">EN/PT</button>
+    <button id="themeToggle" title="Theme">🌗</button>
+    <button id="langToggle" title="EN/PT">EN/PT</button>
     <div id="loading">Loading…</div>
   </div>
 
@@ -53,7 +52,7 @@
     </details>
   </div>
 
-  <!-- Filters (collapsible like SLA rules) -->
+  <!-- Filters (collapsible) -->
   <div class="filters-card">
     <details>
       <summary style="cursor:pointer"><strong data-i18n="filters">Filters</strong></summary>
@@ -141,7 +140,9 @@
           <summary style="cursor:pointer"><strong data-i18n="summaryTitle">Summary</strong></summary>
           <div style="margin-top:8px">
             <div id="finance-summary"></div>
-            <div style="opacity:.85;margin-top:6px" data-i18n="legend">🕒 Label history ON: working days subtract paused intervals and follow status timeline.</div>
+            <div style="opacity:.85;margin-top:6px" data-i18n="legend">
+              🕒 Label history ON: working days subtract paused intervals and follow the applied labels timeline.
+            </div>
           </div>
         </details>
       </div>
@@ -149,25 +150,25 @@
       <table id="finance-table">
         <thead>
           <tr>
-            <th class="sortable" data-key="iid"       onclick="changeSort('finance-table','iid')">
+            <th class="sortable" data-key="iid" onclick="changeSort('finance-table','iid')">
               <span class="sort-label" data-i18n="id">ID <span class="sort-arrow" data-for="iid"></span></span>
             </th>
-            <th class="sortable" data-key="title"     onclick="changeSort('finance-table','title')">
+            <th class="sortable" data-key="title" onclick="changeSort('finance-table','title')">
               <span class="sort-label" data-i18n="titleCol">Title <span class="sort-arrow" data-for="title"></span></span>
             </th>
-            <th class="sortable" data-key="dateCol"   onclick="changeSort('finance-table','dateCol')">
+            <th class="sortable" data-key="dateCol" onclick="changeSort('finance-table','dateCol')">
               <span class="sort-label"><span id="finance-date-label" data-i18n="createdAt">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span>
             </th>
-            <th class="sortable" data-key="daysOpen"  onclick="changeSort('finance-table','daysOpen')">
-              <span class="sort-label" data-i18n="workingDays">Working Days <span class="sort-arrow" data-for="daysOpen"></span></span>
+            <th class="sortable" data-key="daysOpen" onclick="changeSort('finance-table','daysOpen')">
+              <span class="sort-label" data-i18n-html="workingDays">Working<br>Days <span class="sort-arrow" data-for="daysOpen"></span></span>
             </th>
-            <th class="sortable" data-key="slaRank"   onclick="changeSort('finance-table','slaRank')">
-              <span class="sort-label" data-i18n="slaStatus">SLA Status <span class="sort-arrow" data-for="slaRank"></span></span>
+            <th class="sortable" data-key="slaRank" onclick="changeSort('finance-table','slaRank')">
+              <span class="sort-label" data-i18n-html="slaStatus">SLA<br>Status <span class="sort-arrow" data-for="slaRank"></span></span>
             </th>
             <th data-i18n="natureCol">Nature</th>
             <th data-i18n="platformCol">Platform</th>
             <th data-i18n="productCol">Product</th>
-            <th data-i18n="wgCol">Working Group</th>
+            <th data-i18n-html="wgCol">Working<br>Group</th>
             <th data-i18n="statusCol">Status</th>
             <th data-i18n="comments">Comments</th>
           </tr>
@@ -181,7 +182,7 @@
     <p>© Raidiam 2025</p>
   </footer>
 
-  <!-- Reusable Modal (history OR comment editor) -->
+  <!-- Modal reusável -->
   <div id="noteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;">
     <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(900px,92vw);max-height:80vh;overflow:auto;background:var(--card);border:1px solid var(--dropdown-border);border-radius:12px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.4)">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
