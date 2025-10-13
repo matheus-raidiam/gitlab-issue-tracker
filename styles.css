@@ -8,7 +8,6 @@
   --error:#ff6b6b;
   --muted:#9bb7b3;
 
-  /* Filter UI */
   --chip:#08333a;
   --chip-border:#0c5056;
   --dropdown:#08333a;
@@ -23,7 +22,7 @@
   --header:#e8f0ef;
   --accent:#0ea47a;
   --text:#102a2f;
-  --error:#e11d48;
+  --error:#b91c1c;
   --muted:#5f7a76;
   --chip:#eef6f5;
   --chip-border:#cfe6e3;
@@ -41,8 +40,7 @@ header img{height:40px; background:#fff; border-radius:6px; padding:2px;}
 h1{color:var(--accent); font-size:28px; margin:0;}
 h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
 
-/* Plain intro paragraph */
-.page-intro{margin:10px 0 16px; line-height:1.4;}
+.page-intro{margin:10px 0 16px; line-height:1.4}
 
 /* Toolbar */
 .toolbar{
@@ -57,7 +55,7 @@ h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
 .toolbar .spacer{flex:1}
 #loading{display:none; color:var(--accent); font-weight:700}
 
-/* Filters / Summary cards */
+/* Cards */
 .filters-card{
   background:var(--card); border:1px solid var(--dropdown-border);
   border-radius:10px; padding:10px 12px; margin-bottom:8px;
@@ -115,6 +113,12 @@ th.sortable{cursor:pointer}
 .nosla{color:#cbd5df}
 .paused{color:#f0d98c; font-weight:normal}
 
+/* Light theme tweaks (status text darker) */
+:root[data-theme="light"] .within-sla{color:#0b4e3b}
+:root[data-theme="light"] .over-sla{color:#b91c1c}
+:root[data-theme="light"] .nosla{color:#6b7280}
+:root[data-theme="light"] .paused{color:#b58900}
+
 /* Tag badges */
 .badge{
   display:inline-block;
@@ -139,40 +143,40 @@ th.sortable{cursor:pointer}
   border: 1px solid rgba(59,130,246,.35);
   color: #93c5fd;
 }
+/* Light: labels mais claras com texto branco (exceto bug/ugdto) */
+:root[data-theme="light"] .badge{
+  background:#14b8a6;
+  color:#ffffff;
+}
+:root[data-theme="light"] .badge-bug{ /* mantém o especial de bug */ }
+:root[data-theme="light"] .badge-ugdto{ /* mantém o especial de WG/DTO */ }
 
-/* Comments */
+/* Comentários */
 .comment-box{
   width:100%; font-size:12px; background:#092e34; color:#fff;
-  border:1px solid #066f5f; border-radius:4px; min-height:20px;
-  resize:vertical;
+  border:1px solid #066f5f; border-radius:4px; min-height:20px; resize:vertical;
+}
+/* Light: textarea cinza claro + borda verde */
+:root[data-theme="light"] .comment-box{
+  background:#eef4f3; color:#102a2f; border:1px solid #0ea47a;
 }
 
 .summary{font-size:14px; margin:8px 0 12px; opacity:.9}
 .closed-issue td{opacity:.9}
 .closed-badge{
   display:inline-block; padding:2px 6px; border-radius:4px; background:#244447;
-  color:var(--muted); font-size:11px; margin-left:8px
+  color:#ffffff; font-size:11px; margin-top:6px
 }
 .grid{display:grid; grid-template-columns:1fr; gap:28px}
 
-/* Empty-state row */
 .empty-state td.empty-cell{
-  padding:18px;
-  text-align:center;
-  color:var(--muted);
-  background:var(--card-2);
-  font-style:italic;
+  padding:18px; text-align:center; color:var(--muted); background:var(--card-2); font-style:italic;
 }
 
-/* Footer */
 footer{margin-top:16px; font-size:12px; color:var(--muted)}
 
-/* Stable widths */
 #finance-table{table-layout:fixed; width:100%;}
-#finance-table th, #finance-table td{
-  word-break:normal;
-  overflow-wrap:normal;
-}
+#finance-table th, #finance-table td{ word-break:normal; overflow-wrap:normal; }
 #finance-table th:nth-child(1),  #finance-table td:nth-child(1)  { width:7%;  }
 #finance-table th:nth-child(2),  #finance-table td:nth-child(2)  { width:20%; }
 #finance-table th:nth-child(3),  #finance-table td:nth-child(3)  { width:9%;  }
@@ -184,8 +188,9 @@ footer{margin-top:16px; font-size:12px; color:var(--muted)}
 #finance-table th:nth-child(9),  #finance-table td:nth-child(9)  { width:8%;  }
 #finance-table th:nth-child(10), #finance-table td:nth-child(10) { width:7%;  }
 #finance-table th:nth-child(11), #finance-table td:nth-child(11) { width:12%; }
+
 #finance-table td:nth-child(1) a{display:inline-block; white-space:nowrap; min-width:56px;}
 #finance-table th:nth-child(4) { white-space: normal; word-break: keep-all; overflow-wrap: normal; }
 
-/* clock link */
-.wd-link{ cursor:pointer; text-decoration:underline; }
+/* relógio: sem sublinhado */
+.wd-link{ cursor:pointer; text-decoration:none; }
