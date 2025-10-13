@@ -3,7 +3,7 @@
   --card:#06292f;
   --card-2:#0d383e;
   --header:#0a2e33;
-  --accent:#00e38c;   /* usado também na cor do título do thead */
+  --accent:#00e38c;
   --text:#f1f1f1;
   --error:#ff6b6b;
   --muted:#9bb7b3;
@@ -20,7 +20,7 @@
   --card:#ffffff;
   --card-2:#f2f7f7;
   --header:#e8f0ef;
-  --accent:#0ea47a;   /* títulos do thead; será a mesma cor do fundo das labels */
+  --accent:#0ea47a;   /* thead titles + fundo das labels */
   --text:#102a2f;
   --error:#b91c1c;
   --muted:#5f7a76;
@@ -31,15 +31,11 @@
 }
 
 *{box-sizing:border-box}
-body{
-  font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;
-  background:var(--bg); color:var(--text); margin:0; padding:20px;
-}
+body{font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;background:var(--bg); color:var(--text); margin:0; padding:20px;}
 header{display:flex; align-items:center; gap:16px; margin-bottom:8px;}
 header img{height:40px; background:#fff; border-radius:6px; padding:2px;}
 h1{color:var(--accent); font-size:28px; margin:0;}
 h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
-
 .page-intro{margin:10px 0 16px; line-height:1.4}
 
 /* Toolbar */
@@ -55,7 +51,7 @@ h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
 .toolbar .spacer{flex:1}
 #loading{display:none; color:var(--accent); font-weight:700}
 
-/* Light mode: ícones sem background para botões de ação (refresh/clear/reset) */
+/* Light: botões-ícone sem background */
 :root[data-theme="light"] .toolbar .icon-btn{
   background:transparent;
   color:var(--text);
@@ -88,10 +84,7 @@ h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
 }
 .filter .menu .row{display:flex; align-items:center; gap:8px; padding:6px 2px}
 .filter .menu input[type="checkbox"]{transform:scale(1.1)}
-.filter .menu .clear{
-  display:inline-block; margin:4px 0 6px; font-size:12px; cursor:pointer;
-  color:var(--accent); text-decoration:underline;
-}
+.filter .menu .clear{display:inline-block; margin:4px 0 6px; font-size:12px; cursor:pointer;color:var(--accent); text-decoration:underline;}
 
 /* Chips */
 .chips{display:flex; flex-wrap:wrap; gap:6px; padding:6px 0 2px}
@@ -102,14 +95,11 @@ h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
 .chip .x{cursor:pointer; opacity:.85}
 
 /* Table */
-table{
-  width:100%; border-collapse:separate; border-spacing:0; background:var(--card);
-  border-radius:8px; overflow:hidden
-}
+table{width:100%; border-collapse:separate; border-spacing:0; background:var(--card); border-radius:8px; overflow:hidden}
 thead th{
   background:var(--header);
-  color:var(--accent);       /* cor do título do thead */
-  text-align:center;         /* centraliza títulos de coluna */
+  color:var(--accent);
+  text-align:center;
   padding:12px; user-select:none;
   white-space:nowrap;
 }
@@ -118,18 +108,20 @@ tbody tr:nth-child(even) td{background:var(--card-2)}
 th.sortable{cursor:pointer}
 .sort-label{display:inline-flex; align-items:center; gap:6px; justify-content:center}
 .sort-arrow{font-size:12px; color:var(--accent); opacity:.9}
+
+/* SLA status cores */
 .over-sla{color:var(--error); font-weight:700}
 .within-sla{color:var(--accent)}
 .nosla{color:#cbd5df}
 .paused{color:#f0d98c; font-weight:normal}
 
-/* Light theme: contraste de status */
+/* Light: contraste */
 :root[data-theme="light"] .within-sla{color:#0a7f5a;}
 :root[data-theme="light"] .over-sla{color:#b91c1c}
 :root[data-theme="light"] .nosla{color:#374151}
 :root[data-theme="light"] .paused{color:#b58900}
 
-/* Status do SLA (coluna 5) centralizado */
+/* Centraliza a coluna de SLA Status (5ª) */
 #finance-table td:nth-child(5){ text-align:center; }
 
 /* Badges */
@@ -142,22 +134,11 @@ th.sortable{cursor:pointer}
   margin:2px 4px 2px 0;
   font-size:12px;
   font-weight: normal;
-  word-break:normal;
-  overflow-wrap:normal;
-  white-space:normal;
+  word-break:normal; overflow-wrap:normal; white-space:normal;
 }
-.badge-bug{
-  background: rgba(239,68,68,.12);
-  border: 1px solid rgba(239,68,68,.35);
-  color: #fca5a5;
-}
-.badge-ugdto{
-  background: rgba(59,130,246,.12);
-  border: 1px solid rgba(59,130,246,.35);
-  color: #93c5fd;
-}
-/* Light: labels com fundo igual ao título do thead, texto branco.
-   Mantém exceções para Bug e UG/DTO */
+.badge-bug{background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.35); color: #fca5a5;}
+.badge-ugdto{background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.35); color: #93c5fd;}
+/* Light: fundo das labels = --accent, texto branco (exceto Bug/UGDTO) */
 :root[data-theme="light"] .badge{ background:var(--accent); color:#ffffff; }
 :root[data-theme="light"] .badge-bug{ background: rgba(239,68,68,.12); color:#ef4444; }
 :root[data-theme="light"] .badge-ugdto{ background: rgba(59,130,246,.12); color:#3b82f6; }
@@ -179,12 +160,12 @@ th.sortable{cursor:pointer}
 }
 .grid{display:grid; grid-template-columns:1fr; gap:28px}
 
-.empty-state td.empty-cell{
-  padding:18px; text-align:center; color:var(--muted); background:var(--card-2); font-style:italic;
-}
+/* Empty */
+.empty-state td.empty-cell{padding:18px; text-align:center; color:var(--muted); background:var(--card-2); font-style:italic;}
 
 footer{margin-top:16px; font-size:12px; color:var(--muted)}
 
+/* Larguras */
 #finance-table{table-layout:fixed; width:100%;}
 #finance-table th, #finance-table td{ word-break:normal; overflow-wrap:normal; }
 #finance-table th:nth-child(1),  #finance-table td:nth-child(1)  { width:7%;  }
@@ -202,5 +183,5 @@ footer{margin-top:16px; font-size:12px; color:var(--muted)}
 #finance-table td:nth-child(1) a{display:inline-block; white-space:nowrap; min-width:56px;}
 #finance-table th:nth-child(4) { white-space: normal; word-break: keep-all; overflow-wrap: normal; }
 
-/* Relógio sem sublinhado */
+/* “Relógio” sem sublinhado */
 .wd-link{ cursor:pointer; text-decoration:none; }
