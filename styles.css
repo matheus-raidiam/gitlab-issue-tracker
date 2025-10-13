@@ -185,3 +185,11 @@ footer{margin-top:16px; font-size:12px; color:var(--muted)}
 
 /* “Relógio” sem sublinhado */
 .wd-link{ cursor:pointer; text-decoration:none; }
+
+/* === Center everything except Title column === */
+#finance-table th { text-align:center; }
+#finance-table td { text-align:center; }
+#finance-table td:nth-child(2) { text-align:left; } /* Title */
+
+/* Center badge text */
+.badge { display:inline-flex; align-items:center; justify-content:center; text-align:center; }
