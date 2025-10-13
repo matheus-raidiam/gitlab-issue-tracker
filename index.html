@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Open Finance Brasil - GitLab Issues</title>
-  <link rel="stylesheet" href="styles.css">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Open Finance Brasil - GitLab Issues</title>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header>
@@ -20,43 +20,46 @@
   <div class="toolbar">
     <label for="viewMode" style="font-weight:600" data-i18n="view">View:</label>
     <select id="viewMode" onchange="loadAllIssues()">
-      <option value="open" data-i18n="openIssues">Open issues</option>
+      <option value="open"    data-i18n="openIssues">Open issues</option>
       <option value="closed14" data-i18n="closed14">Closed (last 14 days)</option>
     </select>
 
-    <!-- Ícones com título traduzível -->
-    <button class="icon-btn" onclick="loadAllIssues()" title="Refresh" aria-label="Refresh" data-i18n-title="refresh">🔄</button>
-    <button class="icon-btn" onclick="clearAllComments()" title="Clear All Comments" aria-label="Clear All Comments" data-i18n-title="clearAll">🗑️</button>
-    <button class="icon-btn" onclick="resetAllFilters()" title="Reset Filters" aria-label="Reset Filters" data-i18n-title="resetFilters">🧹</button>
+    <!-- Ações (com class icon-btn para o modo light sem background) -->
+    <button class="icon-btn" id="refreshBtn" title="Refresh" data-i18n-title="refresh" onclick="loadAllIssues()">🔄</button>
+    <button class="icon-btn" id="clearAllBtn" title="Clear All Comments" data-i18n-title="clearAll" onclick="clearAllComments()">🗑️</button>
+    <button class="icon-btn" id="resetFiltersBtn" title="Reset Filters" data-i18n-title="resetFilters" onclick="resetAllFilters()">🧹</button>
 
     <div class="spacer"></div>
-    <button id="labelHistoryToggle" title="Toggle label history">Label history: OFF</button>
-    <button id="themeToggle" title="Theme">🌗</button>
-    <button id="langToggle" title="EN/PT">EN/PT</button>
+
+    <!-- Toggles -->
+    <button id="themeToggle" class="icon-btn" title="Theme">🌓</button>
+    <button id="langToggle"  class="icon-btn" title="Language">🌐</button>
+    <button id="labelHistoryToggle" class="icon-btn" title="Label history">🕒</button>
+
     <div id="loading">Loading…</div>
   </div>
 
-  <!-- SLA rules -->
-  <div class="filters-card">
+  <!-- SLA rules (collapsible) -->
+  <div class="filters-card" style="margin-top:10px">
     <details>
       <summary style="cursor:pointer"><strong data-i18n="slaRules">SLA rules</strong></summary>
       <div style="margin-top:8px;opacity:.9">
         <ul style="margin:0 0 8px 16px">
-          <li data-i18n="rule1"><b>Bug & Questions:</b> 10 business days</li>
-          <li data-i18n="rule2"><b>Waiting Participant:</b> 5 business days to receive an update</li>
-          <li data-i18n="rule3"><b>Under Evaluation</b> or <b>no tags</b>: 3 business days</li>
-          <li data-i18n="rule4"><b>Under WG/DTO Evaluation</b>, <b>Backlog</b>, <b>Sandbox Testing</b>, <b>Waiting Deploy</b>: SLA Paused</li>
-          <li data-i18n="rule5"><b>Production Testing</b>, <b>Change Request</b>, <b>Breaking Change</b>, <b>Test Improvement</b>: No SLA</li>
+          <li data-i18n="rule1">Bug & Questions: 10 business days</li>
+          <li data-i18n="rule2">Waiting Participant: 5 business days to receive an update</li>
+          <li data-i18n="rule3">Under Evaluation or no tags: 3 business days</li>
+          <li data-i18n="rule4">Under WG/DTO Evaluation, Backlog, Sandbox Testing, Waiting Deploy: SLA Paused</li>
+          <li data-i18n="rule5">Production Testing, Change Request, Breaking Change, Test Improvement: No SLA</li>
         </ul>
       </div>
     </details>
   </div>
 
-  <!-- Filters (collapsible) -->
+  <!-- Filters (collapsible como combinamos) -->
   <div class="filters-card">
     <details>
-      <summary style="cursor:pointer"><strong data-i18n="filters">Filters</strong></summary>
-      <div class="filters-row">
+      <summary><strong data-i18n="filters">Filters</strong></summary>
+      <div class="filters-row" style="margin-top:8px">
         <!-- Nature -->
         <div class="filter" id="filterNature">
           <details>
@@ -122,40 +125,30 @@
           </details>
         </div>
       </div>
+
+      <!-- Active filter chips -->
       <div class="chips" id="chips"></div>
     </details>
   </div>
 
   <div class="grid">
     <section>
-      <h2>
-        <a id="issuesSubtitle" href="https://gitlab.com/raidiam-conformance/open-finance/certification/-/issues/"
-           target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:none;">
-          Opened Issues
-        </a>
-      </h2>
+      <h2 id="issuesSubtitle" data-i18n="openedIssuesTitle">Opened Issues</h2>
 
-      <!-- Summary (collapsible) -->
+      <!-- Summary -->
       <div class="filters-card summary-card">
-        <details>
-          <summary style="cursor:pointer"><strong data-i18n="summaryTitle">Summary</strong></summary>
-          <div style="margin-top:8px">
-            <div id="finance-summary"></div>
-            <div style="opacity:.85;margin-top:6px" data-i18n="legend">
-              🕒 Label history ON: working days subtract paused intervals and follow the applied labels timeline.
-            </div>
-          </div>
-        </details>
+        <span class="summary-title" data-i18n="summaryTitle">Summary</span>
+        <div id="finance-summary"></div>
       </div>
 
       <table id="finance-table">
         <thead>
           <tr>
-            <th class="sortable" data-key="iid" onclick="changeSort('finance-table','iid')">
-              <span class="sort-label" data-i18n="id">ID <span class="sort-arrow" data-for="iid"></span></span>
+            <th class="sortable" data-key="iid"     onclick="changeSort('finance-table','iid')">
+              <span class="sort-label" data-i18n-html="id">ID <span class="sort-arrow" data-for="iid"></span></span>
             </th>
-            <th class="sortable" data-key="title" onclick="changeSort('finance-table','title')">
-              <span class="sort-label" data-i18n="titleCol">Title <span class="sort-arrow" data-for="title"></span></span>
+            <th class="sortable" data-key="title"   onclick="changeSort('finance-table','title')">
+              <span class="sort-label" data-i18n-html="titleCol">Title <span class="sort-arrow" data-for="title"></span></span>
             </th>
             <th class="sortable" data-key="dateCol" onclick="changeSort('finance-table','dateCol')">
               <span class="sort-label"><span id="finance-date-label" data-i18n="createdAt">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span>
@@ -183,7 +176,7 @@
     <p>© Raidiam 2025</p>
   </footer>
 
-  <!-- Modal reusável -->
+  <!-- Modal multiuso (histórico de labels / comentários) -->
   <div id="noteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;">
     <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(900px,92vw);max-height:80vh;overflow:auto;background:var(--card);border:1px solid var(--dropdown-border);border-radius:12px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.4)">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
@@ -192,7 +185,7 @@
           <button id="noteEditorClose" data-i18n="close">Close</button>
         </div>
       </div>
-      <div id="labelHistoryBody" style="margin-top:12px;white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Consolas,monospace"></div>
+      <pre id="labelHistoryBody" style="white-space:pre-wrap;margin-top:12px"></pre>
     </div>
   </div>
 
