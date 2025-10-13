@@ -15,6 +15,22 @@
   --dropdown-border:#0d5a60;
   --shadow:0 8px 24px rgba(0,0,0,.25);
 }
+/* Light theme overrides */
+:root[data-theme="light"]{
+  --bg:#f6fbfb;
+  --card:#ffffff;
+  --card-2:#f2f7f7;
+  --header:#e8f0ef;
+  --accent:#0ea47a;
+  --text:#102a2f;
+  --error:#e11d48;
+  --muted:#5f7a76;
+  --chip:#eef6f5;
+  --chip-border:#cfe6e3;
+  --dropdown:#ffffff;
+  --dropdown-border:#d9e7e5;
+}
+
 *{box-sizing:border-box}
 body{
   font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;
@@ -25,10 +41,10 @@ header img{height:40px; background:#fff; border-radius:6px; padding:2px;}
 h1{color:var(--accent); font-size:28px; margin:0;}
 h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
 
-/* Plain intro paragraph (outside squares) */
+/* Plain intro paragraph */
 .page-intro{margin:10px 0 16px; line-height:1.4;}
 
-/* Toolbar (square card) */
+/* Toolbar */
 .toolbar{
   display:flex; gap:12px; align-items:center; flex-wrap:wrap;
   background:var(--card); border:1px solid var(--dropdown-border);
@@ -41,7 +57,7 @@ h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
 .toolbar .spacer{flex:1}
 #loading{display:none; color:var(--accent); font-weight:700}
 
-/* Filters (square card) */
+/* Filters / Summary cards */
 .filters-card{
   background:var(--card); border:1px solid var(--dropdown-border);
   border-radius:10px; padding:10px 12px; margin-bottom:8px;
@@ -72,7 +88,7 @@ h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
   color:var(--accent); text-decoration:underline;
 }
 
-/* Filter chips */
+/* Chips */
 .chips{display:flex; flex-wrap:wrap; gap:6px; padding:6px 0 2px}
 .chip{
   display:inline-flex; align-items:center; gap:8px; padding:4px 10px; border-radius:999px;
@@ -80,7 +96,7 @@ h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
 }
 .chip .x{cursor:pointer; opacity:.85}
 
-/* Tables */
+/* Table */
 table{
   width:100%; border-collapse:separate; border-spacing:0; background:var(--card);
   border-radius:8px; overflow:hidden
@@ -96,10 +112,10 @@ th.sortable{cursor:pointer}
 .sort-arrow{font-size:12px; color:var(--accent); opacity:.9}
 .over-sla{color:var(--error); font-weight:700}
 .within-sla{color:var(--accent)}
-.nosla{color:#cbd5df} /* cinza claro */
+.nosla{color:#cbd5df}
 .paused{color:#f0d98c; font-weight:normal}
 
-/* Unified tag badge style */
+/* Tag badges */
 .badge{
   display:inline-block;
   background-color:#055b4e;
@@ -113,20 +129,18 @@ th.sortable{cursor:pointer}
   overflow-wrap:normal;
   white-space:normal;
 }
-/* vermelho suave p/ Bug */
 .badge-bug{
   background: rgba(239,68,68,.12);
   border: 1px solid rgba(239,68,68,.35);
   color: #fca5a5;
 }
-/* azul suave p/ Under WG/DTO Evaluation */
 .badge-ugdto{
   background: rgba(59,130,246,.12);
   border: 1px solid rgba(59,130,246,.35);
   color: #93c5fd;
 }
 
-/* Comentários */
+/* Comments */
 .comment-box{
   width:100%; font-size:12px; background:#092e34; color:#fff;
   border:1px solid #066f5f; border-radius:4px; min-height:20px;
@@ -153,7 +167,7 @@ th.sortable{cursor:pointer}
 /* Footer */
 footer{margin-top:16px; font-size:12px; color:var(--muted)}
 
-/* ======== Larguras estáveis ======== */
+/* Stable widths */
 #finance-table{table-layout:fixed; width:100%;}
 #finance-table th, #finance-table td{
   word-break:normal;
@@ -173,5 +187,5 @@ footer{margin-top:16px; font-size:12px; color:var(--muted)}
 #finance-table td:nth-child(1) a{display:inline-block; white-space:nowrap; min-width:56px;}
 #finance-table th:nth-child(4) { white-space: normal; word-break: keep-all; overflow-wrap: normal; }
 
-/* mini link do relógio */
+/* clock link */
 .wd-link{ cursor:pointer; text-decoration:underline; }
