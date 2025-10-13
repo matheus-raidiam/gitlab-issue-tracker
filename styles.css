@@ -3,7 +3,7 @@
   --card:#06292f;
   --card-2:#0d383e;
   --header:#0a2e33;
-  --accent:#00e38c;
+  --accent:#00e38c;   /* usado também na cor do título do thead */
   --text:#f1f1f1;
   --error:#ff6b6b;
   --muted:#9bb7b3;
@@ -20,7 +20,7 @@
   --card:#ffffff;
   --card-2:#f2f7f7;
   --header:#e8f0ef;
-  --accent:#0ea47a;
+  --accent:#0ea47a;   /* títulos do thead; será a mesma cor do fundo das labels */
   --text:#102a2f;
   --error:#b91c1c;
   --muted:#5f7a76;
@@ -54,6 +54,13 @@ h2{color:var(--accent); font-size:20px; margin:24px 0 8px;}
 }
 .toolbar .spacer{flex:1}
 #loading{display:none; color:var(--accent); font-weight:700}
+
+/* Light mode: ícones sem background para botões de ação (refresh/clear/reset) */
+:root[data-theme="light"] .toolbar .icon-btn{
+  background:transparent;
+  color:var(--text);
+  padding:6px 8px;
+}
 
 /* Cards */
 .filters-card{
@@ -101,8 +108,8 @@ table{
 }
 thead th{
   background:var(--header);
-  color:var(--accent);
-  text-align:center;              /* centraliza títulos de coluna */
+  color:var(--accent);       /* cor do título do thead */
+  text-align:center;         /* centraliza títulos de coluna */
   padding:12px; user-select:none;
   white-space:nowrap;
 }
@@ -116,16 +123,16 @@ th.sortable{cursor:pointer}
 .nosla{color:#cbd5df}
 .paused{color:#f0d98c; font-weight:normal}
 
-/* Light theme: melhor contraste */
-:root[data-theme="light"] .within-sla{color:#0a7f5a;}   /* verde mais visível */
+/* Light theme: contraste de status */
+:root[data-theme="light"] .within-sla{color:#0a7f5a;}
 :root[data-theme="light"] .over-sla{color:#b91c1c}
-:root[data-theme="light"] .nosla{color:#374151}        /* cinza mais escuro */
+:root[data-theme="light"] .nosla{color:#374151}
 :root[data-theme="light"] .paused{color:#b58900}
 
 /* Status do SLA (coluna 5) centralizado */
 #finance-table td:nth-child(5){ text-align:center; }
 
-/* Tag badges */
+/* Badges */
 .badge{
   display:inline-block;
   background-color:#055b4e;
@@ -149,8 +156,9 @@ th.sortable{cursor:pointer}
   border: 1px solid rgba(59,130,246,.35);
   color: #93c5fd;
 }
-/* Light: labels mais claras com texto branco (sem sobrescrever Bug/UG/DTO) */
-:root[data-theme="light"] .badge{ background:#22c55e; color:#ffffff; }
+/* Light: labels com fundo igual ao título do thead, texto branco.
+   Mantém exceções para Bug e UG/DTO */
+:root[data-theme="light"] .badge{ background:var(--accent); color:#ffffff; }
 :root[data-theme="light"] .badge-bug{ background: rgba(239,68,68,.12); color:#ef4444; }
 :root[data-theme="light"] .badge-ugdto{ background: rgba(59,130,246,.12); color:#3b82f6; }
 
@@ -159,7 +167,6 @@ th.sortable{cursor:pointer}
   width:100%; font-size:12px; background:#092e34; color:#fff;
   border:1px solid #066f5f; border-radius:4px; min-height:20px; resize:vertical;
 }
-/* Light: textarea cinza claro + borda verde */
 :root[data-theme="light"] .comment-box{
   background:#eef4f3; color:#102a2f; border:1px solid #0ea47a;
 }
@@ -184,7 +191,7 @@ footer{margin-top:16px; font-size:12px; color:var(--muted)}
 #finance-table th:nth-child(2),  #finance-table td:nth-child(2)  { width:20%; }
 #finance-table th:nth-child(3),  #finance-table td:nth-child(3)  { width:9%;  }
 #finance-table th:nth-child(4),  #finance-table td:nth-child(4)  { width:7%;  text-align:center; }
-#finance-table th:nth-child(5),  #finance-table td:nth-child(5)  { width:8%;  } /* SLA Status */
+#finance-table th:nth-child(5),  #finance-table td:nth-child(5)  { width:8%;  }
 #finance-table th:nth-child(6),  #finance-table td:nth-child(6)  { width:8%;  }
 #finance-table th:nth-child(7),  #finance-table td:nth-child(7)  { width:7%;  }
 #finance-table th:nth-child(8),  #finance-table td:nth-child(8)  { width:8%;  }
@@ -195,5 +202,5 @@ footer{margin-top:16px; font-size:12px; color:var(--muted)}
 #finance-table td:nth-child(1) a{display:inline-block; white-space:nowrap; min-width:56px;}
 #finance-table th:nth-child(4) { white-space: normal; word-break: keep-all; overflow-wrap: normal; }
 
-/* Relógio (dias úteis) sem sublinhado */
+/* Relógio sem sublinhado */
 .wd-link{ cursor:pointer; text-decoration:none; }
