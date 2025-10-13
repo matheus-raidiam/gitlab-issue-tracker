@@ -5,7 +5,7 @@ const tableSort = { 'finance-table': { key: 'iid', asc: false } };
 let USE_LABEL_EVENTS = JSON.parse(localStorage.getItem('use_label_events') || 'false');
 function updateLabelHistoryToggle(){
   const b = document.getElementById('labelHistoryToggle');
-  if (b) b.textContent = `Label history: ${USE_LABEL_EVENTS ? 'ON':'OFF'}`;
+  if (b){ b.textContent = `Label history: ${USE_LABEL_EVENTS ? 'ON':'OFF'}`; b.classList.toggle('on', !!USE_LABEL_EVENTS); }
 }
 
 /* Theme & Language */
@@ -472,7 +472,7 @@ async function loadAllIssues() {
   updateSubtitle();
 
   const dateLbl = document.getElementById('finance-date-label');
-  if (dateLbl) dateLbl.textContent = mode === 'closed14' ? t('closedAt') || (getLang()==='pt'?'Fechado em':'Closed At') : t('createdAt');
+  if (dateLbl) dateLbl.textContent = mode === 'closed14' ? t('closedAt') || (getLang()==='pt'?'Fechada em':'Closed at') : t('createdAt');
 
   await loadProjectIssues(26426113, 'finance');
 
@@ -553,7 +553,7 @@ function renderIssues() {
     if (summaryEl) {
       summaryEl.textContent =
         (mode === 'closed14')
-          ? (getLang()==='pt'?'0 issues fechadas nos últimos 14 dias':'0 issues closed in last 14 days')
+          ? (getLang()==='pt'?'0 issues públicas fechadas.':'0 public closed issues.')
           : (getLang()==='pt'
               ? '0 issues públicas abertas — SLA aplicável: 0, Fora do SLA: 0, Sem SLA: 0'
               : '0 public open issues — SLA-applicable: 0, Over SLA: 0, No SLA: 0');
@@ -667,10 +667,15 @@ function renderIssues() {
   });
 
   if (summaryEl) {
-    summaryEl.textContent =
-      (getLang()==='pt'
+    if (getViewMode()==='closed14'){
+      summaryEl.textContent = (getLang()==='pt')
+        ? `${sorted.length} issues públicas fechadas.`
+        : `${sorted.length} public closed issues.`;
+    } else {
+      summaryEl.textContent = (getLang()==='pt'
         ? `${total} issues públicas abertas — SLA aplicável: ${applicable}, Fora do SLA: ${over}, Sem SLA: ${noslaCount}`
         : `${total} public open issues — SLA-applicable: ${applicable}, Over SLA: ${over}, No SLA: ${noslaCount}`);
+    }
   }
 
   updateSortArrows('finance-table');
