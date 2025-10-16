@@ -20,7 +20,7 @@
   </div>
 
   <p class="page-intro">
-    KPIs and trends from GitLab issues. Uses the same project and label taxonomy as the issues view.
+    KPIs and trends from GitLab issues. Periods are indicated in each widget.
   </p>
 
   <div class="grid">
@@ -29,7 +29,7 @@
       <div class="kpi-row">
         <div class="kpi-card"><div class="kpi-title">Open issues</div><div id="kpiOpen"   class="kpi-value">—</div></div>
         <div class="kpi-card"><div class="kpi-title">Closed (last 14 days)</div><div id="kpiClosed14" class="kpi-value">—</div></div>
-        <div class="kpi-card"><div class="kpi-title">Avg closure (business days, 14d)</div><div id="kpiAvgClose14" class="kpi-value">—</div></div>
+        <div class="kpi-card"><div class="kpi-title">Avg closure (business days, last 14 days)</div><div id="kpiAvgClose14" class="kpi-value">—</div></div>
         <div class="kpi-card"><div class="kpi-title">Opened (last 7 days)</div><div id="kpiOpened7" class="kpi-value">—</div></div>
       </div>
     </section>
@@ -37,12 +37,12 @@
     <section>
       <h2>Trends</h2>
       <div class="chart-card">
-        <div class="chart-title">Opened by day (30d)</div>
-        <div id="chartOpened" class="bars"></div>
+        <div class="chart-title">Created by day <span class="muted">(last 30 days)</span></div>
+        <div id="chartOpened" class="linechart"></div>
       </div>
       <div class="chart-card">
-        <div class="chart-title">Closed by day (14d)</div>
-        <div id="chartClosed" class="bars"></div>
+        <div class="chart-title">Closed by day <span class="muted">(last 14 days)</span></div>
+        <div id="chartClosed" class="linechart"></div>
       </div>
     </section>
 
@@ -50,31 +50,31 @@
       <h2>Breakdown</h2>
       <div class="two-col">
         <div class="list-card">
-          <div class="list-title">Top Working Groups</div>
+          <div class="list-title">Top Working Groups <span class="muted">(last 30 days)</span></div>
           <ol id="listWg"></ol>
         </div>
         <div class="list-card">
-          <div class="list-title">Top Products</div>
+          <div class="list-title">Top Products <span class="muted">(last 30 days)</span></div>
           <ol id="listProd"></ol>
         </div>
       </div>
       <div class="two-col">
         <div class="list-card">
-          <div class="list-title">Top Authors (opened)</div>
+          <div class="list-title">Top Authors <span class="muted">(last 30 days)</span></div>
           <ol id="listAuthors"></ol>
         </div>
         <div class="list-card">
-          <div class="list-title">Issues per weekday (opened)</div>
-          <div id="chartWeekday" class="bars small"></div>
+          <div class="list-title">Issues per weekday <span class="muted">(last 30 days)</span></div>
+          <div id="chartWeekday" class="linechart small"></div>
         </div>
       </div>
       <div class="two-col">
         <div class="list-card">
-          <div class="list-title">Top 5 most commented</div>
+          <div class="list-title">Top 5 most commented <span class="muted">(last 30 days)</span></div>
           <ol id="listComments"></ol>
         </div>
         <div class="list-card">
-          <div class="list-title">Top 5 most 👍</div>
+          <div class="list-title">Top 5 most 👍 <span class="muted">(last 30 days)</span></div>
           <ol id="listUpvotes"></ol>
         </div>
       </div>

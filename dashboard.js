@@ -1,4 +1,4 @@
-/* Dashboard logic (standalone; does not touch index.js) */
+/* Dashboard logic (line charts, responsive) */
 
 /* ======= Label taxonomy (keep in sync with script.js) ======= */
 const STATUS_LABELS   = new Set(['Under Evaluation','Waiting Participant','Under WG/DTO Evaluation','Evaluated by WG/DTO','Backlog','In Progress','Sandbox Testing','Waiting Deploy','Production Testing']);
@@ -46,20 +46,55 @@ function classifyLabels(labels = []){
   return {status,nature,product,platform,wg};
 }
 
-/* ======= Business days helpers (same as issues page) ======= */
+/* ======= Helpers ======= */
 const DAY_MS = 24*60*60*1000;
 function startOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
 function endOfDay(d){ const x=startOfDay(d); x.setDate(x.getDate()+1); return x; }
+function businessMsBetween(s,e){ const total=Math.max(0,e.getTime()-s.getTime()); return Math.max(0, total - weekendMsBetween(s,e)); }
 function overlapMs(a1,a2,b1,b2){ const s=Math.max(a1.getTime(),b1.getTime()); const e=Math.min(a2.getTime(),b2.getTime()); return Math.max(0,e-s); }
 function weekendMsBetween(s,e){
   if (e<=s) return 0; let ms=0, cur=startOfDay(s);
   while(cur<e){ const nxt=endOfDay(cur), wk=[0,6].includes(cur.getDay()); if (wk) ms+=overlapMs(s,e,cur,nxt); cur=nxt; }
   return ms;
 }
-function businessMsBetween(s,e){ const total=Math.max(0,e.getTime()-s.getTime()); return Math.max(0,total - weekendMsBetween(s,e)); }
 function workingDays24hBetween(s,e){ return Math.floor(businessMsBetween(s,e)/DAY_MS); }
+function ymd(d){ const x=new Date(d); return x.toISOString().slice(0,10); }
+function lastNDays(n){ const arr=[]; const now=new Date(); for(let i=n-1;i>=0;i--){ const d=new Date(now); d.setDate(now.getDate()-i); arr.push(ymd(d)); } return arr; }
 
-/* ======= Fetch helpers ======= */
+/* ======= Rendering: line chart (SVG) ======= */
+function renderLine(el, labels, values){
+  const W = el.clientWidth || 600, H = el.clientHeight || 180;
+  const pad = {l:28, r:8, t:8, b:22};
+  const maxY = Math.max(1, ...values);
+  const xs = (i)=> pad.l + (i*(W-pad.l-pad.r)/(labels.length-1 || 1));
+  const ys = (v)=> pad.t + (H-pad.t-pad.b) * (1 - v/maxY);
+
+  const points = values.map((v,i)=> `${xs(i)},${ys(v)}`).join(' ');
+  const ticks = 4;
+  let yTicks = '';
+  for(let t=0;t<=ticks;t++){
+    const val = Math.round(maxY * t / ticks);
+    const y = ys(val);
+    yTicks += `<text x="2" y="${y+4}" font-size="10" fill="var(--text)">${val}</text>`;
+    yTicks += `<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="rgba(255,255,255,.08)"/>`;
+  }
+
+  const step = Math.ceil(labels.length/6) || 1;
+  let xLabels='';
+  labels.forEach((lab,i)=>{
+    if (i % step === 0 || i===labels.length-1){
+      xLabels += `<text x="${xs(i)}" y="${H-6}" font-size="10" text-anchor="middle" fill="var(--text)">${lab}</text>`;
+    }
+  });
+
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" preserveAspectRatio="none">
+    <polyline fill="none" stroke="#00e38c" stroke-width="2" points="${points}" />
+    ${yTicks}
+    ${xLabels}
+  </svg>`;
+}
+
+/* ======= Data fetch ======= */
 async function fetchIssues(projectId, params){
   const url = `https://gitlab.com/api/v4/projects/${projectId}/issues?per_page=100&${params}`;
   const r = await fetch(url, { headers: { 'Accept':'application/json' } });
@@ -67,75 +102,69 @@ async function fetchIssues(projectId, params){
   return r.json();
 }
 
-function ymd(d){ const x=new Date(d); return x.toISOString().slice(0,10); }
-function lastNDays(n){ const arr=[]; const now=new Date(); for(let i=n-1;i>=0;i--){ const d=new Date(now); d.setDate(now.getDate()-i); arr.push(ymd(d)); } return arr; }
-
-/* ======= Simple bar chart renderer (no external lib) ======= */
-function renderBars(el, labels, values, maxN){
-  const max = Math.max(1, ...(maxN? [maxN] : values));
-  el.innerHTML = labels.map((lab,i)=>{
-    const h = Math.round((values[i]/max)*100);
-    return `<div class="bar"><div style="height:${h}%"></div><div class="bar-label">${lab}</div></div>`;
-  }).join('');
-}
-
-function topEntries(map, k=5){
-  return [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,k);
-}
-
 /* ======= Main ======= */
 (async function init(){
-  const projectId = 26426113; // same project as issues page
+  const projectId = 26426113; // same project
 
   const now = new Date();
   const since14 = new Date(now); since14.setDate(now.getDate()-14);
   const since30 = new Date(now); since30.setDate(now.getDate()-30);
   const since7  = new Date(now); since7.setDate(now.getDate()-7);
 
-  let opened = [], closed = [];
+  let opened = [], closed14 = [], closed30 = [];
   try{
-    opened = await fetchIssues(projectId, 'state=opened');
-    const dataClosed = await fetchIssues(projectId, `state=closed&updated_after=${encodeURIComponent(since14.toISOString())}`);
-    closed = dataClosed.filter(i => i.closed_at && new Date(i.closed_at) >= since14);
+    opened   = await fetchIssues(projectId, 'state=opened');
+    const dataClosed14 = await fetchIssues(projectId, `state=closed&updated_after=${encodeURIComponent(since14.toISOString())}`);
+    closed14 = dataClosed14.filter(i => i.closed_at && new Date(i.closed_at) >= since14);
+    const dataClosed30 = await fetchIssues(projectId, `state=closed&updated_after=${encodeURIComponent(since30.toISOString())}`);
+    closed30 = dataClosed30.filter(i => i.closed_at && new Date(i.closed_at) >= since30);
   }catch(e){
     console.error('Fetch error', e);
   }
 
+  // all issues created in the last 30 days (open + closed)
+  const all30 = [...opened, ...closed30].filter(i => new Date(i.created_at) >= since30);
+
   // KPIs
-  const opened7 = opened.filter(i => new Date(i.created_at) >= since7);
+  const opened7 = all30.filter(i => new Date(i.created_at) >= since7);
   const avgCloseDays = (()=>{
-    if (!closed.length) return '—';
-    const sum = closed.reduce((acc,i)=> acc + Math.max(0, workingDays24hBetween(new Date(i.created_at), new Date(i.closed_at))), 0);
-    return (sum/closed.length).toFixed(1);
+    if (!closed14.length) return '—';
+    const sum = closed14.reduce((acc,i)=> acc + Math.max(0, workingDays24hBetween(new Date(i.created_at), new Date(i.closed_at))), 0);
+    return (sum/closed14.length).toFixed(1);
   })();
   document.getElementById('kpiOpen').textContent = opened.length;
-  document.getElementById('kpiClosed14').textContent = closed.length;
+  document.getElementById('kpiClosed14').textContent = closed14.length;
   document.getElementById('kpiAvgClose14').textContent = avgCloseDays;
   document.getElementById('kpiOpened7').textContent = opened7.length;
   document.getElementById('lastUpdated').textContent = `Updated ${new Date().toLocaleString()}`;
 
-  // Trends
-  const byDate = (arr, field, daysArr) => {
-    const map = new Map(daysArr.map(d=>[d,0]));
-    arr.forEach(i=>{
-      const d = ymd(i[field]);
-      if (map.has(d)) map.set(d, map.get(d)+1);
-    });
-    return map;
-  };
-  const labelsOpen30 = lastNDays(30);
-  const labelsClosed14 = lastNDays(14);
-  renderBars(document.getElementById('chartOpened'), labelsOpen30, [...byDate(opened, 'created_at', labelsOpen30).values()]);
-  renderBars(document.getElementById('chartClosed'), labelsClosed14, [...byDate(closed, 'closed_at', labelsClosed14).values()]);
+  // Trends — line charts
+  const labelsOpen30 = (function(){ const arr=[]; for(let i=29;i>=0;i--){ const d=new Date(now); d.setDate(now.getDate()-i); arr.push(d.toLocaleDateString()); } return arr; })();
+  const labelsClosed14 = (function(){ const arr=[]; for(let i=13;i>=0;i--){ const d=new Date(now); d.setDate(now.getDate()-i); arr.push(d.toLocaleDateString()); } return arr; })();
 
-  // Breakdown: WG / Product
+  const openByDateMap = new Map(labelsOpen30.map(l=>[l,0]));
+  all30.forEach(i=>{
+    const lab = new Date(i.created_at).toLocaleDateString();
+    if (openByDateMap.has(lab)) openByDateMap.set(lab, openByDateMap.get(lab)+1);
+  });
+  renderLine(document.getElementById('chartOpened'), labelsOpen30, [...openByDateMap.values()]);
+
+  const closeByDateMap = new Map(labelsClosed14.map(l=>[l,0]));
+  closed14.forEach(i=>{
+    const lab = new Date(i.closed_at).toLocaleDateString();
+    if (closeByDateMap.has(lab)) closeByDateMap.set(lab, closeByDateMap.get(lab)+1);
+  });
+  renderLine(document.getElementById('chartClosed'), labelsClosed14, [...closeByDateMap.values()]);
+
+  // Breakdown (last 30 days)
   const wgCount = new Map(), prodCount = new Map();
   const addTo = (map, key) => map.set(key, (map.get(key)||0)+1);
-  [...opened, ...closed].forEach(i=>{
+  all30.forEach(i=>{
     const {wg, product} = classifyLabels(i.labels||[]);
     wg.forEach(w => addTo(wgCount, w));
     product.forEach(p => addTo(prodCount, p));
   });
+  const topEntries = (map, k=5)=> [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,k);
   const listTo = (elId, arr) => {
     const el = document.getElementById(elId);
     el.innerHTML = arr.map(([k,v]) => `<li><strong>${k}:</strong> ${v}</li>`).join('') || '<div style="opacity:.7">—</div>';
@@ -143,24 +172,21 @@ function topEntries(map, k=5){
   listTo('listWg',   topEntries(wgCount, 5));
   listTo('listProd', topEntries(prodCount, 5));
 
-  // Authors (opened)
+  // Top Authors (created in last 30 days)
   const auth = new Map();
-  opened.forEach(i => { const k = (i.author && (i.author.name || i.author.username)) || '—'; auth.set(k, (auth.get(k)||0)+1); });
+  all30.forEach(i => { const k = (i.author && (i.author.name || i.author.username)) || '—'; auth.set(k, (auth.get(k)||0)+1); });
   listTo('listAuthors', topEntries(auth, 10));
 
-  // Issues by weekday (opened)
-  const weekdayMap = new Map([['Sun',0],['Mon',0],['Tue',0],['Wed',0],['Thu',0],['Fri',0],['Sat',0]]);
-  opened.forEach(i => {
-    const d = new Date(i.created_at).getDay();
-    const key = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d];
-    weekdayMap.set(key, weekdayMap.get(key)+1);
-  });
-  renderBars(document.getElementById('chartWeekday'), [...weekdayMap.keys()], [...weekdayMap.values()], Math.max(...weekdayMap.values()) || 1);
+  // Weekday distribution (last 30 days; created_at)
+  const weekdayOrder = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const weekdayCounts = new Array(7).fill(0);
+  all30.forEach(i=>{ const d = new Date(i.created_at).getDay(); weekdayCounts[d]++; });
+  renderLine(document.getElementById('chartWeekday'), weekdayOrder, weekdayCounts);
 
-  // Top 5 commented / upvoted (consider opened+closed)
-  const all = [...opened, ...closed];
-  const mostCommented = [...all].sort((a,b)=> (b.user_notes_count||0) - (a.user_notes_count||0)).slice(0,5);
-  const mostUpvotes   = [...all].sort((a,b)=> (b.upvotes||0) - (a.upvotes||0)).slice(0,5);
+  // Top 5 commented / upvoted (last 30 days for consistency)
+  const mostBase = all30.length ? all30 : [...opened, ...closed30]; // fallback
+  const mostCommented = [...mostBase].sort((a,b)=> (b.user_notes_count||0) - (a.user_notes_count||0)).slice(0,5);
+  const mostUpvotes   = [...mostBase].sort((a,b)=> (b.upvotes||0) - (a.upvotes||0)).slice(0,5);
   const link = (i) => `<a href="${i.web_url}" target="_blank" style="color:var(--accent)">#${i.iid}</a>`;
   document.getElementById('listComments').innerHTML = mostCommented.map(i=> `<li>${link(i)} — ${i.user_notes_count||0} comments</li>`).join('') || '<div style="opacity:.7">—</div>';
   document.getElementById('listUpvotes').innerHTML  = mostUpvotes.map(i=>   `<li>${link(i)} — ${i.upvotes||0} 👍</li>`).join('') || '<div style="opacity:.7">—</div>';
