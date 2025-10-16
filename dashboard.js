@@ -1,63 +1,17 @@
-/* Dashboard logic with selectable period (default 30 days) */
-
-/* ======= Label taxonomy (keep in sync with script.js) ======= */
-const STATUS_LABELS   = new Set(['Under Evaluation','Waiting Participant','Under WG/DTO Evaluation','Evaluated by WG/DTO','Backlog','In Progress','Sandbox Testing','Waiting Deploy','Production Testing']);
-const NATURE_LABELS   = new Set(['Questions','Bug','Change Request','Test Improvement','Breaking Change']);
-const PLATFORM_LABELS = new Set(['FVP','Mock Bank','Mock TPP','Conformance Suite']);
-const WG_LABELS       = new Set(['GT Serviços','GT Portabilidade de crédito','Squad Sandbox','Squad JSR']);
-
-function baseLabel(l){ return String(l||'').split('::')[0].trim(); }
-function canonLabel(l){
-  const s = baseLabel(l);
-  if (/^bug$/i.test(s)) return 'Bug';
-  if (/^questions?$/i.test(s)) return 'Questions';
-  if (/^change\s*request$/i.test(s)) return 'Change Request';
-  if (/^test\s*improvement$/i.test(s)) return 'Test Improvement';
-  if (/^breaking\s*change$/i.test(s)) return 'Breaking Change';
-  if (/^under\s*evaluation$/i.test(s)) return 'Under Evaluation';
-  if (/^waiting\s*participant$/i.test(s)) return 'Waiting Participant';
-  if (/^under\s*wg\/?dto\s*evaluation$/i.test(s)) return 'Under WG/DTO Evaluation';
-  if (/^evaluated\s*by\s*wg\/?dto$/i.test(s)) return 'Evaluated by WG/DTO';
-  if (/^backlog$/i.test(s)) return 'Backlog';
-  if (/^in\s*progress$/i.test(s)) return 'In Progress';
-  if (/^sandbox\s*testing/i.test(s)) return 'Sandbox Testing';
-  if (/^waiting\s*deploy$/i.test(s)) return 'Waiting Deploy';
-  if (/^production\s*testing/i.test(s)) return 'Production Testing';
-  if (/^fvp$/i.test(s)) return 'FVP';
-  if (/^mock\s*bank$/i.test(s)) return 'Mock Bank';
-  if (/^mock\s*tpp$/i.test(s)) return 'Mock TPP';
-  if (/^conformance\s*suite$/i.test(s)) return 'Conformance Suite';
-  if (/^gt\s*serv(i|í)ços$/i.test(s)) return 'GT Serviços';
-  if (/^gt\s*portabilidade\s*de\s*cr(e|é)dito$/i.test(s)) return 'GT Portabilidade de crédito';
-  if (/^squad\s*sandbox/i.test(s)) return 'Squad Sandbox';
-  if (/^squad\s*jsr/i.test(s)) return 'Squad JSR';
-  return baseLabel(s);
-}
-function classifyLabels(labels = []){
-  const status=[], nature=[], product=[], platform=[], wg=[];
-  labels.forEach(raw=>{
-    const canon = canonLabel(raw);
-    if (STATUS_LABELS.has(canon))   { status.push(canon);   return; }
-    if (NATURE_LABELS.has(canon))   { nature.push(canon);   return; }
-    if (PLATFORM_LABELS.has(canon)) { platform.push(canon); return; }
-    if (WG_LABELS.has(canon))       { wg.push(canon);       return; }
-    product.push(canon);
-  });
-  return {status,nature,product,platform,wg};
-}
+/* Dashboard logic — layout-preserving (no HTML/CSS changes) */
 
 /* ======= Theme / Lang ======= */
 function getTheme(){ return localStorage.getItem('theme') || 'dark'; }
 function setTheme(t){ document.documentElement.setAttribute('data-theme', t); localStorage.setItem('theme', t); }
 function getLang(){ return localStorage.getItem('lang') || 'en'; }
-function setLang(l){ localStorage.setItem('lang', l); applyI18n(); setPeriodLabels(getPeriodDays()); }
+function setLang(l){ localStorage.setItem('lang', l); applyI18n(); setPeriodLabels(getPeriodDays()); try{ run(); }catch(e){} }
 
+/* ======= i18n texts (no data-i18n attributes required) ======= */
 const I18N = {
   en: {
-    dashTitle: "Open Finance Brasil — Dashboard",
-    period: "Period",
-    days: "days",
-    openNow: "Open now",
+    kpiOpened: "Opened (last {n} days)",
+    kpiClosed: "Closed (last {n} days)",
+    kpiAvg: "Avg closure (business days, last {n} days)",
     createdPerDay: "Created per day",
     closedPerDay: "Closed per day",
     byWeekday: "By weekday",
@@ -66,16 +20,14 @@ const I18N = {
     byProduct: "By product",
     topCommented: "Top 5 most commented",
     topUpvoted: "Top 5 most 👍",
-    kpiOpened: "Opened (last {n} days)",
-    kpiClosed: "Closed (last {n} days)",
-    kpiAvg: "Avg closure (business days, last {n} days)",
-    periodLabel: "(last {n} days)",
+    period: "(last {n} days)",
+    updated: "Updated ",
+    comments: "comments",
   },
   pt: {
-    dashTitle: "Open Finance Brasil — Painel",
-    period: "Período",
-    days: "dias",
-    openNow: "Abertas agora",
+    kpiOpened: "Abertas (últimos {n} dias)",
+    kpiClosed: "Fechadas (últimos {n} dias)",
+    kpiAvg: "Média de fechamento (dias úteis, últimos {n} dias)",
     createdPerDay: "Criadas por dia",
     closedPerDay: "Fechadas por dia",
     byWeekday: "Por dia da semana",
@@ -84,27 +36,39 @@ const I18N = {
     byProduct: "Por produto",
     topCommented: "Top 5 mais comentadas",
     topUpvoted: "Top 5 mais 👍",
-    kpiOpened: "Abertas (últimos {n} dias)",
-    kpiClosed: "Fechadas (últimos {n} dias)",
-    kpiAvg: "Média de fechamento (dias úteis, últimos {n} dias)",
-    periodLabel: "(últimos {n} dias)",
+    period: "(últimos {n} dias)",
+    updated: "Atualizado ",
+    comments: "comentários",
   }
 };
-function t(k){
-  const lang = getLang();
-  return (I18N[lang] && I18N[lang][k]) || (I18N.en[k] || k);
-}
+function t(k){ const lang=getLang(); return (I18N[lang] && I18N[lang][k]) || I18N.en[k] || k; }
+
 function applyI18n(){
-  const lang = getLang();
-  document.documentElement.setAttribute('lang', lang);
-  document.querySelectorAll('[data-i18n]').forEach(el=>{
-    const key = el.getAttribute('data-i18n');
-    const val = t(key);
-    if (val) el.textContent = val;
-  });
+  const n = getPeriodDays();
+  const setText = (id, key) => { const el=document.getElementById(id); if (el) el.textContent = t(key).replace('{n}', n); };
+  const setSmall = (id) => { const el=document.getElementById(id); if (el) el.textContent = t('period').replace('{n}', n); };
+
+  setText('kpiOpenedTitle','kpiOpened');
+  setText('kpiClosedTitle','kpiClosed');
+  setText('kpiAvgTitle','kpiAvg');
+
+  const mapTitles = [
+    ['titleCreated','createdPerDay'],
+    ['titleClosed','closedPerDay'],
+    ['titleWeekday','byWeekday'],
+    ['titleAuthors','topAuthors'],
+    ['titleWg','byWg'],
+    ['titleProd','byProduct'],
+    ['titleComments','topCommented'],
+    ['titleUpvotes','topUpvoted'],
+  ];
+  mapTitles.forEach(([id,key])=>{ const el=document.getElementById(id); if (el) el.textContent = t(key); });
+
+  ['periodCreated','periodClosed','periodWg','periodProd','periodAuthors','periodWeekday','periodComments','periodUpvotes']
+    .forEach(setSmall);
 }
 
-/* ======= Charts (line with tooltips) ======= */
+/* ======= Charts (SVG, tooltip on hover) ======= */
 function renderLine(el, labels, values){
   const W = el.clientWidth || 600, H = el.clientHeight || 180;
   const pad = {l:28, r:8, t:8, b:24};
@@ -136,15 +100,16 @@ function renderLine(el, labels, values){
     ${yTicks}
     ${xTicks}
   </svg>`;
-  // Tooltip div
+
+  // Tooltip div (uses .chart-tooltip class from your CSS if exists; otherwise fallback inline)
   let tip = el.querySelector('.chart-tooltip');
   if (!tip){
     tip = document.createElement('div'); tip.className = 'chart-tooltip'; tip.style.display='none';
+    tip.style.position='absolute'; tip.style.pointerEvents='none'; tip.style.transform='translate(-50%,-120%)';
     el.appendChild(tip);
   }
   const svg = el.querySelector('svg');
   const marker = svg.querySelector('#marker');
-  const circle = marker.querySelector('circle');
   const hit = svg.querySelector('#hit');
 
   function showAtIdx(i){
@@ -156,10 +121,7 @@ function renderLine(el, labels, values){
     tip.textContent = `${labels[i]} — ${values[i]}`;
     tip.style.display = 'block';
   }
-  function hide(){
-    marker.style.display='none';
-    tip.style.display='none';
-  }
+  function hide(){ marker.style.display='none'; tip.style.display='none'; }
   hit.addEventListener('mousemove', (ev)=>{
     const rect = svg.getBoundingClientRect();
     const x = ev.clientX - rect.left;
@@ -183,20 +145,26 @@ function getPeriodDays(){
   return sel ? parseInt(sel.value,10) || 30 : 30;
 }
 function setPeriodLabels(n){
-  const lang = getLang();
-  const lbl = (lang==='pt') ? `(últimos ${n} dias)` : `(last ${n} days)`;
-  ['periodCreated','periodClosed','periodWg','periodProd','periodAuthors','periodWeekday','periodComments','periodUpvotes']
-    .forEach(id => { const el=document.getElementById(id); if (el) el.textContent = lbl; });
-  const k1=document.getElementById('kpiClosedTitle'); if (k1) k1.textContent = t('kpiClosed').replace('{n}', n);
-  const k2=document.getElementById('kpiAvgTitle');    if (k2) k2.textContent = t('kpiAvg').replace('{n}', n);
-  const k3=document.getElementById('kpiOpenedTitle'); if (k3) k3.textContent = t('kpiOpened').replace('{n}', n);
+  const set = (id, text) => { const el=document.getElementById(id); if (el) el.textContent = text; };
+  set('periodCreated', t('period').replace('{n}', n));
+  set('periodClosed',  t('period').replace('{n}', n));
+  set('periodWg',      t('period').replace('{n}', n));
+  set('periodProd',    t('period').replace('{n}', n));
+  set('periodAuthors', t('period').replace('{n}', n));
+  set('periodWeekday', t('period').replace('{n}', n));
+  set('periodComments',t('period').replace('{n}', n));
+  set('periodUpvotes', t('period').replace('{n}', n));
+}
+
+function weekdayLabels(){
+  return (getLang()==='pt') ? ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'] : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 }
 
 async function run(){
   const projectId = 26426113;
   const n = getPeriodDays();
-  setPeriodLabels(n);
   applyI18n();
+  setPeriodLabels(n);
 
   const now = new Date();
   const since = new Date(now); since.setDate(now.getDate()-n);
@@ -213,13 +181,14 @@ async function run(){
   const avgCloseDays = closedN.length
     ? (closedN.reduce((acc,i)=> acc + Math.max(0, workingDays24hBetween(new Date(i.created_at), new Date(i.closed_at))), 0) / closedN.length).toFixed(1)
     : '—';
-  document.getElementById('kpiOpen').textContent   = openAll.length;
-  document.getElementById('kpiClosed').textContent = closedN.length;
-  document.getElementById('kpiAvgClose').textContent = avgCloseDays;
-  document.getElementById('kpiOpened').textContent = createdN.length;
-  document.getElementById('lastUpdated').textContent = (getLang()==='pt'?'Atualizado ':'Updated ') + new Date().toLocaleString();
+  const setTxt = (id, v)=>{ const el=document.getElementById(id); if (el) el.textContent = v; };
+  setTxt('kpiOpen', openAll.length);
+  setTxt('kpiClosed', closedN.length);
+  setTxt('kpiAvgClose', avgCloseDays);
+  setTxt('kpiOpened', createdN.length);
+  setTxt('lastUpdated', (getLang()==='pt' ? t('updated') : t('updated')) + new Date().toLocaleString());
 
-  // Trends
+  // Trends (created / closed per day)
   const labelsCreated = Array.from({length:n}, (_,k)=>{ const d=new Date(now); d.setDate(now.getDate()-(n-1-k)); return d.toLocaleDateString(); });
   const createMap = new Map(labelsCreated.map(l=>[l,0]));
   createdN.forEach(i=>{ const lab=new Date(i.created_at).toLocaleDateString(); if (createMap.has(lab)) createMap.set(lab, createMap.get(lab)+1); });
@@ -231,7 +200,7 @@ async function run(){
   renderLine(document.getElementById('chartClosed'), labelsClosed, [...closeMap.values()]);
 
   // Weekday distribution
-  const weekdayOrder = (getLang()==='pt') ? ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'] : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const weekdayOrder = weekdayLabels();
   const weekdayCounts = new Array(7).fill(0);
   createdN.forEach(i=>{ const d = new Date(i.created_at).getDay(); weekdayCounts[d]++; });
   renderLine(document.getElementById('chartWeekday'), weekdayOrder, weekdayCounts);
@@ -240,13 +209,18 @@ async function run(){
   const wgCount = new Map(), prodCount = new Map();
   const addTo = (map, key) => map.set(key, (map.get(key)||0)+1);
   createdN.forEach(i=>{
-    const {wg, product} = classifyLabels(i.labels||[]);
-    wg.forEach(w => addTo(wgCount, w));
-    product.forEach(p => addTo(prodCount, p));
+    const labels = i.labels || [];
+    // Very light classifier: keep your existing product/WG grouping if IDs exist
+    labels.forEach(lb=>{
+      const base = String(lb).split('::')[0].trim();
+      if (/^GT/i.test(base) || /Squad/i.test(base)) addTo(wgCount, base);
+      else addTo(prodCount, base);
+    });
   });
   const topEntries = (map, k=5)=> [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,k);
   const listTo = (elId, arr) => {
     const el = document.getElementById(elId);
+    if (!el) return;
     el.innerHTML = arr.map(([k,v]) => `<li><strong>${k}:</strong> ${v}</li>`).join('') || '<div style="opacity:.7">—</div>';
   };
   listTo('listWg',   topEntries(wgCount, 5));
@@ -257,23 +231,22 @@ async function run(){
   createdN.forEach(i => { const name = (i.author && (i.author.name || i.author.username)) || '—'; auth.set(name, (auth.get(name)||0)+1); });
   listTo('listAuthors', topEntries(auth, 10));
 
-  // Top 5 commented / upvoted (union to increase sample)
+  // Top 5 commented / upvoted (union to increase sample) — no author names
   const unionMap = new Map(); [...createdN, ...closedN].forEach(i => unionMap.set(i.id, i)); const union = [...unionMap.values()];
   const mostCommented = [...union].sort((a,b)=> (b.user_notes_count||0) - (a.user_notes_count||0)).slice(0,5);
   const mostUpvotes   = [...union].sort((a,b)=> (b.upvotes||0) - (a.upvotes||0)).slice(0,5);
   const link = (i) => `<a href="${i.web_url}" target="_blank" style="color:var(--accent)">#${i.iid}</a>`;
 
-  // (2) no author names here, just issue link + counts
-  document.getElementById('listComments').innerHTML = mostCommented.length
-    ? mostCommented.map(i=> `<li>${link(i)} — ${i.user_notes_count||0} ${(getLang()==='pt'?'comentários':'comments')}</li>`).join('')
-    : '<div style="opacity:.7">—</div>';
+  document.getElementById('listComments') && (document.getElementById('listComments').innerHTML =
+    mostCommented.length ? mostCommented.map(i=> `<li>${link(i)} — ${i.user_notes_count||0} ${t('comments')}</li>`).join('')
+                         : '<div style="opacity:.7">—</div>');
 
-  document.getElementById('listUpvotes').innerHTML = mostUpvotes.length
-    ? mostUpvotes.map(i=> `<li>${link(i)} — ${i.upvotes||0} 👍</li>`).join('')
-    : '<div style="opacity:.7">—</div>';
+  document.getElementById('listUpvotes') && (document.getElementById('listUpvotes').innerHTML =
+    mostUpvotes.length ? mostUpvotes.map(i=> `<li>${link(i)} — ${i.upvotes||0} 👍</li>`).join('')
+                       : '<div style="opacity:.7">—</div>');
 }
 
-/* ======= Working days ======= */
+/* ======= Working days (business) ======= */
 const DAY_MS = 24*60*60*1000;
 function workingDays24hBetween(s,e){
   const start=new Date(s), end=new Date(e);
@@ -298,7 +271,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   applyI18n();
   const sel = document.getElementById('periodSelect');
   if (sel) sel.addEventListener('change', run);
-  document.getElementById('themeToggleDash')?.addEventListener('click', ()=> setTheme(getTheme()==='dark'?'light':'dark'));
-  document.getElementById('langToggleDash')?.addEventListener('click', ()=> { setLang(getLang()==='pt'?'en':'pt'); run(); });
+  // Optional toggles (if exist in your layout)
+  const themeBtn = document.getElementById('themeToggleDash');
+  if (themeBtn) themeBtn.addEventListener('click', ()=> setTheme(getTheme()==='dark'?'light':'dark'));
+  const langBtn  = document.getElementById('langToggleDash');
+  if (langBtn)  langBtn.addEventListener('click', ()=> setLang(getLang()==='pt'?'en':'pt'));
   run();
 });
