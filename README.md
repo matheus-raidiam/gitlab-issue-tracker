@@ -1,98 +1,135 @@
 # GitLab Issues SLA Dashboard
 
-Um dashboard estático e leve para monitorar **issues** do GitLab (Open Finance + Open Insurance), com lógica de **SLA**, filtros, ordenação e comentários locais.
-
-🌐 **Demo:** [draftdashsla.netlify.app](https://draftdashsla.netlify.app/)
+Um dashboard **estático e leve** para monitorar issues do GitLab (Open Finance / Open Insurance), com **regras de SLA**, **filtros**, **ordenação**, **comentários locais** e uma página de **dashboard** com indicadores e tendências.
 
 ---
 
-## 🎯 Objetivo
-
-Auxiliar o time de Service a triar rapidamente os issues, mostrando:
-
-- Quantos dias úteis cada issue está aberta (exclui finais de semana e feriados nacionais do Brasil — 2025 a 2030);
-- Status em relação ao SLA: **Within SLA, Over SLA, SLA Paused, No SLA**;
-- Agrupamento de labels por **Nature, Phase, Platform, Product, Status**;
-- Filtros rápidos e comentários por issue, salvos no navegador.
+## 🔎 O que é (e o que resolve)
+- **Triagem rápida** de issues: quem abriu, quando, há quantos dias úteis está em aberto e como está versus o **SLA**.
+- **Fechadas por período**: visualize issues **fechadas** em qualquer intervalo de datas (padrão inicial: **7 dias**).
+- **Visão executiva**: **Dashboard** com KPIs, séries temporais (linhas) e rankings (autores, WGs, produtos etc.), todos com **seletor de período** (padrão: **30 dias**).
 
 ---
 
-## ⚙️ Funcionalidades
+## 🧭 Páginas & Navegação
+**View →**
+1. **Open issues** – lista de issues abertas.
+2. **Closed issues** – issues fechadas, com **intervalo customizável** (início e fim).
+3. **Dashboard** – KPIs e gráficos, com **seletor de período** (7/14/30/60/90).
 
-- **Projetos monitorados**  
-  - Open Finance (OPF): `raidiam-conformance/open-finance/certification`  
-  - Open Insurance (OPIN): `raidiam-conformance/open-insurance/open-insurance-brasil`
-
-- **Visões**  
-  - Issues abertos (`Open issues`)  
-  - Issues fechados nos últimos 7 dias (`Closed in last 7 days`, via `closed_at`)
-
-- **Taxonomia de Labels**  
-  - **Nature:** `Questions`, `Bug`, `Change Request`, `Test Improvement`, `Breaking Change`  
-  - **Phase:** `Phase 1`, `Phase 2`, `Phase 3`, `Phase 4a`, `Phase 4b`  
-  - **Platform:** `FVP`, `Mock Bank`, `Mock TPP`, `Conformance Suite`  
-  - **Status:** `Under Evaluation`, `Waiting Participant`, `Under WG/DTO Evaluation`, `In Pipeline`, `Sandbox Testing`, `Waiting Deploy`, `Production Testing`  
-  - **Product:** qualquer label que não seja Nature, Phase, Platform ou Status
-
-- **Regras de SLA (dias úteis)**  
-  - `Bug` e `Questions` → 10 dias  
-  - `Under Evaluation` **ou sem Nature** → 3 dias  
-  - `Change Request`, `Test Improvement`, `Breaking Change` → **sem SLA**  
-  - **Status pausam SLA** → `Under WG/DTO Evaluation`, `Waiting Participant`, `In Pipeline`, `Sandbox Testing`, `Waiting Deploy`, `Production Testing`  
-  - Outros → **No SLA**  
-
-  > ⚠️ *Dias úteis continuam correndo mesmo durante SLA Paused; o contador não congela.*
-
-- **Interface**  
-  - Filtros por chips (Nature, Phase, Platform, Status, Product)  
-  - Ordenação por coluna (ID, Título, Criado em, Working Days, SLA) com setas ↑↓  
-  - Contadores de resumo: **Total, SLA-applicable, Over SLA**  
-  - Estados vazios explicativos  
-  - Botões: **Refresh, Reset filters, Clear all comments**  
-  - Links diretos para as listas de issues no GitLab  
-  - Tema **dark**
-
-- **Comentários locais**  
-  - Campo de texto inline + botão **Edit** que abre modal para edição maior  
-  - Salvos em `localStorage` (limpos se o cache do navegador for apagado)
+Troque entre **dark / light** e **PT / EN** a qualquer momento. A preferência é salva em `localStorage` e é **sincronizada** entre a lista e o dashboard. O site abre **em dark** por padrão.
 
 ---
 
-## 🚀 Como rodar localmente
+## 🧩 Principais Funcionalidades
 
-1. Baixe os três arquivos: `index.html`, `styles.css`, `script.js`
-2. Coloque todos na mesma pasta
-3. Abra `index.html` direto no navegador
+- **SLA em dias úteis**
+  - Cálculo de **dias úteis** (desconsidera fins de semana).
+  - Classificação visível por chip (ex.: _Within SLA_, _Over SLA_, _No SLA_, _Paused_).
+  - Regras de SLA configuráveis (limiares e status que pausam).
 
-> ⚡ Não precisa de build, servidor ou variáveis de ambiente.  
-> Tudo roda via chamadas públicas da API do GitLab.
+- **Taxonomia de labels**
+  Labels agrupadas automaticamente em **Nature**, **Status**, **Platform**, **Working Group (WG)** e **Product**.
+  (Qualquer label fora das famílias reconhecidas cai em **Product**.)
 
----
+- **Filtros e ordenação**
+  - Filtros por chips (multi-seleção).
+  - Ordenação por **ID**, **Título**, **Criado em**, **Working Days**, **SLA** etc., com setas ↑↓.
+  - **Reset filters** com um clique.
 
-## 🌐 Deploy
+- **Comentários por issue (locais)**
+  - Campo inline + edição expandida em modal.
+  - Salvos no navegador (`localStorage`).
+  - **Clear all comments** disponível.
 
-Para publicar em plataformas como **Netlify** ou **Vercel**:
-
-1. Suba os arquivos para um repositório (GitHub, GitLab etc.)
-2. Conecte o repositório na plataforma de deploy
-3. Configure como site **estático**
-
----
-
-## 📁 Estrutura
-
-<img src="./estrutura-projeto.png" alt="Estrutura do projeto" width="500"/>
----
-
-## 📌 Limitações
-
-- Assume a taxonomia de labels definida acima  
-- Não considera feriados estaduais ou municipais  
-- Apenas issues abertos ou fechados nos últimos 7 dias  
-- Comentários armazenados apenas no navegador (sem backend)
+- **Dashboard (Executivo)**
+  - **KPIs**: Abertas, Fechadas, Abertas no período, Tempo médio de fechamento (dias úteis).
+  - **Tendências** (linhas): Criadas por dia, Fechadas por dia.
+  - **Distribuições & Rankings**: por **dia da semana**, **Top autores**, **Top WGs**, **Top produtos**, **Top comentadas / 👍**.
+  - **Seletor de período** global aplicado a todos os cards.
 
 ---
 
-## 🙏 Créditos
+## ⚙️ Como rodar (local)
 
-Construído como **prova de conceito (PoC)** para apoiar a triagem rápida de issues nos ecossistemas Open Finance e Open Insurance Brasil.
+1) Baixe estes arquivos para a mesma pasta:
+```
+index.html
+styles.css
+script.js
+dashboard.html
+dashboard.css
+dashboard.js
+```
+2) Abra `index.html` no navegador.
+
+> É 100% **estático**. Não precisa build, servidor nem variáveis de ambiente.
+
+---
+
+## 🚀 Deploy (Netlify / Vercel / GitHub Pages)
+
+1) Suba os arquivos para um repositório.
+2) Configure o provedor para servir como **site estático** a partir da raiz.
+3) (Opcional) Configure domínio.
+> As chamadas são à **API pública do GitLab**; verifique limites de rate-limit em caso de alto tráfego.
+
+---
+
+## 🔧 Configuração (onde mexer)
+
+- **Projetos GitLab**
+  - Em `script.js`/`dashboard.js`, ajuste os `projectId` das chamadas de API.
+
+- **Regras de SLA**
+  - Em `script.js`, edite os **thresholds** (dias úteis) e status que **pausam** o SLA.
+
+- **Taxonomia de labels**
+  - Em `script.js` e `dashboard.js`, edite os conjuntos de labels reconhecidos (Nature, Status, Platform, WG).
+  - Labels fora dessas famílias são tratadas como **Product**.
+
+- **Períodos padrão**
+  - **Closed issues**: inicial **7 dias** (alterável na UI).
+  - **Dashboard**: inicial **30 dias** (alterável via seletor).
+
+- **Idioma & Tema**
+  - Chaves simples PT/EN; adicione traduções se criar novos textos.
+  - Tema **dark** por padrão; toggle sincronizado entre páginas.
+
+---
+
+## 🗂️ Estrutura sugerida
+```
+/ (raiz)
+ ├─ index.html          # Lista (open/closed) + filtros, SLA, comentários
+ ├─ styles.css          # Estilos globais, chips, tabelas, dark/light
+ ├─ script.js           # Lógica (fetch GitLab, SLA, filtros, i18n, tema)
+ ├─ dashboard.html      # Página executiva
+ ├─ dashboard.css       # Estilos do dashboard
+ └─ dashboard.js        # KPIs, gráficos (SVG), rankings, período global
+```
+
+---
+
+## 🧪 Dicas & Troubleshooting
+
+- **“Nada aparece”**
+  - Verifique o _Console_ do navegador (erros de sintaxe interrompem o JS).
+  - Confirme conectividade com `gitlab.com` (algumas redes bloqueiam).
+
+- **Limite da API**
+  - A API pública do GitLab possui rate-limit. Requisições em excesso podem retornar 429.
+
+- **Comentários sumiram**
+  - Os comentários são locais (navegador). Limpeza de dados do site apaga os textos.
+
+- **Tema/idioma não aplicam**
+  - Faça **hard refresh** (Ctrl/Cmd+Shift+R).
+  - Confira `localStorage.lang` e `localStorage.theme`.
+
+---
+
+## 📌 Roadmap (sugestões)
+- Exportar CSV/Excel das listas filtradas.
+- Breakdown por **Nature**/**Status** no dashboard.
+- Cache leve por sessão para reduzir chamadas à API.
