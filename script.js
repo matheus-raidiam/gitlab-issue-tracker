@@ -24,7 +24,7 @@ const I18N = {
     intro: "This dashboard pulls issues from the Open Finance GitLab project and gives a quick view of SLA risk, activity, and context. Use filters, sorting, and local notes to faster triage.",
     view: "View:",
     openIssues: "Open issues",
-    closed14: "Closed (last 14 days)",
+    closed14: "Closed",
     refresh: "Refresh",
     clearAll: "Clear All Comments",
     resetFilters: "Reset Filters",
