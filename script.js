@@ -24,7 +24,7 @@ const I18N = {
     intro: "This dashboard pulls issues from the Open Finance GitLab project and gives a quick view of SLA risk, activity, and context. Use filters, sorting, and local notes to faster triage.",
     view: "View:",
     openIssues: "Open issues",
-    closed14: "Issues fechadas",
+    closed14: "Closed (last 14 days)",
     refresh: "Refresh",
     clearAll: "Clear All Comments",
     resetFilters: "Reset Filters",
@@ -74,6 +74,7 @@ const I18N = {
     lhNoEvents: "(no events found)",
     lhADD: "ADD",
     lhREMOVE: "REMOVE",
+    dashboardView: "Dashboard",
   },
   pt: {
     title: "Open Finance Brasil - GitLab Issues",
@@ -130,14 +131,26 @@ const I18N = {
     lhNoEvents: "(nenhum evento encontrado)",
     lhADD: "ADD",
     lhREMOVE: "REMOVE",
+    dashboardView: "Dashboard",
   }
 };
 function applyI18n(){
   const lang = getLang();
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     const k = el.getAttribute('data-i18n');
-    if (I18N[lang][k]) el.textContent = I18N[lang][k];
+    if (I18N[lang] && I18N[lang][k]) el.textContent = I18N[lang][k];
   });
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{
+    const k = el.getAttribute('data-i18n-html');
+    const arrowFor = el.querySelector('.sort-arrow')?.dataset.for || '';
+    el.innerHTML = (I18N[lang] && I18N[lang][k]) ? I18N[lang][k] : el.innerHTML;
+    if (arrowFor) el.innerHTML += ` <span class="sort-arrow" data-for="${arrowFor}"></span>`;
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el=>{
+    const k = el.getAttribute('data-i18n-title');
+    if (I18N[lang] && I18N[lang][k]) el.title = I18N[lang][k];
+  });
+});
   document.querySelectorAll('[data-i18n-html]').forEach(el=>{
     const k = el.getAttribute('data-i18n-html');
     if (I18N[lang][k]) el.innerHTML = I18N[lang][k] + ` <span class="sort-arrow" data-for="${el.querySelector('.sort-arrow')?.dataset.for||''}"></span>`;
@@ -437,7 +450,7 @@ function computeWorkingDaysContext(issue, now, mode){
   displayEnd = lastBusinessInstant(displayEnd);
 
   const eventsTxt = (issue._statusTimeline||[])
-    .map(e=>` - ${fmtLocal(e.when)}  -  ${t('lh' + e.action.toUpperCase())} ${e.label}`)
+    .map(e=>` - ${fmtLocal(e.when)} - ${t('lh' + e.action.toUpperCase())} ${e.label}`)
     .join('\n') || ` ${t('lhNoEvents')}`;
 
   const body =
@@ -457,22 +470,20 @@ ${eventsTxt}`;
 /* ========== DATA ========== */
 function setLoading(on) { const el = document.getElementById('loading'); if (el) el.style.display = on ? 'block' : 'none'; }
 
-function updateSubtitle(){
-  const mode = getViewMode();
-  const a = document.getElementById('issuesSubtitle');
-  if (!a) return;
-  a.textContent = mode==='closed14' ? t('closedIssuesTitle') : t('openedIssuesTitle');
+function updateSubtitle(){ const a=document.getElementById('issuesSubtitle'); if (!a) return; a.textContent = (getViewMode()==='closed14') ? t('closedIssuesTitle') : t('openedIssuesTitle'); } - ${getLang()==='pt' ? 'nos últimos 14 dias' : 'in last 14 days'}`
+    : t('openedIssuesTitle');
 }
 
-
-async function loadAllIssues() {
+async function loadAllIssues(){
+  if (getViewMode()==='dashboard'){ window.location.href='dashboard.html'; return; }
   setLoading(true);
   issues.finance = [];
 
   const mode = getViewMode();
   updateSubtitle();
 
-  const dateLbl = document.getElementById('finance-date-label'); if (dateLbl) dateLbl.textContent = mode === 'closed14' ? (getLang()==='pt'?'Fechada em':'Closed at') : t('createdAt');
+  const dateLbl = document.getElementById('finance-date-label'); if (dateLbl) dateLbl.textContent = (getViewMode()==='closed14') ? (getLang()==='pt'?'Fechada em':'Closed at') : t('createdAt');
+  if (dateLbl) dateLbl.textContent = (getViewMode()==='closed14') ? (getLang()==='pt'?'Fechada em':'Closed at') : t('createdAt');
 
   await loadProjectIssues(26426113, 'finance');
 
@@ -538,7 +549,7 @@ function renderIssues() {
     const sla = (mode === 'closed14') ? { type:'none', days:null } : getSLAFor(i.labels || []);
     const base = { ...i, daysOpen: daysOpenRaw, dateCol: (mode === 'closed14' && i.closed_at) ? i.closed_at : i.created_at, sla };
     const { text, rank, class: klass } = (mode === 'closed14')
-      ? { text:' - ', rank:-1, class:'nosla' }
+      ? { text:'-', rank:-1, class:'nosla' }
       : slaLabelAndRank(base);
     return { ...base, slaText: text, slaRank: rank, slaClass: klass };
   });
@@ -555,8 +566,8 @@ function renderIssues() {
         (mode === 'closed14')
           ? (getLang()==='pt'?'0 issues públicas fechadas':'0 public closed issues')
           : (getLang()==='pt'
-              ? '0 issues públicas abertas  -  SLA aplicável: 0, Fora do SLA: 0, Sem SLA: 0'
-              : '0 public open issues  -  SLA-applicable: 0, Over SLA: 0, No SLA: 0');
+              ? '0 issues públicas abertas - SLA aplicável: 0, Fora do SLA: 0, Sem SLA: 0'
+              : '0 public open issues - SLA-applicable: 0, Over SLA: 0, No SLA: 0');
     }
     updateSortArrows('finance-table');
     return;
@@ -597,7 +608,7 @@ function renderIssues() {
     const clsFor = (l) => (l==='Bug' ? ' badge-bug' : (l==='Under WG/DTO Evaluation' ? ' badge-ugdto' : ''));
     const badge = arr => arr.length
       ? arr.map(l=>`<span class="badge${clsFor(l)}">${escapeHtml(l)}</span>`).join(' ')
-      : '<span style="opacity:.5;"> - </span>';
+      : '<span style="opacity:.5;">-</span>';
 
     total++;
 
@@ -613,7 +624,7 @@ function renderIssues() {
     }
 
     // Working Days cell
-    let wdCellHtml = ' - ';
+    let wdCellHtml = '-';
     let historyBody = '';
     if (!nosla) {
       let netDays = issue.daysOpen;
@@ -667,10 +678,15 @@ function renderIssues() {
   });
 
   if (summaryEl) {
-    summaryEl.textContent =
-      (getLang()==='pt'
-        ? `${total} issues públicas abertas  -  SLA aplicável: ${applicable}, Fora do SLA: ${over}, Sem SLA: ${noslaCount}`
-        : `${total} public open issues  -  SLA-applicable: ${applicable}, Over SLA: ${over}, No SLA: ${noslaCount}`);
+    if (getViewMode()==='closed14'){
+      summaryEl.textContent = (getLang()==='pt')
+        ? `${sorted.length} issues públicas fechadas`
+        : `${sorted.length} public closed issues`;
+    } else {
+      summaryEl.textContent = (getLang()==='pt'
+        ? `${total} issues públicas abertas - SLA aplicável: ${applicable}, Fora do SLA: ${over}, Sem SLA: ${noslaCount}`
+        : `${total} public open issues - SLA-applicable: ${applicable}, Over SLA: ${over}, No SLA: ${noslaCount}`);
+    }
   }
 
   updateSortArrows('finance-table');
@@ -682,7 +698,7 @@ function openHistoryModal(issue){
   const title = document.getElementById('noteEditorTitle');
   const body  = document.getElementById('labelHistoryBody');
   if (!modal || !title || !body) return;
-  title.innerHTML = `<a href="${issue.web_url}" target="_blank" style="color:var(--accent)">#${issue.iid}</a>  -  ${escapeHtml(issue.title)}`;
+  title.innerHTML = `<a href="${issue.web_url}" target="_blank" style="color:var(--accent)">#${issue.iid}</a> - ${escapeHtml(issue.title)}`;
   body.textContent = issue._historyBody || 'Label history unavailable.';
   modal.style.display = 'block';
 }
@@ -736,7 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const mBody  = document.getElementById('labelHistoryBody');
       if (!m || !mTitle || !mBody) return;
 
-      mTitle.innerHTML = `<a href="${url}" target="_blank" style="color:var(--accent)">#${iid}</a>  -  ${escapeHtml(title)}`;
+      mTitle.innerHTML = `<a href="${url}" target="_blank" style="color:var(--accent)">#${iid}</a> - ${escapeHtml(title)}`;
       mBody.innerHTML =
         `<textarea id="noteEditorTextarea" style="width:100%;min-height:240px">${escapeHtml(val)}</textarea>
          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
