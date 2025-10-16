@@ -5,7 +5,7 @@ const tableSort = { 'finance-table': { key: 'iid', asc: false } };
 let USE_LABEL_EVENTS = JSON.parse(localStorage.getItem('use_label_events') || 'false');
 function updateLabelHistoryToggle(){
   const b = document.getElementById('labelHistoryToggle');
-  if (b){ b.classList.toggle('on', !!USE_LABEL_EVENTS); }
+  if (b) b.textContent = `Label history: ${USE_LABEL_EVENTS ? 'ON':'OFF'}`;
 }
 
 /* Theme & Language */
@@ -74,10 +74,7 @@ const I18N = {
     lhNoEvents: "(no events found)",
     lhADD: "ADD",
     lhREMOVE: "REMOVE",
-    dashboardView: "Dashboard",
-    fromLbl: "From:",
-    toLbl: "To:",
-    applyRange: "Apply",},
+  },
   pt: {
     title: "Open Finance Brasil - GitLab Issues",
     intro: "Este dashboard consulta issues do Open Finance Brasil no GitLab e oferece uma visão de SLA, atividade e contexto. Use filtros, ordenação e notas locais para uma triagem mais rápida.",
@@ -140,10 +137,7 @@ function applyI18n(){
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     const k = el.getAttribute('data-i18n');
     if (I18N[lang][k]) el.textContent = I18N[lang][k];
-  }
-
-// Initialize closed range defaults (last 7 days)
-);
+  });
   document.querySelectorAll('[data-i18n-html]').forEach(el=>{
     const k = el.getAttribute('data-i18n-html');
     if (I18N[lang][k]) el.innerHTML = I18N[lang][k] + ` <span class="sort-arrow" data-for="${el.querySelector('.sort-arrow')?.dataset.for||''}"></span>`;
@@ -375,6 +369,7 @@ function updateSortArrows(tableId) {
   if (arrow) arrow.textContent = s.asc ? '▲' : '▼';
 }
 function getViewMode() { return document.getElementById('viewMode').value; }
+
 /* ========== Label events via Netlify proxy ========== */
 async function fetchLabelEvents(projectId, iid){
   if (!USE_LABEL_EVENTS) return [];
@@ -466,12 +461,8 @@ function updateSubtitle(){
   const mode = getViewMode();
   const a = document.getElementById('issuesSubtitle');
   if (!a) return;
-  a.textContent = (mode==='closed14') ? t('closedIssuesTitle') : t('openedIssuesTitle');
-} — ${getLang()==='pt' ? 'de' : 'from'} ${sTxt} ${getLang()==='pt' ? 'a' : 'to'} ${eTxt}`;
-  } else {
-    a.textContent = t('openedIssuesTitle');
-  }
-} — ${getLang()==='pt' ? 'nos últimos 14 dias' : 'in last 14 days'}`
+  a.textContent = (mode==='closed14')
+    ? `${t('closedIssuesTitle')} — ${getLang()==='pt' ? 'nos últimos 14 dias' : 'in last 14 days'}`
     : t('openedIssuesTitle');
 }
 
@@ -481,10 +472,11 @@ async function loadAllIssues() {
 
   const mode = getViewMode();
   updateSubtitle();
-  
 
   const dateLbl = document.getElementById('finance-date-label');
   if (dateLbl) dateLbl.textContent = (getViewMode()==='closed14') ? (getLang()==='pt'?'Fechada em':'Closed at') : t('createdAt');
+
+    if (dateLbl) dateLbl.textContent = mode === 'closed14' ? t('closedAt') || (getLang()==='pt'?'Fechado em':'Closed At') : t('createdAt');
 
   await loadProjectIssues(26426113, 'finance');
 
@@ -497,8 +489,8 @@ async function loadAllIssues() {
 async function loadProjectIssues(projectId, key) {
   const mode = getViewMode();
   const now = new Date();
-const fourteenDaysAgo = new Date(now); fourteenDaysAgo.setDate(now.getDate() - 14);
-const since = fourteenDaysAgo.toISOString();
+  const fourteenDaysAgo = new Date(now); fourteenDaysAgo.setDate(now.getDate() - 14);
+  const since = fourteenDaysAgo.toISOString();
 
   let url = `https://gitlab.com/api/v4/projects/${projectId}/issues?per_page=100`;
   url += (mode === 'closed14') ? `&state=closed&updated_after=${encodeURIComponent(since)}` : `&state=opened`;
@@ -510,9 +502,9 @@ const since = fourteenDaysAgo.toISOString();
 
     let list = data.map(issue => ({ ...issue, projectId }));
     if (mode === 'closed14') {
-  const cutoff = new Date(since);
-  list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff);
-}
+      const cutoff = new Date(since);
+      list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff);
+    }
 
     if (USE_LABEL_EVENTS && mode !== 'closed14') {
       for (const it of list) {
@@ -638,11 +630,7 @@ function renderIssues() {
 
     const slaCell = `<span class="${issue.slaClass}">${issue.slaText}</span>`;
     const key = `comment-${issue.projectId}-${issue.iid}`;
-    const saved = localStorage.getItem(key) || '';"]`);
-      if (ta && ta.value !== txt){ ta.value = txt; localStorage.setItem(key, txt); }
-    }
-  });
-}
+    const saved = localStorage.getItem(key) || '';
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -714,7 +702,7 @@ function closeEditor(){
 
 /* ========== INIT ========== */
 document.addEventListener('DOMContentLoaded', () => {
-   setTheme(getTheme());
+  setTheme(getTheme());
   applyI18n();
 
   const themeBtn = document.getElementById('themeToggle');

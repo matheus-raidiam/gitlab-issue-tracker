@@ -21,15 +21,17 @@
     <label for="viewMode" style="font-weight:600" data-i18n="view">View:</label>
     <select id="viewMode" onchange="loadAllIssues()">
       <option value="open"    data-i18n="openIssues">Open issues</option>
-<option value="closed14" data-i18n="closed14">Closed (last 14 days)</option>
+      <option value="closed14" data-i18n="closed14">Closed (last 14 days)</option>
     </select>
-<!-- Ações (com class icon-btn para o modo light sem background) -->
+
+    <!-- Ações (com class icon-btn para o modo light sem background) -->
     <button class="icon-btn" id="refreshBtn" title="Refresh" data-i18n-title="refresh" onclick="loadAllIssues()">🔄</button>
     <button class="icon-btn" id="clearAllBtn" title="Clear All Comments" data-i18n-title="clearAll" onclick="clearAllComments()">🗑️</button>
     <button class="icon-btn" id="resetFiltersBtn" title="Reset Filters" data-i18n-title="resetFilters" onclick="resetAllFilters()">🧹</button>
 
     <div class="spacer"></div>
-<!-- Toggles -->
+
+    <!-- Toggles -->
     <button id="themeToggle" class="icon-btn" title="Theme">🌓</button>
     <button id="langToggle"  class="icon-btn" title="Language">🌐</button>
     <button id="labelHistoryToggle" class="icon-btn" title="Label history">🕒</button>
