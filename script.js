@@ -370,6 +370,34 @@ function updateSortArrows(tableId) {
 }
 function getViewMode() { return document.getElementById('viewMode').value; }
 
+function toggleClosedRange(){
+  const row = document.getElementById('closedRange');
+  if (!row) return;
+  row.style.display = (getViewMode()==='closed14') ? 'flex' : 'none';
+}
+function setClosedRangeLabels(){
+  const fromLbl = document.getElementById('crFromLbl');
+  const toLbl   = document.getElementById('crToLbl');
+  if (fromLbl) fromLbl.textContent = (getLang()==='pt' ? 'De:' : 'From:');
+  if (toLbl)   toLbl.textContent   = (getLang()==='pt' ? 'Até:' : 'To:');
+}
+function initClosedRangeDefaults(){
+  const s = document.getElementById('closedStart');
+  const e = document.getElementById('closedEnd');
+  const pad = n => String(n).padStart(2,'0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  if (!s || !e) return;
+  if (!s.value || !e.value){
+    const today = new Date();
+    const start = new Date(); start.setDate(today.getDate()-7);
+    s.value = fmt(start); e.value = fmt(today);
+  }
+  // auto-apply on change
+  s.addEventListener('change', ()=> loadAllIssues());
+  e.addEventListener('change', ()=> loadAllIssues());
+}
+
+
 /* ========== Label events via Netlify proxy ========== */
 async function fetchLabelEvents(projectId, iid){
   if (!USE_LABEL_EVENTS) return [];
@@ -466,7 +494,9 @@ function updateSubtitle(){
     : t('openedIssuesTitle');
 }
 
-async function loadAllIssues() {
+async function loadAllIssues(){
+  if (getViewMode()==='dashboard'){ window.location.href='dashboard.html'; return; }
+  toggleClosedRange();
   setLoading(true);
   issues.finance = [];
 
@@ -487,8 +517,12 @@ async function loadAllIssues() {
 async function loadProjectIssues(projectId, key) {
   const mode = getViewMode();
   const now = new Date();
-  const fourteenDaysAgo = new Date(now); fourteenDaysAgo.setDate(now.getDate() - 14);
-  const since = fourteenDaysAgo.toISOString();
+const sEl = document.getElementById('closedStart');
+const eEl = document.getElementById('closedEnd');
+let startDate = sEl && sEl.value ? new Date(sEl.value) : new Date(new Date().setDate(now.getDate()-7));
+let endDate   = eEl && eEl.value ? new Date(eEl.value) : new Date();
+endDate.setHours(23,59,59,999);
+const since = startDate.toISOString();
 
   let url = `https://gitlab.com/api/v4/projects/${projectId}/issues?per_page=100`;
   url += (mode === 'closed14') ? `&state=closed&updated_after=${encodeURIComponent(since)}` : `&state=opened`;
@@ -499,10 +533,10 @@ async function loadProjectIssues(projectId, key) {
     const data = await res.json();
 
     let list = data.map(issue => ({ ...issue, projectId }));
-    if (mode === 'closed14') {
-      const cutoff = new Date(since);
-      list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff);
-    }
+    if (mode === 'closed14'){
+  const cutoff = new Date(since);
+  list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff && new Date(i.closed_at) <= endDate);
+}
 
     if (USE_LABEL_EVENTS && mode !== 'closed14') {
       for (const it of list) {
@@ -700,7 +734,7 @@ function closeEditor(){
 
 /* ========== INIT ========== */
 document.addEventListener('DOMContentLoaded', () => {
-  setTheme(getTheme());
+  setClosedRangeLabels(); initClosedRangeDefaults(); toggleClosedRange(); setTheme(getTheme());
   applyI18n();
 
   const themeBtn = document.getElementById('themeToggle');
