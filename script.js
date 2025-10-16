@@ -46,7 +46,7 @@ const I18N = {
     status: "Status",
     clearStatus: "Clear Status",
     openedIssuesTitle: "Opened Issues",
-    closedIssuesTitle: \"Closed issues\",
+    closedIssuesTitle: "Closed issues",
     summaryTitle: "Summary",
     legend: "🕒 Label history ON: working days subtract paused intervals and follow the applied labels timeline.",
     id: "ID",
