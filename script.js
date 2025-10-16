@@ -136,16 +136,20 @@ const I18N = {
 };
 function applyI18n(){
   const lang = getLang();
+  // Plain text i18n
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     const k = el.getAttribute('data-i18n');
     if (I18N[lang] && I18N[lang][k]) el.textContent = I18N[lang][k];
   });
+  // HTML i18n (preserve sort arrow placeholder if present)
   document.querySelectorAll('[data-i18n-html]').forEach(el=>{
     const k = el.getAttribute('data-i18n-html');
-    const arrowFor = el.querySelector('.sort-arrow')?.dataset.for || '';
-    el.innerHTML = (I18N[lang] && I18N[lang][k]) ? I18N[lang][k] : el.innerHTML;
-    if (arrowFor) el.innerHTML += ` <span class="sort-arrow" data-for="${arrowFor}"></span>`;
+    const arrow = el.querySelector('.sort-arrow');
+    const arrowFor = arrow ? arrow.getAttribute('data-for') : null;
+    const html = (I18N[lang] && I18N[lang][k]) ? I18N[lang][k] : el.innerHTML;
+    el.innerHTML = html + (arrowFor ? ` <span class="sort-arrow" data-for="${arrowFor}"></span>` : '');
   });
+  // Title/tooltips
   document.querySelectorAll('[data-i18n-title]').forEach(el=>{
     const k = el.getAttribute('data-i18n-title');
     if (I18N[lang] && I18N[lang][k]) el.title = I18N[lang][k];
