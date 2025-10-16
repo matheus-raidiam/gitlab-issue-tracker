@@ -1,5 +1,7 @@
 :root{}
 body{overflow-x:hidden}
+.toolbar{display:flex; align-items:center}
+.period-picker{display:flex; align-items:center; gap:6px}
 .kpi-row{display:grid; grid-template-columns:repeat(4, minmax(200px,1fr)); gap:12px}
 .kpi-card{
   background:var(--card); border:1px solid var(--dropdown-border);
@@ -22,3 +24,12 @@ body{overflow-x:hidden}
 .grid{display:block; max-width:1200px; margin:0 auto; padding:0 8px}
 
 .btn-link{background:var(--accent); color:var(--bg); padding:8px 12px; border-radius:7px; font-weight:700; text-decoration:none}
+
+/* Responsive to avoid any horizontal scroll */
+@media (max-width: 900px){
+  .kpi-row{grid-template-columns:repeat(2, minmax(0,1fr));}
+  .two-col{grid-template-columns:1fr;}
+}
+@media (max-width: 520px){
+  .kpi-row{grid-template-columns:1fr;}
+}
