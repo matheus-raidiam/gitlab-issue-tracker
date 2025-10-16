@@ -21,27 +21,15 @@
     <label for="viewMode" style="font-weight:600" data-i18n="view">View:</label>
     <select id="viewMode" onchange="loadAllIssues()">
       <option value="open"    data-i18n="openIssues">Open issues</option>
-      <option value="dashboard" data-i18n="dashboardView">Dashboard</option>
-      <option value="closed14" data-i18n="closed14">Closed (last 14 days)</option>
+<option value="closed14" data-i18n="closed14">Closed (last 14 days)</option>
     </select>
-
-    <div id="closedRange" class="range-row" style="display:none">
-      <label for="closedStart" data-i18n="fromLbl" style="font-weight:600">From:</label>
-      <input type="date" id="closedStart"/>
-      <label for="closedEnd" data-i18n="toLbl" style="font-weight:600">To:</label>
-      <input type="date" id="closedEnd"/>
-      <button class="icon-btn" id="applyRangeBtn" title="Apply" data-i18n-title="applyRange">✔</button>
-    </div>
-
-    <!-- Ações (com class icon-btn para o modo light sem background) -->
+<!-- Ações (com class icon-btn para o modo light sem background) -->
     <button class="icon-btn" id="refreshBtn" title="Refresh" data-i18n-title="refresh" onclick="loadAllIssues()">🔄</button>
     <button class="icon-btn" id="clearAllBtn" title="Clear All Comments" data-i18n-title="clearAll" onclick="clearAllComments()">🗑️</button>
     <button class="icon-btn" id="resetFiltersBtn" title="Reset Filters" data-i18n-title="resetFilters" onclick="resetAllFilters()">🧹</button>
 
     <div class="spacer"></div>
-    <a id="loginBtn" class="icon-btn" href="login.html" title="Login">🔐</a>
-
-    <!-- Toggles -->
+<!-- Toggles -->
     <button id="themeToggle" class="icon-btn" title="Theme">🌓</button>
     <button id="langToggle"  class="icon-btn" title="Language">🌐</button>
     <button id="labelHistoryToggle" class="icon-btn" title="Label history">🕒</button>
@@ -202,6 +190,5 @@
   </div>
 
   <script src="script.js"></script>
-  <script src="auth.js"></script>
 </body>
 </html>
