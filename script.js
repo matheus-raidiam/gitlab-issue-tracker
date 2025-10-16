@@ -465,10 +465,12 @@ ${eventsTxt}`;
 /* ========== DATA ========== */
 function setLoading(on){ const el = document.getElementById('loading'); if (el) el.style.display = on ? 'block' : 'none'; }
 
-function updateSubtitle(){ const a=document.getElementById('issuesSubtitle'); if (!a) return; a.textContent = (getViewMode()==='closed14') ? t('closedIssuesTitle') : t('openedIssuesTitle'); } - ${getLang()==='pt' ? 'nos últimos 14 dias' : 'in last 14 days'}`
-    : t('openedIssuesTitle');
-}
+function updateSubtitle(){
+  const a = document.getElementById('issuesSubtitle');
+  if (!a) return;
+  a.textContent = (getViewMode()==='closed14') ? t('closedIssuesTitle') : t('openedIssuesTitle');
 
+}
 async function loadAllIssues(){
   if (getViewMode()==='dashboard'){ window.location.href='dashboard.html'; return; }
   setLoading(true);
@@ -542,7 +544,7 @@ function renderIssues() {
     const endDate = (mode === 'closed14' && i.closed_at) ? new Date(i.closed_at) : now;
     const daysOpenRaw = workingDays24hBetween(new Date(i.created_at), endDate);
     const sla = (mode === 'closed14') ? { type:'none', days:null } : getSLAFor(i.labels || []);
-    const base = { ...i, daysOpen: daysOpenRaw, dateCol: (mode === 'closed14' && i.closed_at) ? i.closed_at : i.created_at, sla };
+    const base = { ...i, daysOpen: daysOpenRaw, dateCol: (mode == 'closed14' && i.closed_at) ? i.closed_at : i.created_at, sla };
     const { text, rank, class: klass } = (mode === 'closed14')
       ? { text:'-', rank:-1, class:'nosla' }
       : slaLabelAndRank(base);
@@ -553,7 +555,6 @@ function renderIssues() {
 
   if (base.length === 0) {
     const msg = (mode === 'closed14')
-      ? (getLang()==='pt'?'Nenhuma issue foi fechada nos últimos 14 dias.':'No issues were closed in the last 14 days.')
       : (getLang()==='pt'?'Nenhuma issue aberta no momento.':'No open issues at the moment.');
     renderEmptyRow(tbody, 11, msg);
     if (summaryEl) {
