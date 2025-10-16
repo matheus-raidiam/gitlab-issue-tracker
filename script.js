@@ -476,8 +476,6 @@ async function loadAllIssues() {
   const dateLbl = document.getElementById('finance-date-label');
   if (dateLbl) dateLbl.textContent = (getViewMode()==='closed14') ? (getLang()==='pt'?'Fechada em':'Closed at') : t('createdAt');
 
-    if (dateLbl) dateLbl.textContent = mode === 'closed14' ? t('closedAt') || (getLang()==='pt'?'Fechado em':'Closed At') : t('createdAt');
-
   await loadProjectIssues(26426113, 'finance');
 
   renderFilterMenus();
