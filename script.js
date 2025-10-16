@@ -544,7 +544,7 @@ function renderIssues() {
     const endDate = (mode === 'closed14' && i.closed_at) ? new Date(i.closed_at) : now;
     const daysOpenRaw = workingDays24hBetween(new Date(i.created_at), endDate);
     const sla = (mode === 'closed14') ? { type:'none', days:null } : getSLAFor(i.labels || []);
-    const base = { ...i, daysOpen: daysOpenRaw, dateCol: (mode == 'closed14' && i.closed_at) ? i.closed_at : i.created_at, sla };
+  const base = { ...i, daysOpen: daysOpenRaw, dateCol: (mode === 'closed14' && i.closed_at) ? i.closed_at : i.created_at, sla };
     const { text, rank, class: klass } = (mode === 'closed14')
       ? { text:'-', rank:-1, class:'nosla' }
       : slaLabelAndRank(base);
@@ -555,7 +555,8 @@ function renderIssues() {
 
   if (base.length === 0) {
     const msg = (mode === 'closed14')
-      : (getLang()==='pt'?'Nenhuma issue aberta no momento.':'No open issues at the moment.');
+      ? (getLang()==='pt' ? 'Nenhuma issue fechada no período.' : 'No closed issues in the period.')
+      : (getLang()==='pt' ? 'Nenhuma issue aberta no momento.' : 'No open issues at the moment.');
     renderEmptyRow(tbody, 11, msg);
     if (summaryEl) {
       summaryEl.textContent =
