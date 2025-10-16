@@ -102,7 +102,7 @@ const I18N = {
     status: "Status",
     clearStatus: "Limpar Status",
     openedIssuesTitle: "Issues abertas",
-    closedIssuesTitle: \"Issues fechadas\",
+    closedIssuesTitle: "Issues fechadas",
     summaryTitle: "Resumo",
     legend: "🕒 Histórico de labels ON: Dias úteis subtrai intervalos pausados e segue a linha do tempo de labels aplicadas.",
     id: "ID",
