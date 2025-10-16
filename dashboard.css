@@ -1,0 +1,27 @@
+:root{
+  /* reuse palette from styles.css via variables */
+}
+.kpi-row{display:grid; grid-template-columns:repeat(4, minmax(200px,1fr)); gap:12px}
+.kpi-card{
+  background:var(--card); border:1px solid var(--dropdown-border);
+  border-radius:12px; padding:16px; box-shadow:var(--shadow);
+}
+.kpi-title{font-size:12px; opacity:.85; margin-bottom:6px}
+.kpi-value{font-size:28px; font-weight:800; color:var(--accent)}
+.muted{opacity:.7}
+
+.chart-card, .list-card{
+  background:var(--card); border:1px solid var(--dropdown-border);
+  border-radius:12px; padding:16px; box-shadow:var(--shadow); margin-bottom:12px;
+}
+.chart-title, .list-title{font-weight:700; margin-bottom:8px}
+
+.bars{display:flex; align-items:flex-end; gap:6px; height:140px; padding:6px; border-radius:8px; background:var(--card-2)}
+.bars.small{height:120px}
+.bar{flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center}
+.bar > div{width:100%; background:#055b4e; border:1px solid rgba(0,0,0,.2); border-radius:4px}
+.bar-label{font-size:10px; margin-top:4px; opacity:.85; white-space:nowrap; transform:rotate(-35deg); transform-origin:top left}
+
+.two-col{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+
+.btn-link{background:var(--accent); color:var(--bg); padding:8px 12px; border-radius:7px; font-weight:700; text-decoration:none}
