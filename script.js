@@ -24,7 +24,7 @@ const I18N = {
     intro: "This dashboard pulls issues from the Open Finance GitLab project and gives a quick view of SLA risk, activity, and context. Use filters, sorting, and local notes to faster triage.",
     view: "View:",
     openIssues: "Open issues",
-    closed14: "Closed",
+    closed14: "Closed (last 14 days)",
     refresh: "Refresh",
     clearAll: "Clear All Comments",
     resetFilters: "Reset Filters",
@@ -46,7 +46,7 @@ const I18N = {
     status: "Status",
     clearStatus: "Clear Status",
     openedIssuesTitle: "Opened Issues",
-    closedIssuesTitle: "Closed Issues",
+    closedIssuesTitle: \"Closed issues\",
     summaryTitle: "Summary",
     legend: "🕒 Label history ON: working days subtract paused intervals and follow the applied labels timeline.",
     id: "ID",
@@ -102,7 +102,7 @@ const I18N = {
     status: "Status",
     clearStatus: "Limpar Status",
     openedIssuesTitle: "Issues abertas",
-    closedIssuesTitle: "Issues fechadas",
+    closedIssuesTitle: \"Issues fechadas\",
     summaryTitle: "Resumo",
     legend: "🕒 Histórico de labels ON: Dias úteis subtrai intervalos pausados e segue a linha do tempo de labels aplicadas.",
     id: "ID",
@@ -370,34 +370,6 @@ function updateSortArrows(tableId) {
 }
 function getViewMode() { return document.getElementById('viewMode').value; }
 
-function toggleClosedRange(){
-  const row = document.getElementById('closedRange');
-  if (!row) return;
-  row.style.display = (getViewMode()==='closed14') ? 'flex' : 'none';
-}
-function setClosedRangeLabels(){
-  const fromLbl = document.getElementById('crFromLbl');
-  const toLbl   = document.getElementById('crToLbl');
-  if (fromLbl) fromLbl.textContent = (getLang()==='pt' ? 'De:' : 'From:');
-  if (toLbl)   toLbl.textContent   = (getLang()==='pt' ? 'Até:' : 'To:');
-}
-function initClosedRangeDefaults(){
-  const s = document.getElementById('closedStart');
-  const e = document.getElementById('closedEnd');
-  const pad = n => String(n).padStart(2,'0');
-  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-  if (!s || !e) return;
-  if (!s.value || !e.value){
-    const today = new Date();
-    const start = new Date(); start.setDate(today.getDate()-7);
-    s.value = fmt(start); e.value = fmt(today);
-  }
-  // auto-apply on change
-  s.addEventListener('change', ()=> loadAllIssues());
-  e.addEventListener('change', ()=> loadAllIssues());
-}
-
-
 /* ========== Label events via Netlify proxy ========== */
 async function fetchLabelEvents(projectId, iid){
   if (!USE_LABEL_EVENTS) return [];
@@ -489,14 +461,12 @@ function updateSubtitle(){
   const mode = getViewMode();
   const a = document.getElementById('issuesSubtitle');
   if (!a) return;
-  a.textContent = (mode==='closed14')
-    ? `${t('closedIssuesTitle')} — ${getLang()==='pt' ? 'nos últimos 14 dias' : 'in last 14 days'}`
+  a.textContent = (mode==='closed14') ? t('closedIssuesTitle') : t('openedIssuesTitle');
+} — ${getLang()==='pt' ? 'nos últimos 14 dias' : 'in last 14 days'}`
     : t('openedIssuesTitle');
 }
 
-async function loadAllIssues(){
-  if (getViewMode()==='dashboard'){ window.location.href='dashboard.html'; return; }
-  toggleClosedRange();
+async function loadAllIssues() {
   setLoading(true);
   issues.finance = [];
 
@@ -505,6 +475,8 @@ async function loadAllIssues(){
 
   const dateLbl = document.getElementById('finance-date-label');
   if (dateLbl) dateLbl.textContent = (getViewMode()==='closed14') ? (getLang()==='pt'?'Fechada em':'Closed at') : t('createdAt');
+
+    if (dateLbl) dateLbl.textContent = mode === 'closed14' ? t('closedAt') || (getLang()==='pt'?'Fechado em':'Closed At') : t('createdAt');
 
   await loadProjectIssues(26426113, 'finance');
 
@@ -517,12 +489,8 @@ async function loadAllIssues(){
 async function loadProjectIssues(projectId, key) {
   const mode = getViewMode();
   const now = new Date();
-const sEl = document.getElementById('closedStart');
-const eEl = document.getElementById('closedEnd');
-let startDate = sEl && sEl.value ? new Date(sEl.value) : new Date(new Date().setDate(now.getDate()-7));
-let endDate   = eEl && eEl.value ? new Date(eEl.value) : new Date();
-endDate.setHours(23,59,59,999);
-const since = startDate.toISOString();
+  const fourteenDaysAgo = new Date(now); fourteenDaysAgo.setDate(now.getDate() - 14);
+  const since = fourteenDaysAgo.toISOString();
 
   let url = `https://gitlab.com/api/v4/projects/${projectId}/issues?per_page=100`;
   url += (mode === 'closed14') ? `&state=closed&updated_after=${encodeURIComponent(since)}` : `&state=opened`;
@@ -533,10 +501,10 @@ const since = startDate.toISOString();
     const data = await res.json();
 
     let list = data.map(issue => ({ ...issue, projectId }));
-    if (mode === 'closed14'){
-  const cutoff = new Date(since);
-  list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff && new Date(i.closed_at) <= endDate);
-}
+    if (mode === 'closed14') {
+      const cutoff = new Date(since);
+      list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff);
+    }
 
     if (USE_LABEL_EVENTS && mode !== 'closed14') {
       for (const it of list) {
@@ -734,7 +702,7 @@ function closeEditor(){
 
 /* ========== INIT ========== */
 document.addEventListener('DOMContentLoaded', () => {
-  setClosedRangeLabels(); initClosedRangeDefaults(); toggleClosedRange(); setTheme(getTheme());
+  setTheme(getTheme());
   applyI18n();
 
   const themeBtn = document.getElementById('themeToggle');

@@ -21,15 +21,9 @@
     <label for="viewMode" style="font-weight:600" data-i18n="view">View:</label>
     <select id="viewMode" onchange="loadAllIssues()">
       <option value="open"    data-i18n="openIssues">Open issues</option>
+      <option value="closed14" data-i18n="closed14">Closed issues</option>
       <option value="dashboard">Dashboard</option>
-      <option value="closed14" data-i18n="closed14">Closed</option>
     </select>
-    <div id="closedRange" class="range-row" style="display:none">
-      <span id="crFromLbl">From:</span>
-      <input type="date" id="closedStart" aria-label="Start date"/>
-      <span id="crToLbl">To:</span>
-      <input type="date" id="closedEnd" aria-label="End date"/>
-    </div>
 
     <!-- Ações (com class icon-btn para o modo light sem background) -->
     <button class="icon-btn" id="refreshBtn" title="Refresh" data-i18n-title="refresh" onclick="loadAllIssues()">🔄</button>

@@ -206,3 +206,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if (sel) sel.addEventListener('change', run);
   run();
 });
+
+
+// ==== Theme & Language sync with index page ====
+function getTheme(){ return localStorage.getItem('theme') || 'dark'; }
+function setTheme(t){ document.documentElement.setAttribute('data-theme', t); localStorage.setItem('theme', t); }
+function getLang(){ return localStorage.getItem('lang') || 'en'; }
+function setLang(l){ localStorage.setItem('lang', l); }
+
+(function setupDashToggles(){
+  setTheme(getTheme());
+  document.getElementById('themeToggleDash')?.addEventListener('click', ()=>{
+    setTheme(getTheme()==='dark' ? 'light' : 'dark');
+  });
+  document.getElementById('langToggleDash')?.addEventListener('click', ()=>{
+    setLang(getLang()==='pt' ? 'en' : 'pt');
+    // titles could be localized here if needed
+  });
+})();
