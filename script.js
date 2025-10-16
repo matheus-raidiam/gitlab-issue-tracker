@@ -154,15 +154,6 @@ function applyI18n(){
     const k = el.getAttribute('data-i18n-title');
     if (I18N[lang] && I18N[lang][k]) el.title = I18N[lang][k];
   });
-});
-  document.querySelectorAll('[data-i18n-html]').forEach(el=>{
-    const k = el.getAttribute('data-i18n-html');
-    if (I18N[lang][k]) el.innerHTML = I18N[lang][k] + ` <span class="sort-arrow" data-for="${el.querySelector('.sort-arrow')?.dataset.for||''}"></span>`;
-  });
-  document.querySelectorAll('[data-i18n-title]').forEach(el=>{
-    const k = el.getAttribute('data-i18n-title');
-    if (I18N[lang][k]) el.title = I18N[lang][k];
-  });
 }
 
 /* ======== Taxonomias ======== */
@@ -472,7 +463,7 @@ ${eventsTxt}`;
 }
 
 /* ========== DATA ========== */
-function setLoading(on) { const el = document.getElementById('loading'); if (el) el.style.display = on ? 'block' : 'none'; }
+function setLoading(on){ const el = document.getElementById('loading'); if (el) el.style.display = on ? 'block' : 'none'; }
 
 function updateSubtitle(){ const a=document.getElementById('issuesSubtitle'); if (!a) return; a.textContent = (getViewMode()==='closed14') ? t('closedIssuesTitle') : t('openedIssuesTitle'); } - ${getLang()==='pt' ? 'nos últimos 14 dias' : 'in last 14 days'}`
     : t('openedIssuesTitle');
@@ -486,7 +477,7 @@ async function loadAllIssues(){
   const mode = getViewMode();
   updateSubtitle();
 
-  const dateLbl = document.getElementById('finance-date-label'); if (dateLbl) dateLbl.textContent = (getViewMode()==='closed14') ? (getLang()==='pt'?'Fechada em':'Closed at') : t('createdAt');
+  const dateLbl = document.getElementById('finance-date-label');
   if (dateLbl) dateLbl.textContent = (getViewMode()==='closed14') ? (getLang()==='pt'?'Fechada em':'Closed at') : t('createdAt');
 
   await loadProjectIssues(26426113, 'finance');
