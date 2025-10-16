@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login — Open Finance Brasil</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .login-card{max-width:380px;margin:40px auto;background:var(--card);border:1px solid var(--dropdown-border);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
+    .login-card h2{margin:0 0 10px;color:var(--accent)}
+    .login-card label{display:block;margin:8px 0 4px;font-weight:600}
+    .login-card input{width:100%;padding:10px;border-radius:8px;border:1px solid var(--dropdown-border);background:var(--dropdown);color:var(--text)}
+    .login-card button{margin-top:12px;width:100%;padding:10px;border:none;border-radius:8px;background:var(--accent);color:var(--bg);font-weight:800;cursor:pointer}
+    .hint{font-size:12px;opacity:.8;margin-top:8px}
+  </style>
+</head>
+<body>
+  <header>
+    <img src="Raidiam_icon.png" alt="Raidiam Logo"/>
+    <h1>Open Finance Brasil — Login</h1>
+  </header>
+  <div class="login-card">
+    <h2>Sign in</h2>
+    <label>Email</label>
+    <input type="email" id="email" placeholder="you@company.com"/>
+    <label>Password</label>
+    <input type="password" id="password" placeholder="••••••••"/>
+    <button id="loginBtn">Login</button>
+    <div class="hint">Optional. If configured, comments will be stored in Supabase instead of your browser.</div>
+    <div id="msg" class="hint"></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="auth.js"></script>
+</body>
+</html>

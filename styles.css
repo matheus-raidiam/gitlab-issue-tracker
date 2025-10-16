@@ -193,3 +193,13 @@ footer{margin-top:16px; font-size:12px; color:var(--muted)}
 
 /* Center badge text */
 .badge { display:inline-flex; align-items:center; justify-content:center; text-align:center; }
+
+/* Date range controls for Closed issues */
+.range-row{display:flex; align-items:center; gap:8px}
+.range-row input[type="date"]{
+  background:var(--dropdown); color:var(--text);
+  border:1px solid var(--dropdown-border); border-radius:6px; padding:6px 8px;
+}
+:root[data-theme="light"] .range-row input[type="date"]{
+  background:#ffffff; color:var(--text); border:1px solid var(--dropdown-border);
+}

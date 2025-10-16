@@ -74,7 +74,10 @@ const I18N = {
     lhNoEvents: "(no events found)",
     lhADD: "ADD",
     lhREMOVE: "REMOVE",
-  },
+    dashboardView: "Dashboard",
+    fromLbl: "From:",
+    toLbl: "To:",
+    applyRange: "Apply",},
   pt: {
     title: "Open Finance Brasil - GitLab Issues",
     intro: "Este dashboard consulta issues do Open Finance Brasil no GitLab e oferece uma visão de SLA, atividade e contexto. Use filtros, ordenação e notas locais para uma triagem mais rápida.",
@@ -137,7 +140,26 @@ function applyI18n(){
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     const k = el.getAttribute('data-i18n');
     if (I18N[lang][k]) el.textContent = I18N[lang][k];
-  });
+  }
+
+// Initialize closed range defaults (last 7 days)
+(function initClosedDates(){
+  const s = document.getElementById('closedStart');
+  const e = document.getElementById('closedEnd');
+  const btn = document.getElementById('applyRangeBtn');
+  if (!s || !e) return;
+  const today = new Date(); const pad = d=> String(d).padStart(2,'0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  if (!s.value || !e.value){
+    const end = today;
+    const start = new Date(today); start.setDate(today.getDate()-7);
+    s.value = fmt(start); e.value = fmt(end);
+  }
+  if (btn){ btn.addEventListener('click', ()=> loadAllIssues()); }
+  s.addEventListener('change', ()=>{}); // keep values; applied on button
+  e.addEventListener('change', ()=>{});
+})();
+);
   document.querySelectorAll('[data-i18n-html]').forEach(el=>{
     const k = el.getAttribute('data-i18n-html');
     if (I18N[lang][k]) el.innerHTML = I18N[lang][k] + ` <span class="sort-arrow" data-for="${el.querySelector('.sort-arrow')?.dataset.for||''}"></span>`;
@@ -271,7 +293,16 @@ function slaLabelAndRank(issue) {
 }
 
 /* ========== NOTAS ========== */
-function saveComment(key, value) { localStorage.setItem(key, value); }
+function saveComment(key, value) {
+  // Try remote if configured and key follows pattern comment-<project>-<iid>
+  try{
+    if (window.remoteComments && window.remoteComments.enabled && /^comment-(\d+)-(\d+)$/.test(key)){
+      const m = key.match(/^comment-(\d+)-(\d+)$/); const projectId = Number(m[1]); const iid = Number(m[2]);
+      window.remoteComments.save(projectId, iid, value);
+    }
+  }catch{}
+  localStorage.setItem(key, value);
+}
 function clearAllComments() {
   if (!confirm(getLang()==='pt'?'Tem certeza que deseja limpar TODOS os comentários?':'Are you sure you want to clear ALL comments?')) return;
   document.querySelectorAll('.comment-box').forEach(a => {
@@ -369,6 +400,11 @@ function updateSortArrows(tableId) {
   if (arrow) arrow.textContent = s.asc ? '▲' : '▼';
 }
 function getViewMode() { return document.getElementById('viewMode').value; }
+function toggleClosedRange(){
+  const mode = getViewMode();
+  const row = document.getElementById('closedRange');
+  if (row) row.style.display = (mode==='closed14') ? 'flex' : 'none';
+}
 
 /* ========== Label events via Netlify proxy ========== */
 async function fetchLabelEvents(projectId, iid){
@@ -461,20 +497,35 @@ function updateSubtitle(){
   const mode = getViewMode();
   const a = document.getElementById('issuesSubtitle');
   if (!a) return;
-  a.textContent = (mode==='closed14')
-    ? `${t('closedIssuesTitle')} — ${getLang()==='pt' ? 'nos últimos 14 dias' : 'in last 14 days'}`
+  if (mode==='closed14'){
+    const s = document.getElementById('closedStart');
+    const e = document.getElementById('closedEnd');
+    const loc = getLang()==='pt' ? 'pt-BR' : 'en-GB';
+    const sv = (s&&s.value)? new Date(s.value) : new Date(new Date().setDate(new Date().getDate()-7));
+    const ev = (e&&e.value)? new Date(e.value) : new Date();
+    const sTxt = sv.toLocaleDateString(loc);
+    const eTxt = ev.toLocaleDateString(loc);
+    a.textContent = `${t('closedIssuesTitle')} — ${getLang()==='pt' ? 'de' : 'from'} ${sTxt} ${getLang()==='pt' ? 'a' : 'to'} ${eTxt}`;
+  } else {
+    a.textContent = t('openedIssuesTitle');
+  }
+} — ${getLang()==='pt' ? 'nos últimos 14 dias' : 'in last 14 days'}`
     : t('openedIssuesTitle');
 }
 
 async function loadAllIssues() {
+  const modeEarly = getViewMode(); if (modeEarly==='dashboard'){ window.location.href = 'dashboard.html'; return; }
   setLoading(true);
   issues.finance = [];
 
   const mode = getViewMode();
   updateSubtitle();
+  toggleClosedRange();
 
   const dateLbl = document.getElementById('finance-date-label');
   if (dateLbl) dateLbl.textContent = (getViewMode()==='closed14') ? (getLang()==='pt'?'Fechada em':'Closed at') : t('createdAt');
+
+    if (dateLbl) dateLbl.textContent = mode === 'closed14' ? t('closedAt') || (getLang()==='pt'?'Fechado em':'Closed At') : t('createdAt');
 
   await loadProjectIssues(26426113, 'finance');
 
@@ -487,8 +538,14 @@ async function loadAllIssues() {
 async function loadProjectIssues(projectId, key) {
   const mode = getViewMode();
   const now = new Date();
-  const fourteenDaysAgo = new Date(now); fourteenDaysAgo.setDate(now.getDate() - 14);
-  const since = fourteenDaysAgo.toISOString();
+let since = new Date(now); since.setDate(now.getDate()-7);
+const sEl = document.getElementById('closedStart');
+const eEl = document.getElementById('closedEnd');
+let startDate = sEl && sEl.value ? new Date(sEl.value) : since;
+let endDate   = eEl && eEl.value ? new Date(eEl.value) : now;
+// include entire end date day
+endDate.setHours(23,59,59,999);
+since = startDate.toISOString();
 
   let url = `https://gitlab.com/api/v4/projects/${projectId}/issues?per_page=100`;
   url += (mode === 'closed14') ? `&state=closed&updated_after=${encodeURIComponent(since)}` : `&state=opened`;
@@ -500,9 +557,9 @@ async function loadProjectIssues(projectId, key) {
 
     let list = data.map(issue => ({ ...issue, projectId }));
     if (mode === 'closed14') {
-      const cutoff = new Date(since);
-      list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff);
-    }
+  const cutoff = new Date(since);
+  list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff && new Date(i.closed_at) <= endDate);
+}
 
     if (USE_LABEL_EVENTS && mode !== 'closed14') {
       for (const it of list) {
@@ -628,7 +685,15 @@ function renderIssues() {
 
     const slaCell = `<span class="${issue.slaClass}">${issue.slaText}</span>`;
     const key = `comment-${issue.projectId}-${issue.iid}`;
-    const saved = localStorage.getItem(key) || '';
+    let saved = localStorage.getItem(key) || '';
+if (window.remoteComments && window.remoteComments.enabled){
+  window.remoteComments.load(issue.projectId, issue.iid).then(txt=>{
+    if (typeof txt === 'string'){
+      const ta = document.querySelector(`textarea[data-key="${key}"]`);
+      if (ta && ta.value !== txt){ ta.value = txt; localStorage.setItem(key, txt); }
+    }
+  });
+}
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -700,7 +765,7 @@ function closeEditor(){
 
 /* ========== INIT ========== */
 document.addEventListener('DOMContentLoaded', () => {
-  setTheme(getTheme());
+  toggleClosedRange(); setTheme(getTheme());
   applyI18n();
 
   const themeBtn = document.getElementById('themeToggle');
