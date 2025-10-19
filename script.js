@@ -23,6 +23,8 @@ const I18N = {
     title: "Open Finance Brasil - GitLab Issues",
     intro: "This dashboard pulls issues from the Open Finance GitLab project and gives a quick view of SLA risk, activity, and context. Use filters, sorting, and local notes to faster triage.",
     view: "View:",
+    from: "From",
+    to: "To",
     openIssues: "Open issues",
     closed14: "Closed (last 14 days)",
     refresh: "Refresh",
@@ -80,6 +82,8 @@ const I18N = {
     title: "Open Finance Brasil - GitLab Issues",
     intro: "Este dashboard consulta issues do Open Finance Brasil no GitLab e oferece uma visão de SLA, atividade e contexto. Use filtros, ordenação e notas locais para uma triagem mais rápida.",
     view: "Ver:",
+    from: "De",
+    to: "Até",
     openIssues: "Issues abertas",
     closed14: "Fechadas (últimos 14 dias)",
     refresh: "Atualizar",
@@ -136,12 +140,12 @@ const I18N = {
 };
 function applyI18n(){
   const lang = getLang();
-  // Plain text i18n
+  // Plain text
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     const k = el.getAttribute('data-i18n');
     if (I18N[lang] && I18N[lang][k]) el.textContent = I18N[lang][k];
   });
-  // HTML i18n (preserve sort arrow placeholder if present)
+  // HTML (com setas de ordenação)
   document.querySelectorAll('[data-i18n-html]').forEach(el=>{
     const k = el.getAttribute('data-i18n-html');
     const arrow = el.querySelector('.sort-arrow');
@@ -149,7 +153,7 @@ function applyI18n(){
     const html = (I18N[lang] && I18N[lang][k]) ? I18N[lang][k] : el.innerHTML;
     el.innerHTML = html + (arrowFor ? ` <span class="sort-arrow" data-for="${arrowFor}"></span>` : '');
   });
-  // Title/tooltips
+  // Titles/tooltips
   document.querySelectorAll('[data-i18n-title]').forEach(el=>{
     const k = el.getAttribute('data-i18n-title');
     if (I18N[lang] && I18N[lang][k]) el.title = I18N[lang][k];
@@ -436,7 +440,7 @@ function computeWorkingDaysContext(issue, now, mode){
   const netMs   = Math.max(0, totalMs - pausedMs);
   const netDays = Math.floor(netMs / DAY_MS);
 
-  // End exibido: se houver pausa aberta, o início mais antigo; senão end; clipe fins de semana
+  // End exibido (para texto)
   let displayEnd = end;
   if (Object.keys(openStacks).length){
     const earliest = Object.values(openStacks).sort((a,b)=>a-b)[0];
@@ -469,14 +473,29 @@ function updateSubtitle(){
   const a = document.getElementById('issuesSubtitle');
   if (!a) return;
   a.textContent = (getViewMode()==='closed14') ? t('closedIssuesTitle') : t('openedIssuesTitle');
-
 }
+
+/* === CLOSED RANGE (novo) === */
+function getClosedRangeDates(){
+  const fromVal = (document.getElementById('closedFrom') || {}).value || '';
+  const toVal   = (document.getElementById('closedTo')   || {}).value || '';
+  const from = fromVal ? new Date(fromVal + 'T00:00:00') : null;
+  const to   = toVal   ? new Date(toVal   + 'T23:59:59') : null;
+  return { from, to };
+}
+function updateClosedRangeVisibility(){
+  const box = document.getElementById('closedRange');
+  if (!box) return;
+  box.style.display = (getViewMode()==='closed14') ? 'flex' : 'none';
+}
+
+/* Carregamento principal */
 async function loadAllIssues(){
   if (getViewMode()==='dashboard'){ window.location.href='dashboard.html'; return; }
   setLoading(true);
   issues.finance = [];
 
-  const mode = getViewMode();
+  updateClosedRangeVisibility();
   updateSubtitle();
 
   const dateLbl = document.getElementById('finance-date-label');
@@ -494,7 +513,10 @@ async function loadProjectIssues(projectId, key) {
   const mode = getViewMode();
   const now = new Date();
   const fourteenDaysAgo = new Date(now); fourteenDaysAgo.setDate(now.getDate() - 14);
-  const since = fourteenDaysAgo.toISOString();
+
+  // NOVO: ler range personalizado
+  const { from, to } = getClosedRangeDates();
+  const since = (from || fourteenDaysAgo).toISOString();
 
   let url = `https://gitlab.com/api/v4/projects/${projectId}/issues?per_page=100`;
   url += (mode === 'closed14') ? `&state=closed&updated_after=${encodeURIComponent(since)}` : `&state=opened`;
@@ -506,8 +528,13 @@ async function loadProjectIssues(projectId, key) {
 
     let list = data.map(issue => ({ ...issue, projectId }));
     if (mode === 'closed14') {
-      const cutoff = new Date(since);
-      list = list.filter(i => i.closed_at && new Date(i.closed_at) >= cutoff);
+      const start = from ? from.getTime() : new Date(since).getTime();
+      const endMs = to ? new Date(to.getFullYear(), to.getMonth(), to.getDate()+1).getTime() : Infinity;
+      list = list.filter(i => {
+        if (!i.closed_at) return false;
+        const ts = new Date(i.closed_at).getTime();
+        return ts >= start && ts < endMs;
+      });
     }
 
     if (USE_LABEL_EVENTS && mode !== 'closed14') {
@@ -544,7 +571,7 @@ function renderIssues() {
     const endDate = (mode === 'closed14' && i.closed_at) ? new Date(i.closed_at) : now;
     const daysOpenRaw = workingDays24hBetween(new Date(i.created_at), endDate);
     const sla = (mode === 'closed14') ? { type:'none', days:null } : getSLAFor(i.labels || []);
-  const base = { ...i, daysOpen: daysOpenRaw, dateCol: (mode === 'closed14' && i.closed_at) ? i.closed_at : i.created_at, sla };
+    const base = { ...i, daysOpen: daysOpenRaw, dateCol: (mode === 'closed14' && i.closed_at) ? i.closed_at : i.created_at, sla };
     const { text, rank, class: klass } = (mode === 'closed14')
       ? { text:'-', rank:-1, class:'nosla' }
       : slaLabelAndRank(base);
@@ -620,7 +647,7 @@ function renderIssues() {
       noslaCount++;
     }
 
-    // Working Days cell
+    // Working Days cell (mostra “reloginho” para abrir modal)
     let wdCellHtml = '-';
     let historyBody = '';
     if (!nosla) {
@@ -664,7 +691,7 @@ function renderIssues() {
     `;
     tbody.appendChild(tr);
 
-    // relógio abre modal
+    // “Relógio” abre modal
     tr.querySelectorAll('.wd-link').forEach(el=>{
       el.addEventListener('click', ()=>{
         if (nosla) return;
@@ -731,16 +758,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const modal = document.getElementById('noteModal');
   if (modal) modal.addEventListener('click', (e) => { if (e.target.id === 'noteModal') closeEditor(); });
 
-  // editor de comentários (mesma UX anterior)
+  // Editor de comentários (botão "..." na tabela)
   const table = document.getElementById('finance-table');
   if (table){
     table.addEventListener('click', (e)=>{
-      const btn = e.target.closest('.btn-open-editor');
-      if (!btn) return;
-      const key   = btn.dataset.key;
-      const iid   = btn.dataset.iid;
-      const url   = btn.dataset.url;
-      const title = decodeURIComponent(btn.dataset.title || '');
+      const _btn = e.target.closest('.btn-open-editor');
+      if (!_btn) return;
+      const key   = _btn.dataset.key;
+      const iid   = _btn.dataset.iid;
+      const url   = _btn.dataset.url;
+      const title = decodeURIComponent(_btn.dataset.title || '');
       const ta    = document.querySelector(`textarea.comment-box[data-key="${key}"]`);
       const val   = ta ? ta.value : '';
 
@@ -750,25 +777,16 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!m || !mTitle || !mBody) return;
 
       mTitle.innerHTML = `<a href="${url}" target="_blank" style="color:var(--accent)">#${iid}</a> - ${escapeHtml(title)}`;
-      mBody.innerHTML =
-        `<textarea id="noteEditorTextarea" style="width:100%;min-height:240px">${escapeHtml(val)}</textarea>
-         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
-           <button id="saveNoteBtn">Save</button>
-         </div>`;
+      mBody.textContent = val || '';
       m.style.display = 'block';
-
-      const saveBtn = document.getElementById('saveNoteBtn');
-      if (saveBtn){
-        saveBtn.onclick = ()=>{
-          const taNew = document.getElementById('noteEditorTextarea');
-          const newVal = taNew ? taNew.value : '';
-          localStorage.setItem(key, newVal);
-          if (ta) ta.value = newVal;
-          closeEditor();
-        };
-      }
     });
   }
+
+  // NOVO: listeners para o range de "Closed issues"
+  const _cf = document.getElementById('closedFrom');
+  const _ct = document.getElementById('closedTo');
+  if (_cf) _cf.addEventListener('change', ()=>{ if(getViewMode()==='closed14') loadAllIssues(); });
+  if (_ct) _ct.addEventListener('change', ()=>{ if(getViewMode()==='closed14') loadAllIssues(); });
 
   updateSubtitle();
   loadAllIssues();
