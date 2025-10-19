@@ -92,7 +92,7 @@ const I18N = {
     topUpvoted: "Top 5 mais 👍",
     kpiOpened: "Abertas (últimos {n} dias)",
     kpiClosed: "Fechadas (últimos {n} dias)",
-    kpiAvg: "Média de fechamento (dias úteis, últimos {n} dias)",
+    kpiAvg: "Média de fechamento (últimos {n} dias)",
     periodLabel: "(últimos {n} dias)",
   }
 };
