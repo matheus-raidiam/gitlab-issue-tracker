@@ -68,7 +68,7 @@ const I18N = {
     topUpvoted: "Top 5 most 👍",
     kpiOpened: "Opened (last {n} days)",
     kpiClosed: "Closed (last {n} days)",
-    kpiAvg: "Avg closure (business days, last {n} days)",
+    kpiAvg: "Avg closure (last {n} business days)",
     periodLabel: "(last {n} days)",
   
     ,dashIntro: "KPIs and trends from GitLab issues. Periods are indicated in each widget and follow the selector above."
@@ -90,7 +90,7 @@ const I18N = {
     topUpvoted: "Top 5 mais 👍",
     kpiOpened: "Abertas (últimos {n} dias)",
     kpiClosed: "Fechadas (últimos {n} dias)",
-    kpiAvg: "Média de fechamento (dias úteis, últimos {n} dias)",
+    kpiAvg: "Média de fechamento (últimos {n} dias úteis)",
     periodLabel: "(últimos {n} dias)",
   
     ,dashIntro: "KPIs e tendências das issues do GitLab. Os períodos são indicados em cada widget e seguem o seletor acima."
