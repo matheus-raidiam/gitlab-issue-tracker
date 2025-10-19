@@ -54,9 +54,6 @@ function setLang(l){ localStorage.setItem('lang', l); applyI18n(); setPeriodLabe
 
 const I18N = {
   en: {
-    backToIssues: "Back to issues",
-    activity: "Activity",
-    breakdown: "Breakdown",
     dashTitle: "Open Finance Brasil — Dashboard",
     period: "Period",
     days: "days",
@@ -73,11 +70,12 @@ const I18N = {
     kpiClosed: "Closed (last {n} days)",
     kpiAvg: "Avg closure (business days, last {n} days)",
     periodLabel: "(last {n} days)",
-  },
+  
+    ,dashIntro: "KPIs and trends from GitLab issues. Periods are indicated in each widget and follow the selector above."
+    ,trendsTitle: "Trends"
+    ,createdByDay: "Created by day"
+    ,closedByDay: "Closed by day"},
   pt: {
-    backToIssues: "Voltar para Issues",
-    activity: "Atividade",
-    breakdown: "Detalhamento",
     dashTitle: "Open Finance Brasil — Painel",
     period: "Período",
     days: "dias",
@@ -92,9 +90,13 @@ const I18N = {
     topUpvoted: "Top 5 mais 👍",
     kpiOpened: "Abertas (últimos {n} dias)",
     kpiClosed: "Fechadas (últimos {n} dias)",
-    kpiAvg: "Média de fechamento (últimos {n} dias)",
+    kpiAvg: "Média de fechamento (dias úteis, últimos {n} dias)",
     periodLabel: "(últimos {n} dias)",
-  }
+  
+    ,dashIntro: "KPIs e tendências das issues do GitLab. Os períodos são indicados em cada widget e seguem o seletor acima."
+    ,trendsTitle: "Tendências"
+    ,createdByDay: "Criadas por dia"
+    ,closedByDay: "Fechadas por dia"}
 };
 function t(k){
   const lang = getLang();
@@ -107,9 +109,7 @@ function applyI18n(){
     const key = el.getAttribute('data-i18n');
     const val = t(key);
     if (val) el.textContent = val;
-  
-  localizePeriodSelect();
-});
+  });
 }
 
 /* ======= Charts (line with tooltips) ======= */
@@ -155,12 +155,14 @@ function renderLine(el, labels, values){
   const circle = marker.querySelector('circle');
   const hit = svg.querySelector('#hit');
 
-  function showAtIdx(i){
+  
+  let lastMouseY = 0;
+function showAtIdx(i){
     const x = xs(i), y = ys(values[i]);
     marker.setAttribute('transform', `translate(${x},${y})`);
     marker.style.display = 'block';
     tip.style.left = x+'px';
-    tip.style.top = y+'px';
+    tip.style.top = (lastMouseY)+'px';
     tip.textContent = `${labels[i]} — ${values[i]}`;
     tip.style.display = 'block';
   }
@@ -170,6 +172,7 @@ function renderLine(el, labels, values){
   }
   hit.addEventListener('mousemove', (ev)=>{
     const rect = svg.getBoundingClientRect();
+    lastMouseY = ev.clientY - rect.top;
     const x = ev.clientX - rect.left;
     let idx = Math.round((x - pad.l) / scaleX);
     if (idx < 0) idx = 0;
@@ -310,14 +313,3 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('langToggleDash')?.addEventListener('click', ()=> { setLang(getLang()==='pt'?'en':'pt'); run(); });
   run();
 });
-
-
-function localizePeriodSelect(){
-  const sel = document.getElementById('periodSelect');
-  if (!sel) return;
-  const lang = getLang();
-  for (const opt of sel.options){
-    const n = parseInt(opt.value,10);
-    if (!isNaN(n)) opt.textContent = (lang==='pt') ? `Últimos ${n} dias` : `Last ${n} days`;
-  }
-}

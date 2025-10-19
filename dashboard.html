@@ -10,13 +10,13 @@
 <body>
   <header>
     <img src="Raidiam_icon.png" alt="Raidiam Logo"/>
-    <h1 data-i18n="dashTitle">Open Finance Brasil — Dashboard</h1>
+    <h1>Open Finance Brasil — Dashboard</h1>
   </header>
 
   <div class="toolbar" style="margin-top:6px; gap:8px; flex-wrap:wrap">
-    <a class="btn-link" href="index.html"><span aria-hidden="true">←</span> <span data-i18n="backToIssues">Back to Issues</span></a>
+    <a class="btn-link" href="index.html">← Back to Issues</a>
     <div class="period-picker">
-      <label for="periodSelect" data-i18n="period">Period</label>
+      <label for="periodSelect">Period:</label>
       <select id="periodSelect">
         <option value="7">Last 7 days</option>
         <option value="14">Last 14 days</option>
@@ -29,15 +29,13 @@
     <span id="lastUpdated" class="muted"></span>
   </div>
 
-  <p class="page-intro">
-    KPIs and trends from GitLab issues. Periods are indicated in each widget and follow the selector above.
-  </p>
+  <p class="page-intro" data-i18n="dashIntro">KPIs and trends from GitLab issues. Periods are indicated in each widget and follow the selector above.</p>
 
   <div class="grid">
     <section>
       <h2>KPIs</h2>
       <div class="kpi-row">
-        <div class="kpi-card"><div class="kpi-title" data-i18n="openNow">Open issues</div><div id="kpiOpen"   class="kpi-value">—</div></div>
+        <div class="kpi-card"><div class="kpi-title">Open issues</div><div id="kpiOpen"   class="kpi-value">—</div></div>
         <div class="kpi-card"><div class="kpi-title" id="kpiClosedTitle">Closed (last 30 days)</div><div id="kpiClosed" class="kpi-value">—</div></div>
         <div class="kpi-card"><div class="kpi-title" id="kpiAvgTitle">Avg closure (business days, last 30 days)</div><div id="kpiAvgClose" class="kpi-value">—</div></div>
         <div class="kpi-card"><div class="kpi-title" id="kpiOpenedTitle">Opened (last 30 days)</div><div id="kpiOpened" class="kpi-value">—</div></div>
@@ -45,32 +43,32 @@
     </section>
 
     <section>
-      <h2>Trends</h2>
+      <h2 data-i18n="trendsTitle">Trends</h2>
       <div class="chart-card">
-        <div class="chart-title">Created by day <span class="muted" id="periodCreated">(last 30 days)</span></div>
+        <div class="chart-title" data-i18n="createdByDay">Created by day</div><div class="muted" id="periodCreated">(last 30 days)</div>
         <div id="chartOpened" class="linechart"></div>
       </div>
       <div class="chart-card">
-        <div class="chart-title">Closed by day <span class="muted" id="periodClosed">(last 30 days)</span></div>
+        <div class="chart-title" data-i18n="closedByDay">Closed by day</div><div class="muted" id="periodClosed">(last 30 days)</div>
         <div id="chartClosed" class="linechart"></div>
       </div>
     </section>
 
     <section>
-      <h2 data-i18n="breakdown">Breakdown</h2>
+      <h2>Breakdown</h2>
       <div class="two-col">
         <div class="list-card">
-          <div class="list-title"><span data-i18n="byWg">By WG</span> <span class="muted" id="periodWg">(last 30 days)</span></div>
+          <div class="list-title">Top Working Groups <span class="muted" id="periodWg">(last 30 days)</span></div>
           <ol id="listWg"></ol>
         </div>
         <div class="list-card">
-          <div class="list-title"><span data-i18n="byProduct">By product</span> <span class="muted" id="periodProd">(last 30 days)</span></div>
+          <div class="list-title">Top Products <span class="muted" id="periodProd">(last 30 days)</span></div>
           <ol id="listProd"></ol>
         </div>
       </div>
       <div class="two-col">
         <div class="list-card">
-          <div class="list-title"><span data-i18n="topAuthors">Top authors</span> <span class="muted" id="periodAuthors">(last 30 days)</span></div>
+          <div class="list-title">Top Authors <span class="muted" id="periodAuthors">(last 30 days)</span></div>
           <ol id="listAuthors"></ol>
         </div>
         <div class="list-card">
@@ -80,11 +78,11 @@
       </div>
       <div class="two-col">
         <div class="list-card">
-          <div class="list-title"><span data-i18n="topCommented">Top 5 most commented</span> <span class="muted" id="periodComments">(last 30 days)</span></div>
+          <div class="list-title">Top 5 most commented <span class="muted" id="periodComments">(last 30 days)</span></div>
           <ol id="listComments"></ol>
         </div>
         <div class="list-card">
-          <div class="list-title"><span data-i18n="topUpvoted">Top 5 most 👍</span> <span class="muted" id="periodUpvotes">(last 30 days)</span></div>
+          <div class="list-title">Top 5 most 👍 <span class="muted" id="periodUpvotes">(last 30 days)</span></div>
           <ol id="listUpvotes"></ol>
         </div>
       </div>
