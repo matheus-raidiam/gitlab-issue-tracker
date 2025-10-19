@@ -45,3 +45,5 @@ body{overflow-x:hidden}
   border-radius: 6px;
   line-height: 1.1;
 }
+
+.linechart{ position: relative; width:100%; height:220px }
