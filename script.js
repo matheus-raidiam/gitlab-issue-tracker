@@ -20,6 +20,8 @@ function toggleLang(){ setLang(getLang()==='en' ? 'pt' : 'en'); }
 /* i18n dictionary */
 const I18N = {
   en: {
+    'to': 'To',
+    'from': 'From',
     title: "Open Finance Brasil - GitLab Issues",
     intro: "This dashboard pulls issues from the Open Finance GitLab project and gives a quick view of SLA risk, activity, and context. Use filters, sorting, and local notes to faster triage.",
     view: "View:",
@@ -79,6 +81,8 @@ const I18N = {
     dashboardView: "Dashboard",
   },
   pt: {
+    'to': 'Até',
+    'from': 'De',
     title: "Open Finance Brasil - GitLab Issues",
     intro: "Este dashboard consulta issues do Open Finance Brasil no GitLab e oferece uma visão de SLA, atividade e contexto. Use filtros, ordenação e notas locais para uma triagem mais rápida.",
     view: "Ver:",
@@ -490,6 +494,8 @@ function updateSubtitle(){
 
 }
 async function loadAllIssues(){
+  updateClosedRangeVisibility();
+
   if (getViewMode()==='dashboard'){ window.location.href='dashboard.html'; return; }
   setLoading(true);
   issues.finance = [];
@@ -509,6 +515,11 @@ async function loadAllIssues(){
 }
 
 async function loadProjectIssues(projectId, key) {
+  const now = new Date();
+  const last14 = new Date(now); last14.setDate(now.getDate()-14);
+  const { from, to } = getClosedRangeDates();
+  const sinceISO = (from || last14).toISOString();
+
   const mode = getViewMode();
   const now = new Date();
   const fourteenDaysAgo = new Date(now); fourteenDaysAgo.setDate(now.getDate() - 14);
@@ -524,7 +535,18 @@ async function loadProjectIssues(projectId, key) {
     const data = await res.json();
 
     let list = data.map(issue => ({ ...issue, projectId }));
-    if (mode === 'closed14') {
+    
+  // CUSTOM_CLOSED_FILTER
+  if (mode === 'closed14') {
+    const startMs = from ? from.getTime() : last14.getTime();
+    const endMs = to ? new Date(to.getFullYear(), to.getMonth(), to.getDate()+1).getTime() : Infinity;
+    list = list.filter(i => {
+      if (!i.closed_at) return false;
+      const ts = new Date(i.closed_at).getTime();
+      return ts >= startMs && ts < endMs;
+    });
+  }
+if (mode === 'closed14') {
       const { from, to } = getClosedRangeDates();
       const start = from ? from.getTime() : new Date(sinceISO).getTime();
       const end   = to ? new Date(to.getFullYear(), to.getMonth(), to.getDate()+1).getTime() : Infinity;
