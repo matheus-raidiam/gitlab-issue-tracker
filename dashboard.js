@@ -54,9 +54,9 @@ function setLang(l){ localStorage.setItem('lang', l); applyI18n(); setPeriodLabe
 
 const I18N = {
   en: {
-    backToIssues: \"Back to issues\",
-    activity: \"Activity\",
-    breakdown: \"Breakdown\",
+    backToIssues: "Back to issues",
+    activity: "Activity",
+    breakdown: "Breakdown",
     dashTitle: "Open Finance Brasil — Dashboard",
     period: "Period",
     days: "days",
@@ -75,9 +75,9 @@ const I18N = {
     periodLabel: "(last {n} days)",
   },
   pt: {
-    backToIssues: \"Voltar para Issues\",
-    activity: \"Atividade\",
-    breakdown: \"Detalhamento\",
+    backToIssues: "Voltar para Issues",
+    activity: "Atividade",
+    breakdown: "Detalhamento",
     dashTitle: "Open Finance Brasil — Painel",
     period: "Período",
     days: "dias",
