@@ -21,11 +21,19 @@
     <label for="viewMode" style="font-weight:600" data-i18n="view">View:</label>
     <select id="viewMode" onchange="loadAllIssues()">
       <option value="open" data-i18n="openIssues">Open issues</option>
-      <option value="closed14" data-i18n="closedIssuesTitle">Closed issues</option>
+      <option value="closed14" data-i18n="closed14">Closed (last 14 days)</option>
       <option value="dashboard" data-i18n="dashboardView">Dashboard</option>
     </select>
 
-    <!-- Ações (com class icon-btn para o modo light sem background) -->
+    <!-- Closed issues custom range (visible only in Closed mode) -->
+    <div id="closedRange" class="period-picker" style="display:none; margin-left:8px">
+      <label for="closedFrom" data-i18n="from">From:</label>
+      <input type="date" id="closedFrom"/>
+      <label for="closedTo" data-i18n="to">To:</label>
+      <input type="date" id="closedTo"/>
+    </div>
+
+    <!-- Ações -->
     <button class="icon-btn" id="refreshBtn" title="Refresh" data-i18n-title="refresh" onclick="loadAllIssues()">🔄</button>
     <button class="icon-btn" id="clearAllBtn" title="Clear All Comments" data-i18n-title="clearAll" onclick="clearAllComments()">🗑️</button>
     <button class="icon-btn" id="resetFiltersBtn" title="Reset Filters" data-i18n-title="resetFilters" onclick="resetAllFilters()">🧹</button>
@@ -44,19 +52,17 @@
   <div class="filters-card" style="margin-top:10px">
     <details>
       <summary style="cursor:pointer"><strong data-i18n="slaRules">SLA rules</strong></summary>
-      <div style="margin-top:8px;opacity:.9">
-        <ul style="margin:0 0 8px 16px">
-          <li data-i18n="rule1">Bug & Questions: 10 business days</li>
-          <li data-i18n="rule2">Waiting Participant: 5 business days to receive an update</li>
-          <li data-i18n="rule3">Under Evaluation or no tags: 3 business days</li>
-          <li data-i18n="rule4">Under WG/DTO Evaluation, Backlog, Sandbox Testing, Waiting Deploy: SLA Paused</li>
-          <li data-i18n="rule5">Production Testing, Change Request, Breaking Change, Test Improvement: No SLA</li>
-        </ul>
-      </div>
+      <ul style="margin:8px 0 0 18px; line-height:1.45">
+        <li data-i18n="rule1">Bug & Questions: 10 business days</li>
+        <li data-i18n="rule2">Waiting Participant: 5 business days to receive an update</li>
+        <li data-i18n="rule3">Under Evaluation or no tags: 3 business days</li>
+        <li data-i18n="rule4">Under WG/DTO Evaluation, Backlog, Sandbox Testing, Waiting Deploy: SLA Paused</li>
+        <li data-i18n="rule5">Production Testing, Change Request, Breaking Change, Test Improvement: No SLA</li>
+      </ul>
     </details>
   </div>
 
-  <!-- Filters (collapsible como combinamos) -->
+  <!-- Filters (collapsible) -->
   <div class="filters-card">
     <details>
       <summary><strong data-i18n="filters">Filters</strong></summary>
@@ -68,22 +74,7 @@
               <span class="title" data-i18n="nature">Nature</span>
               <span class="count-badge" id="count-nature">0</span>
             </summary>
-            <div class="menu" id="menu-nature">
-              <div class="clear" onclick="clearCategory('nature')" data-i18n="clearNature">Clear Nature</div>
-            </div>
-          </details>
-        </div>
-
-        <!-- Working Group -->
-        <div class="filter" id="filterWG">
-          <details>
-            <summary>
-              <span class="title" data-i18n="wg">Working Group</span>
-              <span class="count-badge" id="count-wg">0</span>
-            </summary>
-            <div class="menu" id="menu-wg">
-              <div class="clear" onclick="clearCategory('wg')" data-i18n="clearWG">Clear Working Group</div>
-            </div>
+            <div class="menu" id="menu-nature"></div>
           </details>
         </div>
 
@@ -94,9 +85,7 @@
               <span class="title" data-i18n="platform">Platform</span>
               <span class="count-badge" id="count-platform">0</span>
             </summary>
-            <div class="menu" id="menu-platform">
-              <div class="clear" onclick="clearCategory('platform')" data-i18n="clearPlatform">Clear Platform</div>
-            </div>
+            <div class="menu" id="menu-platform"></div>
           </details>
         </div>
 
@@ -107,9 +96,18 @@
               <span class="title" data-i18n="product">Product</span>
               <span class="count-badge" id="count-product">0</span>
             </summary>
-            <div class="menu" id="menu-product">
-              <div class="clear" onclick="clearCategory('product')" data-i18n="clearProduct">Clear Product</div>
-            </div>
+            <div class="menu" id="menu-product"></div>
+          </details>
+        </div>
+
+        <!-- WG -->
+        <div class="filter" id="filterWg">
+          <details>
+            <summary>
+              <span class="title" data-i18n="wg">Working Group</span>
+              <span class="count-badge" id="count-wg">0</span>
+            </summary>
+            <div class="menu" id="menu-wg"></div>
           </details>
         </div>
 
@@ -120,75 +118,44 @@
               <span class="title" data-i18n="status">Status</span>
               <span class="count-badge" id="count-status">0</span>
             </summary>
-            <div class="menu" id="menu-status">
-              <div class="clear" onclick="clearCategory('status')" data-i18n="clearStatus">Clear Status</div>
-            </div>
+            <div class="menu" id="menu-status"></div>
           </details>
         </div>
       </div>
-
-      <!-- Active filter chips -->
-      <div class="chips" id="chips"></div>
     </details>
   </div>
 
-  <div class="grid">
-    <section>
-      <h2 id="issuesSubtitle" data-i18n="openedIssuesTitle">Opened Issues</h2>
+  <!-- Summary -->
+  <div id="finance-summary" class="summary"></div>
 
-      <!-- Summary -->
-      <div class="filters-card summary-card">
-        <details>
-          <summary><strong class="summary-title" data-i18n="summaryTitle">Summary</strong></summary>
-          <div id="finance-summary" style="margin-top:8px"></div>
-        </details>
-      </div>
-
-      <table id="finance-table">
-        <thead>
-          <tr>
-            <th class="sortable" data-key="iid"     onclick="changeSort('finance-table','iid')">
-              <span class="sort-label" data-i18n-html="id">ID <span class="sort-arrow" data-for="iid"></span></span>
-            </th>
-            <th class="sortable" data-key="title"   onclick="changeSort('finance-table','title')">
-              <span class="sort-label" data-i18n-html="titleCol">Title <span class="sort-arrow" data-for="title"></span></span>
-            </th>
-            <th class="sortable" data-key="dateCol" onclick="changeSort('finance-table','dateCol')">
-              <span class="sort-label"><span id="finance-date-label" data-i18n="createdAt">Created At</span> <span class="sort-arrow" data-for="dateCol"></span></span>
-            </th>
-            <th class="sortable" data-key="daysOpen" onclick="changeSort('finance-table','daysOpen')">
-              <span class="sort-label" data-i18n-html="workingDays">Working<br>Days <span class="sort-arrow" data-for="daysOpen"></span></span>
-            </th>
-            <th class="sortable" data-key="slaRank" onclick="changeSort('finance-table','slaRank')">
-              <span class="sort-label" data-i18n-html="slaStatus">SLA<br>Status <span class="sort-arrow" data-for="slaRank"></span></span>
-            </th>
-            <th data-i18n="natureCol">Nature</th>
-            <th data-i18n="platformCol">Platform</th>
-            <th data-i18n="productCol">Product</th>
-            <th data-i18n-html="wgCol">Working<br>Group</th>
-            <th data-i18n="statusCol">Status</th>
-            <th data-i18n="comments">Comments</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </section>
+  <!-- Table -->
+  <div class="table-wrapper">
+    <table id="finance-table" class="styled-table">
+      <thead>
+        <tr>
+          <th data-key="iid" class="sortable" data-i18n="iidCol">IID</th>
+          <th data-key="title" class="sortable" data-i18n="titleCol">Title</th>
+          <th data-key="product" class="sortable" data-i18n="productCol">Product</th>
+          <th data-key="wg" class="sortable" data-i18n="wgCol">Working<br>Group</th>
+          <th data-key="status" class="sortable" data-i18n="statusCol">Status</th>
+          <th data-key="daysOpen" class="sortable">SLA</th>
+          <th data-key="dateCol" class="sortable" id="finance-date-label" data-i18n="createdAt">Created at</th>
+          <th data-i18n="comments">Comments</th>
+          <th data-i18n="close">Close</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
   </div>
 
-  <footer>
-    <p>© Raidiam 2025</p>
-  </footer>
-
-  <!-- Modal multiuso (histórico de labels / comentários) -->
-  <div id="noteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;">
-    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(900px,92vw);max-height:80vh;overflow:auto;background:var(--card);border:1px solid var(--dropdown-border);border-radius:12px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.4)">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-        <div id="noteEditorTitle" style="font-weight:600"></div>
-        <div style="display:flex;gap:8px">
-          <button id="noteEditorClose" data-i18n="close">Close</button>
-        </div>
+  <!-- Modal para notas -->
+  <div id="noteModal" class="modal" style="display:none">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center">
+        <h3 id="noteEditorTitle" style="margin:0"></h3>
+        <button id="noteEditorClose">✖</button>
       </div>
-      <pre id="labelHistoryBody" style="white-space:pre-wrap;margin-top:12px"></pre>
+      <div id="labelHistoryBody" style="margin-top:10px"></div>
     </div>
   </div>
 
