@@ -38,6 +38,10 @@ body{overflow-x:hidden}
   .kpi-row{grid-template-columns:1fr;}
 }
 
-
-/* Ensure tooltip positions relative to chart container */
-.linechart{ position: relative; }
+/* Back link size tweak */
+.toolbar .btn-link{
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  line-height: 1.1;
+}

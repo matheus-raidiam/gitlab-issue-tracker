@@ -54,6 +54,9 @@ function setLang(l){ localStorage.setItem('lang', l); applyI18n(); setPeriodLabe
 
 const I18N = {
   en: {
+    backToIssues: \"Back to issues\",
+    activity: \"Activity\",
+    breakdown: \"Breakdown\",
     dashTitle: "Open Finance Brasil — Dashboard",
     period: "Period",
     days: "days",
@@ -72,6 +75,9 @@ const I18N = {
     periodLabel: "(last {n} days)",
   },
   pt: {
+    backToIssues: \"Voltar para Issues\",
+    activity: \"Atividade\",
+    breakdown: \"Detalhamento\",
     dashTitle: "Open Finance Brasil — Painel",
     period: "Período",
     days: "dias",
@@ -101,7 +107,9 @@ function applyI18n(){
     const key = el.getAttribute('data-i18n');
     const val = t(key);
     if (val) el.textContent = val;
-  });
+  
+  localizePeriodSelect();
+});
 }
 
 /* ======= Charts (line with tooltips) ======= */
@@ -302,3 +310,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('langToggleDash')?.addEventListener('click', ()=> { setLang(getLang()==='pt'?'en':'pt'); run(); });
   run();
 });
+
+
+function localizePeriodSelect(){
+  const sel = document.getElementById('periodSelect');
+  if (!sel) return;
+  const lang = getLang();
+  for (const opt of sel.options){
+    const n = parseInt(opt.value,10);
+    if (!isNaN(n)) opt.textContent = (lang==='pt') ? `Últimos ${n} dias` : `Last ${n} days`;
+  }
+}
