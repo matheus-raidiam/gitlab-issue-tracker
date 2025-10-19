@@ -515,16 +515,16 @@ async function loadAllIssues(){
 }
 
 async function loadProjectIssues(projectId, key) {
-  const now = new Date();
-  const last14 = new Date(now); last14.setDate(now.getDate()-14);
+  const defaultFrom = new Date(Date.now() - 14*24*60*60*1000);
   const { from, to } = getClosedRangeDates();
-  const sinceISO = (from || last14).toISOString();
+  const sinceISO = (from || defaultFrom).toISOString();
+const { from, to } = getClosedRangeDates();
+  const sinceISO = (from || defaultFrom).toISOString();
 
   const mode = getViewMode();
   const now = new Date();
-  const fourteenDaysAgo = new Date(now); fourteenDaysAgo.setDate(now.getDate() - 14);
-  const { from, to } = getClosedRangeDates();
-  const sinceISO = (from ? from : fourteenDaysAgo).toISOString();
+const { from, to } = getClosedRangeDates();
+  const sinceISO = (from ? from : defaultFrom).toISOString();
 
   let url = `https://gitlab.com/api/v4/projects/${projectId}/issues?per_page=100`;
   url += (mode === 'closed14') ? `&state=closed&updated_after=${encodeURIComponent(sinceISO)}` : `&state=opened`;
@@ -538,7 +538,7 @@ async function loadProjectIssues(projectId, key) {
     
   // CUSTOM_CLOSED_FILTER
   if (mode === 'closed14') {
-    const startMs = from ? from.getTime() : last14.getTime();
+    const startMs = from ? from.getTime() : defaultFrom.getTime();
     const endMs = to ? new Date(to.getFullYear(), to.getMonth(), to.getDate()+1).getTime() : Infinity;
     list = list.filter(i => {
       if (!i.closed_at) return false;
