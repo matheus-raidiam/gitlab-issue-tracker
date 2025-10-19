@@ -494,7 +494,9 @@ function updateSubtitle(){
 
 }
 async function loadAllIssues(){
-  updateClosedRangeVisibility();
+ updateClosedRangeVisibility();
+ updateClosedRangeVisibility();
+updateClosedRangeVisibility();
 
   if (getViewMode()==='dashboard'){ window.location.href='dashboard.html'; return; }
   setLoading(true);
@@ -514,14 +516,13 @@ async function loadAllIssues(){
   setLoading(false);
 }
 
-async function loadProjectIssues(projectId, key) {
-  const defaultFrom = new Date(Date.now() - 14*24*60*60*1000);
+async function loadProjectIssues(projectId, key) {  const defaultFrom = new Date(Date.now() - 14*24*60*60*1000);
   const mode = getViewMode();
   const now = new Date();
   const { from, to } = getClosedRangeDates();
   const sinceISO = (from ? from : defaultFrom).toISOString();
 
-  let url = `https://gitlab.com/api/v4/projects/${projectId}/issues?per_page=100`;
+let url = `https://gitlab.com/api/v4/projects/${projectId}/issues?per_page=100`;
   url += (mode === 'closed14') ? `&state=closed&updated_after=${encodeURIComponent(sinceISO)}` : `&state=opened`;
 
   try {
@@ -748,7 +749,9 @@ function closeEditor(){
 
 /* ========== INIT ========== */
 document.addEventListener('DOMContentLoaded', () => {
-  setTheme(getTheme());
+  const _cf=document.getElementById('closedFrom'); const _ct=document.getElementById('closedTo');
+if(_cf){ _cf.addEventListener('change', ()=>{ if(getViewMode()==='closed14') loadAllIssues(); });_cf.addEventListener('input', ()=>{ if(getViewMode()==='closed14') loadAllIssues(); });_cf.addEventListener('blur', ()=>{ if(getViewMode()==='closed14') loadAllIssues(); }); }if(_ct){ _ct.addEventListener('change', ()=>{ if(getViewMode()==='closed14') loadAllIssues(); });_ct.addEventListener('input', ()=>{ if(getViewMode()==='closed14') loadAllIssues(); });_ct.addEventListener('blur', ()=>{ if(getViewMode()==='closed14') loadAllIssues(); }); }
+setTheme(getTheme());
   applyI18n();
 
   const themeBtn = document.getElementById('themeToggle');
