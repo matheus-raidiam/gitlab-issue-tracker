@@ -516,14 +516,9 @@ async function loadAllIssues(){
 
 async function loadProjectIssues(projectId, key) {
   const defaultFrom = new Date(Date.now() - 14*24*60*60*1000);
-  const { from, to } = getClosedRangeDates();
-  const sinceISO = (from || defaultFrom).toISOString();
-const { from, to } = getClosedRangeDates();
-  const sinceISO = (from || defaultFrom).toISOString();
-
   const mode = getViewMode();
   const now = new Date();
-const { from, to } = getClosedRangeDates();
+  const { from, to } = getClosedRangeDates();
   const sinceISO = (from ? from : defaultFrom).toISOString();
 
   let url = `https://gitlab.com/api/v4/projects/${projectId}/issues?per_page=100`;
