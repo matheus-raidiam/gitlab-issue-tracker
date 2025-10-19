@@ -13,16 +13,44 @@ body{overflow-x:hidden}
 
 .chart-card, .list-card{
   background:var(--card); border:1px solid var(--dropdown-border);
-  border-radius:12px; padding:16px; box-shadow:var(--shadow); margin-bottom:12px;
+  border-radius:12px; padding:14px; box-shadow:var(--shadow); margin-top:12px
 }
-.list-title{font-weight:700; margin-bottom:8px}
+.chart-title{font-size:14px; font-weight:700; margin-bottom:8px}
 
-.two-col{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px}
-.grid{display:block; max-width:1200px; margin:0 auto; padding:0 8px}
+.grid{
+  display:grid; gap:12px;
+  grid-template-columns: 2fr 1fr;
+}
+.two-col{display:grid; grid-template-columns:repeat(2, 1fr); gap:12px}
+@media (max-width: 1100px){ .grid{ grid-template-columns:1fr } .two-col{ grid-template-columns:1fr } }
 
-.btn-link{background:var(--accent); color:var(--bg); padding:8px 12px; border-radius:7px; font-weight:700; text-decoration:none}
+ul.simple-list{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px}
+.simple-item{
+  display:flex; justify-content:space-between; align-items:center;
+  border:1px solid var(--dropdown-border); border-radius:10px; padding:10px 12px
+}
+.simple-item .left{ display:flex; gap:10px; align-items:center }
+.badge{ font-size:12px; padding:2px 8px; border-radius:999px; border:1px solid var(--dropdown-border); opacity:.85 }
+.simple-item .right{ font-weight:700 }
 
-.chart{position:relative; width:100%; height:220px}
+.linechart{
+  width:100%; height:180px; margin-top:8px;
+  background:linear-gradient(180deg, rgba(0,0,0,.02), transparent);
+  border:1px solid var(--dropdown-border); border-radius:10px; position:relative;
+}
+.line{
+  fill:none; stroke:var(--accent); stroke-width:2.2
+}
+.axis text{
+  font-size:11px; fill:var(--text-muted)
+}
+.axis path, .axis line{
+  stroke:var(--dropdown-border)
+}
+#marker circle{ fill:var(--accent); stroke:#fff; stroke-width:2 }
+#marker text{ font-size:11px; fill:var(--text) }
+#hit{ cursor:crosshair }
+
 .chart-tooltip{
   position:absolute; pointer-events:none; transform:translate(-50%,-120%);
   background:var(--card); border:1px solid var(--dropdown-border);
@@ -31,9 +59,16 @@ body{overflow-x:hidden}
 }
 
 @media (max-width: 900px){
-  .kpi-row{grid-template-columns:repeat(2, minmax(0,1fr));}
-  .two-col{grid-template-columns:1fr;}
+  .kpi-row{ grid-template-columns:repeat(2, 1fr) }
 }
-@media (max-width: 520px){
-  .kpi-row{grid-template-columns:1fr;}
+
+header{
+  display:flex; align-items:center; gap:10px; margin:8px 2px 6px 2px
 }
+header img{ width:28px; height:28px }
+header h1{ font-size:18px; margin:0; font-weight:800 }
+
+.page-intro{ opacity:.8; margin:6px 2px 10px 2px }
+
+/* Ensure tooltip positions relative to chart container */
+.linechart{ position: relative; }
