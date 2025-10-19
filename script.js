@@ -140,12 +140,12 @@ const I18N = {
 };
 function applyI18n(){
   const lang = getLang();
-  // Plain text
+  // Plain text i18n
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     const k = el.getAttribute('data-i18n');
     if (I18N[lang] && I18N[lang][k]) el.textContent = I18N[lang][k];
   });
-  // HTML (com setas de ordenação)
+  // HTML i18n (preserve sort arrow placeholder if present)
   document.querySelectorAll('[data-i18n-html]').forEach(el=>{
     const k = el.getAttribute('data-i18n-html');
     const arrow = el.querySelector('.sort-arrow');
@@ -153,7 +153,7 @@ function applyI18n(){
     const html = (I18N[lang] && I18N[lang][k]) ? I18N[lang][k] : el.innerHTML;
     el.innerHTML = html + (arrowFor ? ` <span class="sort-arrow" data-for="${arrowFor}"></span>` : '');
   });
-  // Titles/tooltips
+  // Title/tooltips
   document.querySelectorAll('[data-i18n-title]').forEach(el=>{
     const k = el.getAttribute('data-i18n-title');
     if (I18N[lang] && I18N[lang][k]) el.title = I18N[lang][k];
@@ -382,6 +382,20 @@ function updateSortArrows(tableId) {
 }
 function getViewMode() { return document.getElementById('viewMode').value; }
 
+/* Closed issues range helpers */
+function getClosedRangeDates(){
+  const fromVal = (document.getElementById('closedFrom') || {}).value || '';
+  const toVal   = (document.getElementById('closedTo')   || {}).value || '';
+  const from = fromVal ? new Date(fromVal + 'T00:00:00') : null;
+  const to   = toVal   ? new Date(toVal   + 'T23:59:59') : null;
+  return { from, to };
+}
+function updateClosedRangeVisibility(){
+  const box = document.getElementById('closedRange');
+  if (!box) return;
+  box.style.display = (getViewMode()==='closed14') ? 'flex' : 'none';
+}
+    
 /* ========== Label events via Netlify proxy ========== */
 async function fetchLabelEvents(projectId, iid){
   if (!USE_LABEL_EVENTS) return [];
@@ -440,7 +454,7 @@ function computeWorkingDaysContext(issue, now, mode){
   const netMs   = Math.max(0, totalMs - pausedMs);
   const netDays = Math.floor(netMs / DAY_MS);
 
-  // End exibido (para texto)
+  // End exibido: se houver pausa aberta, o início mais antigo; senão end; clipe fins de semana
   let displayEnd = end;
   if (Object.keys(openStacks).length){
     const earliest = Object.values(openStacks).sort((a,b)=>a-b)[0];
@@ -473,29 +487,14 @@ function updateSubtitle(){
   const a = document.getElementById('issuesSubtitle');
   if (!a) return;
   a.textContent = (getViewMode()==='closed14') ? t('closedIssuesTitle') : t('openedIssuesTitle');
-}
 
-/* === CLOSED RANGE (novo) === */
-function getClosedRangeDates(){
-  const fromVal = (document.getElementById('closedFrom') || {}).value || '';
-  const toVal   = (document.getElementById('closedTo')   || {}).value || '';
-  const from = fromVal ? new Date(fromVal + 'T00:00:00') : null;
-  const to   = toVal   ? new Date(toVal   + 'T23:59:59') : null;
-  return { from, to };
 }
-function updateClosedRangeVisibility(){
-  const box = document.getElementById('closedRange');
-  if (!box) return;
-  box.style.display = (getViewMode()==='closed14') ? 'flex' : 'none';
-}
-
-/* Carregamento principal */
 async function loadAllIssues(){
   if (getViewMode()==='dashboard'){ window.location.href='dashboard.html'; return; }
   setLoading(true);
   issues.finance = [];
 
-  updateClosedRangeVisibility();
+  const mode = getViewMode();
   updateSubtitle();
 
   const dateLbl = document.getElementById('finance-date-label');
@@ -513,13 +512,11 @@ async function loadProjectIssues(projectId, key) {
   const mode = getViewMode();
   const now = new Date();
   const fourteenDaysAgo = new Date(now); fourteenDaysAgo.setDate(now.getDate() - 14);
-
-  // NOVO: ler range personalizado
   const { from, to } = getClosedRangeDates();
-  const since = (from || fourteenDaysAgo).toISOString();
+  const sinceISO = (from ? from : fourteenDaysAgo).toISOString();
 
   let url = `https://gitlab.com/api/v4/projects/${projectId}/issues?per_page=100`;
-  url += (mode === 'closed14') ? `&state=closed&updated_after=${encodeURIComponent(since)}` : `&state=opened`;
+  url += (mode === 'closed14') ? `&state=closed&updated_after=${encodeURIComponent(sinceISO)}` : `&state=opened`;
 
   try {
     const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
@@ -528,12 +525,13 @@ async function loadProjectIssues(projectId, key) {
 
     let list = data.map(issue => ({ ...issue, projectId }));
     if (mode === 'closed14') {
-      const start = from ? from.getTime() : new Date(since).getTime();
-      const endMs = to ? new Date(to.getFullYear(), to.getMonth(), to.getDate()+1).getTime() : Infinity;
+      const { from, to } = getClosedRangeDates();
+      const start = from ? from.getTime() : new Date(sinceISO).getTime();
+      const end   = to ? new Date(to.getFullYear(), to.getMonth(), to.getDate()+1).getTime() : Infinity;
       list = list.filter(i => {
         if (!i.closed_at) return false;
         const ts = new Date(i.closed_at).getTime();
-        return ts >= start && ts < endMs;
+        return ts >= start && ts < end;
       });
     }
 
@@ -571,7 +569,7 @@ function renderIssues() {
     const endDate = (mode === 'closed14' && i.closed_at) ? new Date(i.closed_at) : now;
     const daysOpenRaw = workingDays24hBetween(new Date(i.created_at), endDate);
     const sla = (mode === 'closed14') ? { type:'none', days:null } : getSLAFor(i.labels || []);
-    const base = { ...i, daysOpen: daysOpenRaw, dateCol: (mode === 'closed14' && i.closed_at) ? i.closed_at : i.created_at, sla };
+  const base = { ...i, daysOpen: daysOpenRaw, dateCol: (mode === 'closed14' && i.closed_at) ? i.closed_at : i.created_at, sla };
     const { text, rank, class: klass } = (mode === 'closed14')
       ? { text:'-', rank:-1, class:'nosla' }
       : slaLabelAndRank(base);
@@ -647,7 +645,7 @@ function renderIssues() {
       noslaCount++;
     }
 
-    // Working Days cell (mostra “reloginho” para abrir modal)
+    // Working Days cell
     let wdCellHtml = '-';
     let historyBody = '';
     if (!nosla) {
@@ -691,7 +689,7 @@ function renderIssues() {
     `;
     tbody.appendChild(tr);
 
-    // “Relógio” abre modal
+    // relógio abre modal
     tr.querySelectorAll('.wd-link').forEach(el=>{
       el.addEventListener('click', ()=>{
         if (nosla) return;
@@ -740,7 +738,14 @@ document.addEventListener('DOMContentLoaded', () => {
   if (themeBtn) themeBtn.onclick = () => toggleTheme();
 
   const langBtn = document.getElementById('langToggle');
-  if (langBtn) langBtn.onclick = () => { toggleLang(); updateSubtitle(); loadAllIssues(); };
+  if (langBtn) langBtn.onclick = () => { toggleLang(); 
+  // Custom Closed range listeners
+  const _cf = document.getElementById('closedFrom');
+  const _ct = document.getElementById('closedTo');
+  if (_cf) _cf.addEventListener('change', ()=>{ if(getViewMode()==='closed14') loadAllIssues(); });
+  if (_ct) _ct.addEventListener('change', ()=>{ if(getViewMode()==='closed14') loadAllIssues(); });
+
+  updateSubtitle(); loadAllIssues(); };
 
   const btn = document.getElementById('labelHistoryToggle');
   if (btn){
@@ -758,16 +763,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const modal = document.getElementById('noteModal');
   if (modal) modal.addEventListener('click', (e) => { if (e.target.id === 'noteModal') closeEditor(); });
 
-  // Editor de comentários (botão "..." na tabela)
+  // editor de comentários (mesma UX anterior)
   const table = document.getElementById('finance-table');
   if (table){
     table.addEventListener('click', (e)=>{
-      const _btn = e.target.closest('.btn-open-editor');
-      if (!_btn) return;
-      const key   = _btn.dataset.key;
-      const iid   = _btn.dataset.iid;
-      const url   = _btn.dataset.url;
-      const title = decodeURIComponent(_btn.dataset.title || '');
+      const btn = e.target.closest('.btn-open-editor');
+      if (!btn) return;
+      const key   = btn.dataset.key;
+      const iid   = btn.dataset.iid;
+      const url   = btn.dataset.url;
+      const title = decodeURIComponent(btn.dataset.title || '');
       const ta    = document.querySelector(`textarea.comment-box[data-key="${key}"]`);
       const val   = ta ? ta.value : '';
 
@@ -777,16 +782,25 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!m || !mTitle || !mBody) return;
 
       mTitle.innerHTML = `<a href="${url}" target="_blank" style="color:var(--accent)">#${iid}</a> - ${escapeHtml(title)}`;
-      mBody.textContent = val || '';
+      mBody.innerHTML =
+        `<textarea id="noteEditorTextarea" style="width:100%;min-height:240px">${escapeHtml(val)}</textarea>
+         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
+           <button id="saveNoteBtn">Save</button>
+         </div>`;
       m.style.display = 'block';
+
+      const saveBtn = document.getElementById('saveNoteBtn');
+      if (saveBtn){
+        saveBtn.onclick = ()=>{
+          const taNew = document.getElementById('noteEditorTextarea');
+          const newVal = taNew ? taNew.value : '';
+          localStorage.setItem(key, newVal);
+          if (ta) ta.value = newVal;
+          closeEditor();
+        };
+      }
     });
   }
-
-  // NOVO: listeners para o range de "Closed issues"
-  const _cf = document.getElementById('closedFrom');
-  const _ct = document.getElementById('closedTo');
-  if (_cf) _cf.addEventListener('change', ()=>{ if(getViewMode()==='closed14') loadAllIssues(); });
-  if (_ct) _ct.addEventListener('change', ()=>{ if(getViewMode()==='closed14') loadAllIssues(); });
 
   updateSubtitle();
   loadAllIssues();
