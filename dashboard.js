@@ -160,7 +160,7 @@ function renderLine(el, labels, values){
   const hit = svg.querySelector('#hit');
 
   
-  let lastMouseY = 10px;
+  let lastMouseY = 1;
 function showAtIdx(i){
     const x = xs(i), y = ys(values[i]);
     marker.setAttribute('transform', `translate(${x},${y})`);
