@@ -70,11 +70,12 @@ const I18N = {
     kpiClosed: "Closed (last {n} days)",
     kpiAvg: "Avg closure (last {n} business days)",
     periodLabel: "(last {n} days)",
-  
-    dashIntro: "KPIs and trends from GitLab issues. Periods are indicated in each widget and follow the selector above.",
+    kpisTitle: "KPIs",
+    dashIntro: "KPIs and trends from GitLab issues.",
     trendsTitle: "Trends",
     createdByDay: "Created by day",
     closedByDay: "Closed by day"},
+    breakdownTitle: "Breakdown",
   pt: {
     dashTitle: "Open Finance Brasil — Painel",
     period: "Período",
@@ -92,11 +93,12 @@ const I18N = {
     kpiClosed: "Fechadas (últimos {n} dias)",
     kpiAvg: "Média de fechamento (últimos {n} dias úteis)",
     periodLabel: "(últimos {n} dias)",
-  
-    dashIntro: "KPIs e tendências das issues do GitLab. Os períodos são indicados em cada widget e seguem o seletor acima.",
+    kpisTitle: "KPIs",
+    dashIntro: "KPIs e tendências das issues do GitLab.",
     trendsTitle: "Tendências",
     createdByDay: "Criadas por dia",
     closedByDay: "Fechadas por dia"},
+    breakdownTitle: "Destaques",
 };
 function t(k){
   const lang = getLang();
