@@ -74,8 +74,8 @@ const I18N = {
     dashIntro: "KPIs and trends from GitLab issues.",
     trendsTitle: "Trends",
     createdByDay: "Created by day",
-    closedByDay: "Closed by day"},
     breakdownTitle: "Breakdown",
+    closedByDay: "Closed by day"},
   pt: {
     dashTitle: "Open Finance Brasil — Painel",
     period: "Período",
@@ -97,8 +97,8 @@ const I18N = {
     dashIntro: "KPIs e tendências das issues do GitLab.",
     trendsTitle: "Tendências",
     createdByDay: "Criadas por dia",
-    closedByDay: "Fechadas por dia"},
     breakdownTitle: "Destaques",
+    closedByDay: "Fechadas por dia"},
 };
 function t(k){
   const lang = getLang();
