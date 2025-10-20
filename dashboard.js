@@ -174,8 +174,8 @@ function showAtIdx(i){
   }
   hit.addEventListener('mousemove', (ev)=>{
     const rect = svg.getBoundingClientRect();
-    lastMouseY = ev.clientY - rect.top;
-    lastMouseY = ev.clientY - rect.top;
+    const crect = el.getBoundingClientRect();
+    lastMouseY = ev.clientY - crect.top;
     const x = ev.clientX - rect.left;
     let idx = Math.round((x - pad.l) / scaleX);
     if (idx < 0) idx = 0;
