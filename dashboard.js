@@ -75,6 +75,7 @@ const I18N = {
     trendsTitle: "Trends",
     createdByDay: "Created by day",
     breakdownTitle: "Breakdown",
+    backToIssues: "Back to issues",
     closedByDay: "Closed by day"},
   pt: {
     dashTitle: "Open Finance Brasil — Painel",
@@ -98,6 +99,7 @@ const I18N = {
     trendsTitle: "Tendências",
     createdByDay: "Criadas por dia",
     breakdownTitle: "Destaques",
+    backToIssues: "Voltar para issues",
     closedByDay: "Fechadas por dia"},
 };
 function t(k){
