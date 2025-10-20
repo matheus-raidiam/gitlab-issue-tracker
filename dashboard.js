@@ -119,20 +119,23 @@ function applyI18n(){
 /* ======= Charts (line with tooltips) ======= */
 function renderLine(el, labels, values){
   const W = el.clientWidth || 600, H = el.clientHeight || 180;
-  const pad = {l:28, r:8, t:8, b:24};
+  const pad = { l:28, r:8, t:8, b:24 };
   const maxY = Math.max(1, ...values);
+
   const scaleX = (W - pad.l - pad.r) / Math.max(1, (labels.length - 1));
-  const xs = (i)=> pad.l + i * scaleX;
-  const ys = (v)=> pad.t + (H-pad.t-pad.b) * (1 - (v/maxY));
-  const points = values.map((v,i)=> `${xs(i)},${ys(v)}`).join(' ');
+  const xs = (i) => pad.l + i * scaleX;
+  const ys = (v) => pad.t + (H - pad.t - pad.b) * (1 - (v / maxY));
+  const points = values.map((v,i) => `${xs(i)},${ys(v)}`).join(' ');
 
   const step = Math.ceil(labels.length/6) || 1;
-  const xTicks = labels.map((lab,i)=> (i%step===0||i===labels.length-1) ?
-    `<text x="${xs(i)}" y="${H-6}" font-size="10" text-anchor="middle" fill="var(--text)">${lab}</text>` : ""
-  ).join("");
+  const xTicks = labels.map((lab,i)=>
+    (i%step===0 || i===labels.length-1)
+      ? `<text x="${xs(i)}" y="${H-6}" font-size="10" text-anchor="middle" fill="var(--text)">${lab}</text>`
+      : ''
+  ).join('');
 
-  let yTicks = ""; const ticks = 4;
-  for(let t=0;t<=ticks;t++){
+  let yTicks = ''; const ticks = 4;
+  for (let t=0; t<=ticks; t++){
     const val = Math.round(maxY * t / ticks);
     const y = ys(val);
     yTicks += `<text x="2" y="${y+4}" font-size="10" fill="var(--text)">${val}</text>`;
@@ -148,42 +151,49 @@ function renderLine(el, labels, values){
     ${yTicks}
     ${xTicks}
   </svg>`;
-  // Tooltip div
+
+  // Tooltip (fica dentro do container .linechart)
   let tip = el.querySelector('.chart-tooltip');
   if (!tip){
-    tip = document.createElement('div'); tip.className = 'chart-tooltip'; tip.style.display='none';
+    tip = document.createElement('div');
+    tip.className = 'chart-tooltip';
+    tip.style.display = 'none';
     el.appendChild(tip);
   }
-  const svg = el.querySelector('svg');
-  const marker = svg.querySelector('#marker');
-  const circle = marker.querySelector('circle');
-  const hit = svg.querySelector('#hit');
 
-  
-  let lastMouseY = 1;
-function showAtIdx(i){
+  const svg    = el.querySelector('svg');
+  const marker = svg.querySelector('#marker');
+  const circle = marker.querySelector('circle'); // (mantido se precisar)
+  const hit    = svg.querySelector('#hit');
+
+  // Quanto acima do ponto a tooltip deve aparecer (px)
+  const TIP_OFFSET_Y = 12;
+
+  function showAtIdx(i){
     const x = xs(i), y = ys(values[i]);
     marker.setAttribute('transform', `translate(${x},${y})`);
     marker.style.display = 'block';
-    tip.style.left = x+'px';
-    tip.style.top = (lastMouseY)+'px';
+
+    tip.style.left = x + 'px';
+    tip.style.top  = (y - TIP_OFFSET_Y) + 'px'; // fixa acima do ponto
     tip.textContent = `${labels[i]} — ${values[i]}`;
     tip.style.display = 'block';
   }
+
   function hide(){
-    marker.style.display='none';
-    tip.style.display='none';
+    marker.style.display = 'none';
+    tip.style.display = 'none';
   }
+
   hit.addEventListener('mousemove', (ev)=>{
     const rect = svg.getBoundingClientRect();
-    const crect = el.getBoundingClientRect();
-    lastMouseY = ev.clientY - crect.top;
     const x = ev.clientX - rect.left;
     let idx = Math.round((x - pad.l) / scaleX);
     if (idx < 0) idx = 0;
-    if (idx > labels.length-1) idx = labels.length-1;
-    showAtIdx(idx);
+    if (idx > labels.length - 1) idx = labels.length - 1;
+    showAtIdx(idx); // posiciona pela coordenada do ponto, não pelo mouse
   });
+
   hit.addEventListener('mouseleave', hide);
 }
 
