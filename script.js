@@ -2,7 +2,7 @@
 const issues = { finance: [] };
 const tableSort = { 'finance-table': { key: 'iid', asc: false } };
 
-let USE_LABEL_EVENTS = JSON.parse(localStorage.getItem('use_label_events') || 'false');
+let USE_LABEL_EVENTS = JSON.parse(localStorage.getItem('use_label_events') || 'true');
 function updateLabelHistoryToggle(){
   const b = document.getElementById('labelHistoryToggle');
   if (b) b.textContent = `Label history: ${USE_LABEL_EVENTS ? 'ON':'OFF'}`;
