@@ -37,6 +37,13 @@
     <button id="themeToggle" class="icon-btn" title="Theme">🌓</button>
     <button id="langToggle"  class="icon-btn" title="Language">🌐</button>
     <button id="labelHistoryToggle" class="icon-btn" title="Label history">🕒</button>
+    <button id="logoutBtn">Sair</button>
+<script>
+  document.getElementById('logoutBtn')?.addEventListener('click', ()=>{
+    localStorage.removeItem('ofb_session');
+    location.href = 'login.html';
+  });
+</script>
 
     <div id="loading">Loading…</div>
   </div>
