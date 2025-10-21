@@ -31,5 +31,24 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="auth.js"></script>
+  <script src="auth.js"></script>
+<script>
+  (function () {
+    const form = document.getElementById('loginForm');
+    const emailEl = document.getElementById('loginEmail');
+    const codeEl  = document.getElementById('loginCode');
+    const btn     = document.getElementById('loginBtn');
+
+    function submitLogin(ev){
+      ev && ev.preventDefault();
+      const { ok, msg } = Auth.signIn(emailEl.value, codeEl.value);
+      if (ok) { window.location.href = 'index.html'; }
+      else    { alert(msg || 'Login inválido'); }
+    }
+
+    if (form) form.addEventListener('submit', submitLogin);
+    if (btn)  btn.addEventListener('click', submitLogin);
+  })();
+</script>
 </body>
 </html>
