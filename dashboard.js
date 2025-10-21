@@ -5,7 +5,20 @@ const STATUS_LABELS   = new Set(['Under Evaluation','Waiting Participant','Under
 const NATURE_LABELS   = new Set(['Questions','Bug','Change Request','Test Improvement','Breaking Change']);
 const PLATFORM_LABELS = new Set(['FVP','Mock Bank','Mock TPP','Conformance Suite']);
 const WG_LABELS       = new Set(['GT Serviços','GT Portabilidade de crédito','Squad Sandbox','Squad JSR']);
-
+/* Guard: bloqueia acesso sem sessão válida */
+(function () {
+  const KEY = 'ofb_session';
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (!s || !s.email || Date.now() > s.expiresAt) {
+      localStorage.removeItem(KEY);
+      if (!/login\.html($|\?)/.test(location.pathname)) window.location.href = 'login.html';
+    }
+  } catch (e) {
+    localStorage.removeItem(KEY);
+    window.location.href = 'login.html';
+  }
+})();
 function baseLabel(l){ return String(l||'').split('::')[0].trim(); }
 function canonLabel(l){
   const s = baseLabel(l);
