@@ -7,7 +7,20 @@ function updateLabelHistoryToggle(){
   const b = document.getElementById('labelHistoryToggle');
   if (b) b.textContent = `Label history: ${USE_LABEL_EVENTS ? 'ON':'OFF'}`;
 }
-
+/* Guard: bloqueia acesso sem sessão válida */
+(function () {
+  const KEY = 'ofb_session';
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (!s || !s.email || Date.now() > s.expiresAt) {
+      localStorage.removeItem(KEY);
+      if (!/login\.html($|\?)/.test(location.pathname)) window.location.href = 'login.html';
+    }
+  } catch (e) {
+    localStorage.removeItem(KEY);
+    window.location.href = 'login.html';
+  }
+})();
 /* Theme & Language */
 function getTheme(){ return localStorage.getItem('theme') || 'dark'; }
 function setTheme(t){ document.documentElement.setAttribute('data-theme', t); localStorage.setItem('theme', t); }
