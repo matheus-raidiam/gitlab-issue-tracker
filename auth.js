@@ -4,11 +4,11 @@
 
   /* EDITAR AQUI ↓↓↓ */
   const ALLOWLIST = [
-    'seu.email@empresa.com',
+    'login@raidiam.com',
     // 'outra.pessoa@empresa.com',
   ].map(s => s.trim().toLowerCase());
 
-  const PASSCODE = 'OF-2025!'; // troque aqui
+  const PASSCODE = 'dashofb!'; // troque aqui
   const TTL_MIN = 12 * 60;     // sessão válida por 12h
   /* EDITAR AQUI ↑↑↑ */
 
